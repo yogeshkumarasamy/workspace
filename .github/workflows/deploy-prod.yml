@@ -27,7 +27,7 @@ jobs:
         run: pnpm install
 
       - name: 🛠️ Build Vite app
-        run: pnpm --filter @apps/web... build
+        run: pnpm --filter @apps/portfolio... build
 
       - name: 📤 Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -35,5 +35,5 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: apps/web/dist/
+          local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR }}

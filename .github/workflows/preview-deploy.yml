@@ -7,6 +7,7 @@ on:
     types: [opened, synchronize, reopened]
 
 permissions:
+  contents: read
   pull-requests: write
 
 jobs:
@@ -38,7 +39,7 @@ jobs:
         run: pnpm install
 
       - name: 🛠️ Build Vite app
-        run: pnpm --filter @apps/web... build
+        run: pnpm --filter @apps/portfolio... build
 
       - name: 🧼 Sanitize branch name for path
         id: sanitize
@@ -50,7 +51,7 @@ jobs:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: apps/web/dist/
+          local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
 
       - name: 💬 Comment preview URL on PR

@@ -77,8 +77,9 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 ## 3. Ecosystem Components
 
 ### 3.1 Innings Break
-* **Directory**: `apps/innings-break-web`
+* **Directory**: `apps/innings-break`
 * **Primary user**: Team Manager
+* **Format**: Responsive Web & PWA (mobile-first experience for Team Managers)
 * **Core functions**:
   - **Ground selection**: Search and select the match ground (by area/proximity) along with the match date
   - **Menu browsing**: Browse available refreshments, food, and beverages
@@ -88,8 +89,9 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 * **Order flow**: Team Manager logs in → selects ground + date → team details loaded → selects items → pays via UPI → order confirmed
 
 ### 3.2 Innings Break Console
-* **Directory**: `apps/innings-break-ops`
+* **Directory**: `apps/innings-break-console`
 * **Primary user**: Business Owner
+* **Format**: Responsive Web & PWA (desktop & mobile friendly for Business Owner)
 * **Core functions**:
   - **Ground management**: Create and manage playing grounds, organized by City → Area → Ground hierarchy
   - **Menu configuration**: Configure what food, beverages, refreshments, and recipes are offered
@@ -100,6 +102,11 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 * **Directory**: `apps/innings-break-api`
 * **Stack**: Node.js + Express (REST APIs)
 * **Core function**: Backend service layer supporting both Innings Break and Innings Break Console
+
+### 3.4 Platform & Delivery Strategy (Responsive Web & PWA)
+* **Browser-First Architecture**: Both client-facing apps (**Innings Break** and **Innings Break Console**) are built as responsive web applications, accessible via browser URLs without platform gating.
+* **PWA (Progressive Web App)**: Full PWA support (web app manifest, service workers) enables users (Team Managers and the Business Owner) to "Install / Add to Home Screen" for instant, single-tap access.
+* **Native Apps Deferred**: No native iOS/Android development for MVP / Iteration 1. PWA provides the native feel with zero app store deployment overhead.
 
 ---
 
@@ -167,3 +174,9 @@ City (e.g., Chennai)
 * **Personas locked in**: Team Manager (Innings Break), Player (passive/WhatsApp), Business Owner (Innings Break Console), Delivery (third-party).
 * **Ground management scoped**: City → Area → Ground hierarchy. Business Owner manages in Console. Team Manager selects in Innings Break.
 * **App names finalized**: Innings Break, Innings Break Console, Innings Break API.
+
+### Session 2 — 2026-09-21: Platform Delivery & PWA Strategy
+* **Form factor**: Responsive websites for both **Innings Break** and **Innings Break Console**, accessible via URL on mobile, tablet, and desktop browsers.
+* **PWA capability**: Both apps are Progressive Web Apps (PWA) allowing users (Team Managers and Business Owner) to install / add to home screen for instant native-like access without App Store friction.
+* **Native mobile apps**: Explicitly out of scope for the first iteration. Responsive Web + PWA is the primary consumption mode.
+

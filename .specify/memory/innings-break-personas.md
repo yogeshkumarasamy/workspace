@@ -20,9 +20,9 @@ As established in [innings-break.md](file:///.specify/memory/innings-break.md) S
 
 2. **Innings Break Console**
    * **Directory**: `apps/innings-break-console`
-   * **Primary User**: `Business Owner`
+   * **Primary Users**: `Business Owner` (Full Access & Team Management) & `Operations Manager` (Order Fulfillment & Delivery Coordination Staff)
    * **Format**: Responsive Web & PWA (desktop & mobile)
-   * **Purpose**: Ground hierarchy management (City → Area → Ground), in-house kitchen menu/recipe configuration, order queue & fulfillment, and 3rd-party delivery dispatch coordination.
+   * **Purpose**: Ground hierarchy management (City → Area → Ground), in-house kitchen menu/recipe configuration, console staff management, order queue & fulfillment, and 3rd-party delivery dispatch coordination.
 
 3. **Innings Break API**
    * **Directory**: `apps/innings-break-api`
@@ -44,29 +44,38 @@ As established in [innings-break.md](file:///.specify/memory/innings-break.md) S
 
 ### 2.2 Business Owner
 * **App Access**: Full access to **Innings Break Console** (`apps/innings-break-console`).
-* **Role**: The single entrepreneur running the entire operation.
+* **Role**: The entrepreneur running the entire operation.
 * **Responsibilities**:
   * Manages the ground directory.
   * Manages the in-house kitchen (100% prepared in-house; no external food vendors).
   * Configures menu items, recipes, and team packs.
-  * Fulfills incoming team pre-orders.
-  * Books third-party delivery couriers.
+  * Deploys and manages **Operations Managers** via the Team Members section (generates onboarding invite links).
+  * Fulfills incoming team pre-orders and oversees delivery dispatches.
 * **Banned Misnomers**: Do not refer to this persona as "Admin" or "Vendor".
 
-### 2.3 Player
+### 2.3 Operations Manager
+* **App Access**: Staff access to **Innings Break Console** (`apps/innings-break-console`).
+* **Role**: Operational staff deployed by the Business Owner to run day-to-day fulfillment.
+* **Responsibilities**:
+  * Views incoming team pre-order queue.
+  * Advances kitchen prep stages (`Confirmed` → `Preparing` → `In Transit` → `Delivered`).
+  * Coordinates with third-party delivery couriers (Dunzo, Porter) and logs dispatch info.
+* **Strict Boundary**: Restricted from viewing or managing the "Team Members" section, onboarding other managers, or changing core business configurations.
+
+### 2.4 Player
 * **App Access**: **None.** Passive actor.
 * **Role**: Shares food/drink preferences with the Team Manager via WhatsApp; drinks/eats at the ground.
 * **Strict Boundary**: Players do not interact with Innings Break or Innings Break Console. No player accounts, logins, or player-facing screens exist.
 
-### 2.4 Delivery
+### 2.5 Delivery
 * **App Access**: **None.** External third-party delivery partners (e.g. Dunzo, Porter).
 * **Role**: Pick up prepared orders from the kitchen and deliver them to the ground.
-* **Strict Boundary**: Booked via third-party apps by the Business Owner. No driver or courier app is built in the Innings Break ecosystem.
+* **Strict Boundary**: Booked via third-party apps by the Business Owner or Operations Manager. No driver or courier app is built in the Innings Break ecosystem.
 
 ---
 
 ## 3. Specification & Code Traceability
 
-* **PRDs**: User stories must declare: `As a Team Manager...` or `As the Business Owner...`.
-* **Tech Specs**: Every screen and API endpoint must specify authorization: `Innings Break (Team Manager)` or `Innings Break Console (Business Owner)`.
+* **PRDs**: User stories must declare: `As a Team Manager...`, `As the Business Owner...`, or `As an Operations Manager...`.
+* **Tech Specs**: Every screen and API endpoint must specify authorization: `Innings Break (Team Manager)`, `Innings Break Console (Business Owner)`, or `Innings Break Console (Operations Manager)`.
 * **Tasks**: Every task must declare its target app and persona.

@@ -65,12 +65,15 @@ This document contains non-negotiable operational rules and constraints for this
   * **Innings Break Domain** (`apps/innings-break-*`, `specs/innings-break/**`): Strictly governed by the Canonical Persona Glossary in [innings-break-personas.md](file:///.specify/memory/innings-break-personas.md).
   * **Portfolio Domain** (`apps/portfolio`, `specs/portfolio/**`): Independent personal portfolio site; completely exempt from Innings Break persona constraints.
 * **Canonical Persona Enforcement (Innings Break Only)**:
-  * Only two active personas exist: `Team Manager` (user of **Innings Break**, located at `apps/innings-break`) and `Business Owner` (user of **Innings Break Console**, located at `apps/innings-break-console`).
+  * Three active personas exist across two applications:
+    1. `Team Manager`: User of **Innings Break** (`apps/innings-break`) for team pre-ordering and tracking.
+    2. `Business Owner`: Super-user of **Innings Break Console** (`apps/innings-break-console`) with full access to grounds, menu, team member onboarding, orders, and dispatch.
+    3. `Operations Manager`: Staff user of **Innings Break Console** (`apps/innings-break-console`) deployed by the Business Owner to manage orders, kitchen fulfillment, and delivery dispatch (restricted from team member management).
   * `Player` and `Delivery` are passive/third-party with **strictly ZERO app access**.
   * Banned misnomers (Captain, Admin, Vendor, User) are strictly forbidden in all Innings Break PRDs, specs, tasks, and code.
 * **Traceability Mandate**:
-  * Every Innings Break user story in `prd.md` must start with `As a [Team Manager | Business Owner]`.
-  * Every API endpoint and UI screen in `spec.md` must declare `Authorized Persona: [Team Manager | Business Owner]`.
+  * Every Innings Break user story in `prd.md` must start with `As a [Team Manager | Business Owner | Operations Manager]`.
+  * Every API endpoint and UI screen in `spec.md` must declare `Authorized Persona: [Team Manager | Business Owner | Operations Manager]`.
   * Every task in `tasks.md` must declare its target persona.
 * **Anti-Drift Guard**:
   * If a user prompt, agent suggestion, or spec attempt introduces unauthorized permissions (e.g., player login, vendor portals, individual player ordering), the agent must **HALT and flag the drift immediately**.

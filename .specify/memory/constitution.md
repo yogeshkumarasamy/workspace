@@ -64,4 +64,8 @@ Every feature in the repository moves through four clear stages:
   - Codified absolute `pnpm` and `pnpm dlx` enforcement in [AGENTS.md](file:///AGENTS.md). Strictly zero tolerance for `npm`, `npx`, or `yarn`.
   - Added physical package manager lock (`"preinstall": "pnpm dlx only-allow pnpm"`).
   - Formalized BMAD agent persona definitions in `.bmad-core/agents/` (`pm.md`, `architect.md`, `scrum-master.md`, `dev.md`, `qa.md`).
+* **2026-09-21 (Console Operations Staff Persona Formalization)**:
+  - Formalized `Operations Manager` persona as the console operations/fulfillment staff deployed by `Business Owner` in `apps/innings-break-console`.
+  - Updated [AGENTS.md](file:///AGENTS.md), [innings-break-personas.md](file:///.specify/memory/innings-break-personas.md), and [innings-break.md](file:///.specify/memory/innings-break.md).
+
 

@@ -217,6 +217,34 @@ City (e.g., Chennai)
 * **In-App Soft Credits Model**: Zero cash/bank refunds. All rainouts, quality grievances, and missing item compensations are issued as In-App Match Credits (₹) directly into customer wallets, automatically deducted on their next order.
 * **Support & Quality Grievances Tab**: Dedicated console tab for staff to manually investigate and resolve post-delivery quality complaints and issue soft credits.
 
+### Session 8 — 2026-09-22: Weekend Multi-Day Match Date Switcher
+* **Weekend Multi-Day Switcher**: Pre-orders are received for both Saturday and Sunday (and future match dates). Both Business Owner and Operations Manager require an intuitive Match Date Switcher (`Today`, `Tomorrow`, `Saturday`, `Sunday`, calendar date picker) with order count badges.
+* **Operational Hierarchy**: `Kitchen Hub ➔ Match Date (Saturday/Sunday) ➔ Match Daytime Slot (6:30 AM, 10:30 AM, 2:30 PM)`.
+* **Advance Procurement**: Staff can review Sunday prep sheets on Friday/Saturday to forecast bulk raw ingredient requirements (eggs, fruits, coconut crates) for the entire weekend.
+
+### Session 9 — 2026-09-26: Decoupled Area & Independent Venue/Ground Architecture
+* **Independent Area Management**: Dedicated CRUD Data Grid for Business Owner to create, view, edit/update, and delete areas (with deletion guard against active venues/orders). Form captures Area Name, Decimal GPS Coordinates (`Latitude`, `Longitude`), optional Google Maps link, and immediate `Active` / `Inactive` status toggle.
+* **Independent Venue Management**: Decoupled Venue CRUD Data Grid capturing Venue Name, Venue Type (`Standalone Venue` vs `Multi-Complex Venue`), Decimal GPS Coordinates (`Latitude`, `Longitude`), optional Google Maps link, Media Assets (Cover Photo gallery, YouTube Video Walkthrough URL), Landmark description, and `Active` / `Inactive` status toggle.
+* **Multi-Facility Ground / Pitch Drill-Down**: Business Owner can click into any Venue to add and manage nested facilities: Leather Ball Grounds (Turf, Matting, Astro, Cement wickets), Tennis Ball Grounds (Astro, Rubberized, Clay), and Cricket Practice Nets (Turf, Matting, Astro cages), complete with mandatory Gate delivery notes, optional pitch coordinates, and individual status toggles.
+
+### Session 10 — 2026-09-26: Active Month Calendar View & Operational Schedule Engine
+* **Interactive Active Month Calendar View**: Responsive 7-column (Monday to Sunday) monthly calendar grid embedded in the Console dashboard.
+* **Multi-Level Configuration**: Staff (Business Owner and Operations Manager) can set operations at the day level (single-day toggle with holiday tags), week level ("Set Default Weekend", "Activate Entire Week", "Deactivate Week"), or month level ("Apply Month Defaults").
+* **Advance Long-Range Planning**: Enables planning operations for the current week, upcoming weeks, and future months.
+* **Sunday Post-Lunch Cutoff & Automated Fallback**: Cutoff for customizing the upcoming week is Sunday 2:00 PM (14:00 IST). Unconfigured weeks default safely to standard Saturday & Sunday.
+* **Customer Pre-Order Gating**: Team Managers in `Innings Break` can view and pre-order exclusively for days marked active in the Console calendar. Inactive days are disabled.
+
+### Session 11 — 2026-09-26: Day-Specific Multi-Column Visual Order Pipeline (Kanban Board)
+* **Visual Status Pipeline**: Order fulfillment in the Console is organized into visually distinct color-coded columns: `New Orders / Unaccepted (Confirmed UPI Paid)`, `Accepted`, `Preparing`, `In Transit`, and `Delivered / Completed` (+ `Cancelled / Rainout`).
+* **Day-Specific Focus**: Board is scoped strictly per match day (for active weekend days or configured weekday holidays).
+* **Integrated Match Time Slots**: The 3 standard daytime match slots (`6:30 AM`, `10:30 AM`, `2:30 PM`) are visually clubbed and badged on each card, with slot filter tabs (`All Slots`, `6:30 AM`, `10:30 AM`, `2:30 PM`) for slot-focused kitchen batches.
+* **Real-Time Visual State Transitions**: Updating order statuses instantly transitions cards into their new respective columns with live customer app sync.
+
+
+
+
+
+
 
 
 

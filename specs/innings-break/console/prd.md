@@ -1,8 +1,8 @@
 # PRD: Innings Break Console
 
-> **Status**: In Review  
+> **Status**: Approved  
 > **Author**: Product Manager (BMAD)  
-> **Date**: 2026-09-21  
+> **Date**: 2026-09-22  
 > **Scope**: `apps/innings-break-console` (Innings Break Ecosystem)  
 > **Target Personas**: `Business Owner` (Super-User) & `Operations Manager` (Console Operations Staff)
 
@@ -91,39 +91,141 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
 
 ---
 
-### 3.3 Grounds & Venue Directory Management
+### 3.3 Active Month Calendar View & Operational Schedule Engine
 
-* **US-08**: As a Business Owner, I want to create and manage geographical Areas in Chennai, so that grounds can be dynamically grouped and discovered.
-  * **Requirement**: Independent Area entity containing Area Name (e.g., *Velachery*, *Thoraipakkam*, *Porur*), City (`Chennai`), Center Coordinates (`Latitude`, `Longitude`), and Status (`Active` / `Inactive`).
+* **US-08**: As a Business Owner or Operations Manager, I want to view an interactive Active Month Calendar View in the Console dashboard to plan, toggle, and bulk-configure operations for a particular week, upcoming weeks, or the entire month, so that operational days are visually managed and established well in advance.
+  * **Requirement (Interactive Active Month Calendar View)**:
+    - 7-column layout (**Monday through Sunday**) rendering the full active month in a responsive calendar grid.
+    - Calendar navigation controls: `< Previous Month`, `Current Month`, `Next Month >`.
+    - Day cells display visual status indicators: `🟢 Active Operating Day` (with order count pill if pre-orders exist) vs `⚪ Non-Operational / Closed`.
+  * **Requirement (Week-Level Operation Controls)**:
+    - Row-level action controls for every Monday-to-Sunday week row:
+      1. **"Set Default Weekend (Sat & Sun)"**: Instantly marks Saturday and Sunday as active while keeping weekdays closed.
+      2. **"Activate Entire Week"**: Sets all 7 days (Monday–Sunday) as active for continuous tournament operations or multi-day leagues.
+      3. **"Deactivate Week"**: Marks all 7 days non-operational for seasonal or maintenance breaks.
+  * **Requirement (Month-Level Bulk Configuration Controls)**:
+    - Month header toolbar actions:
+      1. **"Apply Month Defaults (All Weekends)"**: Pre-configures all Saturdays and Sundays across the active month with 1 click.
+      2. **"Clear Month Schedule"**: Resets unconfirmed future weeks across the month.
+  * **Requirement (Day-Level Granular Toggles & Holiday Tagging)**:
+    - Clicking or tapping any individual date cell toggles its operational status between `Active` and `Non-Operational`.
+    - Allows staff to attach descriptive event tags or holiday labels (e.g., *"Pongal Holiday Match"*, *"Diwali Special"*, *"Kitchen Maintenance"*).
+  * **Requirement (Upcoming Week & Long-Range Advance Planning)**:
+    - Staff can navigate to future weeks and months to set operations ahead of time, ensuring long-term match scheduling predictability.
 
-* **US-09**: As a Business Owner, I want to create Venues and individual Grounds/Pitches with pinpoint GPS coordinates, so that delivery couriers and team managers have exact location accuracy.
-  * **Requirement**: Support for **Single Standalone Grounds** as well as **Multi-Ground Complexes** (parent venue with shared coordinates + multiple child grounds/pitches).
-  * **Requirement**: Ground fields include:
-    - Official Ground/Pitch Name
-    - Optional Colloquial / Legacy Aliases (e.g., *"Old MRF Ground"*)
-    - Exact GPS Coordinates (`Latitude`, `Longitude`) via interactive map pin drop or direct coordinate input
-    - Auto-resolved Primary Area (calculated from nearest created Area's coordinates)
-    - Full Street Address & Landmark
-    - Delivery Entrance Gate & Pavilion Drop-Off Notes (e.g., *"Gate 2 near north nets pavilion"*)
-    - Ground Caretaker / Coordinator Contact Number (optional)
-    - Multi-Photo Gallery upload (optional)
-    - YouTube Walkthrough Video URL embed/link (optional)
-    - Status toggle (`Active` / `Inactive`)
-
-* **US-10**: As a Business Owner, I want to categorize grounds by their playing format and pitch surface, so that Team Managers can filter facilities matching their game format.
-  * **Requirement**: Classification taxonomy:
-    1. **Leather Ball Cricket Ground**: Sub-categorized into `Turf Wicket`, `Matting Wicket`, `Cement / Astro Wicket`
-    2. **Box Cricket Turf**
-    3. **Tennis Ball Cricket Ground**
-    4. **Cricket Practice Nets Venue**
-
-* **US-11**: As a Business Owner, I want to toggle an Area, Venue, or Pitch to Inactive, so that it is immediately hidden from customer ordering during maintenance while preserving all historical records in the Console.
+* **US-09**: As a Business Owner or Operations Manager, I want the operational schedule to enforce automated default fallbacks, Sunday post-lunch cutoffs, and strict customer pre-order date gating, so that unconfigured weeks default safely to weekends and Team Managers can only pre-order on verified active operational days.
+  * **Requirement (Monday-to-Sunday Business Week Definition)**: The operational business week runs strictly from **Monday (00:00)** through **Sunday (23:59)**.
+  * **Requirement (Default Weekend Operating Schedule)**: Every unconfigured upcoming Monday-to-Sunday cycle automatically defaults to **Saturday** and **Sunday** as active business days.
+  * **Requirement (Midweek Holiday & Custom Operating Day Activation)**: Both `Business Owner` and `Operations Manager` have the option to mark and activate any weekday (`Monday`, `Tuesday`, `Wednesday`, `Thursday`, `Friday`) as an active operating day to support public holidays (e.g., Pongal, Diwali, Republic Day), regional holidays, or special weekday cricket matches.
+  * **Requirement (Operational Day Deactivation)**: Staff can toggle off standard weekend days (e.g., for scheduled kitchen deep cleaning, maintenance, or off-season breaks).
+  * **Requirement (Advance Scheduling & Sunday Post-Lunch Cutoff)**: Staff can configure and review the upcoming week's operational schedule in advance. The review/configuration cutoff is **Sunday Post-Lunch (2:00 PM / 14:00 IST)** of the preceding week.
+  * **Requirement (Automated Default Fallback Engine)**: If no explicit changes or confirmations are submitted by the Sunday 2:00 PM cutoff, the system automatically confirms and locks the default schedule (**Saturday and Sunday**) for the upcoming week with zero operational downtime.
+  * **Requirement (Operational Mandate / Thumb Rule)**: Even with automated fallback, it is an operational thumb rule that the Business Owner or Operations Manager actively reviews the Active Month Calendar and marks the days of support for the next week before the cutoff to ensure ingredient procurement and kitchen staffing readiness.
+  * **Requirement (Customer App Date Selection Gating)**: The `Innings Break` customer app dynamically restricts match date selection and pre-ordering strictly to the active operating days configured for that week in the Console. Inactive days are greyed out, locked, and disabled for pre-orders.
+  * **Requirement (Console Date Switcher Alignment)**: The Console's Match Date Switcher dynamically reflects the active operational days of the week (Saturday, Sunday, and any activated midweek holidays).
 
 ---
 
-### 3.4 Kitchen Menu, Nutrition, Recipes & Dynamic Bundles
+### 3.4 Areas, Venues & Ground Directory Management
 
-* **US-12**: As a Business Owner, I want to create in-house recipe menu items with nutritional facts, and allow kitchen staff to manage availability per Kitchen Hub, so that menu items are centrally standardized while stock is locally controlled.
+* **US-10**: As a Business Owner, I want a dedicated Areas Management grid with full CRUD capabilities, geolocation coordinates, and optional Google Maps integration, so that I can independently create, view, edit, update, delete, and toggle the active status of delivery and locality areas.
+  * **Requirement (Independent Area Creation Form)**:
+    - Dedicated **"+ Add Area"** modal / button.
+    - Creation form captures strictly:
+      1. **Area Name** (*Mandatory* — e.g., *Velachery*, *Mylapore*, *Porur*, *Thoraipakkam*, *OMR*)
+      2. **Latitude** (*Mandatory* — Decimal GPS coordinate, e.g. `12.9815`)
+      3. **Longitude** (*Mandatory* — Decimal GPS coordinate, e.g. `80.2180`)
+      4. **Google Maps Link / URL** (*Optional* — Direct Google Maps pin or place URL for quick verification)
+      5. **Initial Status**: Defaults to `Active` (toggleable to `Inactive`).
+    - *No unnecessary dependencies or nested mappings required.*
+  * **Requirement (Interactive Areas Data Grid & Read View)**:
+    - Business Owner views all created Areas in a responsive, searchable, and sortable **Data Grid**.
+    - Grid columns display:
+      - **Area Name**
+      - **Latitude & Longitude** (Decimal GPS coordinates with click-to-copy)
+      - **Google Maps Link** (Clickable icon opening Google Maps in a new tab if URL provided)
+      - **Status Badge** (`🟢 Active` vs `⚪ Inactive`)
+      - **Created & Last Updated Timestamps**
+      - **Row Actions**: `Edit`, `Toggle Active/Inactive`, `Delete`.
+  * **Requirement (Edit & Update Area)**:
+    - Clicking **Edit** opens a pre-populated modal allowing the Business Owner to update Area Name, Latitude, Longitude, and Google Maps URL.
+    - Saving changes instantly updates the record and synchronizes across ground listings.
+  * **Requirement (Area Status Toggle)**:
+    - Direct status toggle in each grid row to flip status between `Active` and `Inactive`.
+    - `Active`: Area is discoverable and available for new venue/ground mappings and customer ground search.
+    - `Inactive`: Area is disabled from search and new ground creation, while preserving historical match order records.
+  * **Requirement (Delete Area & Data Integrity Guard)**:
+    - Dedicated **Delete** action with a confirmation dialog.
+    - **Integrity Guard**: System prevents deletion if active grounds or venues are currently mapped to the Area, prompting the Business Owner to either reassign those entities or set the Area to `Inactive` instead. Unlinked areas can be permanently deleted.
+
+* **US-11**: As a Business Owner, I want a dedicated Venue Management CRUD Data Grid with geolocation coordinates, Google Maps URL, media assets (photos and video walkthrough URLs), and venue taxonomy (Standalone vs Multi-Complex), so that I can independently create, view, edit, delete, and toggle venue operations.
+  * **Requirement (Independent Venue Creation Form)**:
+    - Dedicated **"+ Add Venue"** button / modal (completely independent from Area creation; no forced mapping required).
+    - Creation form captures strictly:
+      1. **Venue Name** (*Mandatory* — e.g., *Marina Cricket Arena*, *St. Bedes Sports Ground*, *YMCA Nandanam Sports Complex*)
+      2. **Venue Type** (*Mandatory*):
+         - `Standalone Venue` (single standalone pitch/ground facility)
+         - `Multi-Complex Venue` (sports complex housing multiple pitches, grounds, practice nets, or turfs)
+      3. **Latitude** (*Mandatory* — Decimal GPS coordinate, e.g. `13.0475`)
+      4. **Longitude** (*Mandatory* — Decimal GPS coordinate, e.g. `80.2825`)
+      5. **Google Maps Link / URL** (*Optional* — Direct Google Maps pin or place link)
+      6. **Media Assets & Meta Details** (*Optional*):
+         - **Venue Cover Photo / Photo Gallery** (image uploads)
+         - **Video Walkthrough URL** (YouTube / video link for courier and team ground orientation)
+         - **Venue Description & Landmark Notes**
+      7. **Initial Status**: Defaults to `Active` (toggleable to `Inactive`).
+  * **Requirement (Interactive Venue Data Grid & Read View)**:
+    - Business Owner views all created Venues in a responsive, searchable, and filterable **Data Grid**.
+    - Grid columns display:
+      - **Media Thumbnail** (Cover photo thumbnail + video icon if URL exists)
+      - **Venue Name**
+      - **Venue Type Badge** (`Standalone Venue` vs `Multi-Complex Venue`)
+      - **Latitude & Longitude** (Decimal GPS coordinates with click-to-copy)
+      - **Google Maps Link** (Clickable icon opening Google Maps in a new tab if URL provided)
+      - **Pitches & Facilities Count** (Count of configured grounds, nets, and turfs)
+      - **Status Badge** (`🟢 Active` vs `⚪ Inactive`)
+      - **Created & Last Updated Timestamps**
+      - **Row Actions**: `View / Manage Grounds`, `Edit Venue`, `Toggle Active/Inactive`, `Delete Venue`.
+  * **Requirement (Edit & Update Venue)**:
+    - Clicking **Edit** opens a pre-populated modal allowing the Business Owner to update Venue Name, Venue Type, GPS coordinates, Google Maps link, photos, video walkthrough URL, and description.
+    - Saving changes immediately synchronizes across ground listings and pre-order catalogs.
+  * **Requirement (Venue Status Toggle)**:
+    - Direct status toggle on each grid row to flip status between `Active` and `Inactive`.
+    - `Active`: Venue is discoverable and available for team match pre-orders.
+    - `Inactive`: Venue and all its nested pitches are temporarily hidden from customer discovery while preserving all historical match and order records.
+  * **Requirement (Delete Venue & Data Integrity Guard)**:
+    - Dedicated **Delete** action with a confirmation dialog.
+    - **Integrity Guard**: System blocks deletion if active grounds with unfulfilled or past match orders are mapped to the Venue, requiring the Business Owner to set the Venue to `Inactive` instead. Completely unlinked empty venues can be permanently deleted.
+
+* **US-12**: As a Business Owner, I want to drill down into any created Venue to add, configure, and manage diverse facility types (Leather Ball Grounds with wicket surfaces, Tennis Ball Grounds, and Cricket Practice Nets) with gate delivery notes and pitch coordinates, so that courier dispatchers and squads have exact pitch-level drop-off precision.
+  * **Requirement (Venue-to-Ground Drill-Down Flow)**:
+    - Clicking on any Venue row in the grid opens the **Venue Facilities & Pitch Management** sub-panel.
+    - Dedicated **"+ Add Ground / Facility"** action within the selected Venue.
+  * **Requirement (Comprehensive Facility Type Taxonomy)**:
+    - Facility Type selection:
+      1. **`Leather Ball Cricket Ground`**
+         - **Wicket Surface Taxonomy**: `Leather Turf Wicket` | `Concrete Matting Wicket` | `Astro Turf Wicket` | `Cement Wicket`
+      2. **`Tennis Ball Cricket Ground`** (Box cricket turf / tennis ball match ground)
+         - **Surface Taxonomy**: `Synthetic Astro Turf` | `Concrete / Rubberized` | `Natural Clay / Sand`
+      3. **`Cricket Practice Nets`**
+         - **Net Type**: `Turf Practice Net` | `Matting Practice Net` | `Astro Net Cage`
+  * **Requirement (Facility Creation Form Fields)**:
+    - Ground / Facility creation captures:
+      1. **Ground / Facility Name** (e.g., *Ground #1 (Centre Turf)*, *Ground #2 (South Matting)*, *Practice Net Cage A*, *Box Cricket Turf 1*)
+      2. **Facility Category & Surface Taxonomy**
+      3. **Delivery Gate & Pavilion Notes** (*Mandatory* — e.g., *"Enter Gate 4 opposite Lighthouse. South pavilion near net 2."*)
+      4. **Pitch GPS Coordinates (`Latitude`, `Longitude`)**: Optional specific pitch coordinates. If omitted, automatically inherits the parent Venue's common latitude and longitude.
+      5. **Status Toggle**: `Active` / `Inactive` per ground/facility.
+  * **Requirement (Facility List & Management Sub-Grid)**:
+    - Displays all grounds, nets, and turfs under the parent Venue in a dedicated list with individual status toggles, edit actions, and delete options.
+
+* **US-13**: As a Business Owner, I want full status control across all entities (Areas, Venues, Grounds), so that any facility undergoing maintenance or renovation can be toggled Inactive instantly without deleting historical match orders.
+
+---
+
+### 3.5 Kitchen Menu, Nutrition, Recipes & Dynamic Bundles
+
+* **US-14**: As a Business Owner, I want to create in-house recipe menu items with nutritional facts, and allow kitchen staff to manage availability per Kitchen Hub, so that menu items are centrally standardized while stock is locally controlled.
   * **Requirement**: Menu items created centrally by Business Owner with:
     - Item Name (e.g., *"Cold-Pressed Watermelon Juice"*, *"Boiled Egg Duo with Pepper"*, *"Millet / Ragi Porridge"*, *"Whole-Wheat Sandwich"*)
     - Description & In-House Kitchen Prep Notes
@@ -134,28 +236,57 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
     - Item Photo (image upload)
   * **Requirement (Kitchen-Level Availability)**: Operations Managers and Business Owner can toggle item availability (`Active / In Stock` vs. `Inactive / Sold Out`) specific to their Kitchen Hub.
 
-* **US-13**: As a Business Owner or Operations Manager, I want to build and publish Dynamic Bundles / Team Packs from available menu items, so that Team Managers can order pre-curated squad combos.
+* **US-15**: As a Business Owner or Operations Manager, I want to build and publish Dynamic Bundles / Team Packs from available menu items, so that Team Managers can order pre-curated squad combos.
   * **Requirement**: Dynamic Bundle Builder allows selecting any active items, defining item quantities per bundle (e.g., 11x Juices + 11x Porridges + 11x Bananas), setting a bundled package price (₹ INR), uploading a bundle photo, and publishing it directly as an orderable pack.
 
 ---
 
-### 3.5 Order Queue, Kitchen Batch Prep & Fulfillment
+### 3.6 Order Queue, Kitchen Batch Prep & Fulfillment
 
-* **US-14**: As a Business Owner or Operations Manager, I want to view all incoming weekend match pre-orders organized by Match Date and Slot Tabs (`6:30 AM`, `10:30 AM`, `2:30 PM`) for my Kitchen Hub, so that I can manage fulfillment efficiently.
+* **US-16**: As an Operations Manager or Business Owner, I want a day-specific, multi-column visual order pipeline (Kanban board) with integrated match time slots and distinct status columns, so that I have clear visual distinction across all fulfillment stages (Unaccepted/Confirmed, Accepted, Preparing, In Transit, Delivered) and observe immediate card transitions upon updating order states.
+  * **Requirement (Day-Specific Operational Scope)**:
+    - Pre-orders are organized and displayed on a strict **per-day basis** (for active weekend days or configured weekday holidays).
+    - Top toolbar provides the **Match Date Switcher** (`Today`, `Tomorrow`, `Saturday, 26 Sep [12 Orders]`, `Sunday, 27 Sep [8 Orders]`, `Active Holiday`, or custom calendar date) with order count badges.
+    - Selecting a date immediately pivots all columns, prep summaries, and slot queues to that specific operating day.
+  * **Requirement (Visually Distinct Stage Columns)**:
+    - Dedicated, color-coded visual columns for every stage in the order fulfillment lifecycle:
+      1. **`1. New Orders / Not Accepted (Confirmed UPI Paid)`** — Highlighted with an amber/orange attention badge, high-priority unaccepted counter, and prominent **"Accept Order"** action.
+      2. **`2. Accepted`** — Blue/Cyan accented column for acknowledged pre-orders queued for match-day preparation.
+      3. **`3. Preparing`** — Yellow/Purple accented column for active morning batch cooking and packaging in the kitchen.
+      4. **`4. In Transit`** — Indigo accented column for orders dispatched with couriers, displaying live ETA and 3rd-party booking reference.
+      5. **`5. Delivered / Completed`** — Green accented column for concluded match deliveries (with auto-complete indicator).
+      *(Dedicated tab / collapsible view for `Cancelled / Rainout` exception orders).*
+  * **Requirement (Integrated Match Time Slot Grouping & Filtering)**:
+    - Within the day-specific board, orders across all columns are integrated with the 3 standardized daytime match slots:
+      - **`6:30 AM Slot`** (Early Morning Match)
+      - **`10:30 AM Slot`** (Midday Match)
+      - **`2:30 PM Slot`** (Afternoon Match)
+    - Each order card displays a prominent **Match Time Slot Badge** (e.g., `⏰ 6:30 AM Slot`, `⏰ 10:30 AM Slot`, `⏰ 2:30 PM Slot`).
+    - Staff can switch between **"All Slots View"** (displaying all daytime slots across the columns) and **Single Slot Filter Tabs** (`6:30 AM`, `10:30 AM`, `2:30 PM`) for slot-specific kitchen batches and dispatch focus.
+  * **Requirement (Real-Time Visual State Transitions)**:
+    - When staff triggers a state progression (e.g., clicking **"Accept Order"**, **"Start Prep"**, **"Dispatch Courier"**, or **"Mark Delivered"**), the order card smoothly transitions in real-time to the corresponding column with immediate status synchronization to the customer app.
+  * **Requirement (Hierarchy of Operations)**:
+    ```
+    Active Kitchen Hub ──► Match Date (Active Operating Days / Holidays) ──► Match Slot (6:30 AM / 10:30 AM / 2:30 PM) ──► Fulfillment Columns
+    ```
   * **Requirement**: Targeted exclusively for **Leather Ball Cricket Matches** (both `Turf Wicket` and `Matting Wicket` grounds) for MVP.
-  * **Requirement**: Each Order Card under a slot displays:
-    - **Team Name**
-    - **Primary Contact**: Team Manager Name & Mobile Number
-    - **Secondary On-Field Contact**: Alternate Contact Name & Mobile Number (designated teammate/player for delivery handoff when the manager is batting/fielding)
-    - **Ground & Venue Location**: Venue Name, Specific Pitch/Ground, Address, and Delivery Entrance Gate / Pavilion Drop-off notes
-    - **Complete Item & Squad Quantity Breakdown**
-    - **Order Total (₹)** and Verified UPI Transaction Reference
-    - **Current Fulfillment Status** & Third-Party Delivery Tracking
+  * **Requirement (Order Card Visual Anatomy)**:
+    - Each Order Card under a date, column, and slot displays:
+      - **Match Time Slot Badge** & **Fulfillment Status Pill**
+      - **Team Name**
+      - **Primary Contact**: Team Manager Name & Mobile Number (with direct WhatsApp / Call action)
+      - **Secondary On-Field Contact**: Alternate Contact Name & Mobile Number (designated teammate/player for delivery handoff when the manager is batting/fielding)
+      - **Ground & Venue Location**: Venue Name, Specific Pitch/Ground, Address, and Delivery Entrance Gate / Pavilion Drop-off notes
+      - **Complete Item & Squad Quantity Breakdown**
+      - **Order Total (₹)** and Verified UPI Transaction Reference
+      - **Current Fulfillment Status** & Third-Party Delivery Tracking (Booking ID, Driver details)
+      - **Contextual Action Button** (*Accept Order*, *Start Prep*, *Dispatch Courier*, *Mark Delivered*, *View Invoice*)
 
-* **US-15**: As an Operations Manager or Business Owner, I want an Aggregated Kitchen Prep Sheet for each match slot scoped to my Kitchen Hub, so that kitchen staff can execute batch cooking and bottling efficiently.
-  * **Requirement**: Consolidated view summing total units required per item across all grounds for a selected match time slot (e.g., *"Saturday 6:30 AM Slot Summary: 66x Watermelon Juices, 33x Porridges, 22x Boiled Egg Packs across 5 grounds"*).
+* **US-17**: As an Operations Manager or Business Owner, I want an Aggregated Kitchen Prep Sheet for any selected match date and time slot scoped to my Kitchen Hub, so that kitchen staff can execute batch cooking, procurement, and bottling efficiently for Saturday, Sunday, or upcoming match days.
+  * **Requirement**: Consolidated view summing total units required per item across all grounds for the chosen date and match time slot (e.g., *"Saturday 26 Sep — 6:30 AM Slot Summary: 66x Watermelon Juices, 33x Porridges, 22x Boiled Egg Packs across 5 grounds"*).
+  * **Requirement (Advance Weekend Planning)**: Staff can switch to Sunday on Friday evening to assess weekend bulk ingredient procurement needs (e.g., total eggs, coconut water crates, fruits needed across the entire weekend).
 
-* **US-16**: As an Operations Manager or Business Owner, I want to manage orders across a granular 5-stage fulfillment lifecycle, so that real-time order states and auto-completion are handled reliably.
+* **US-18**: As an Operations Manager or Business Owner, I want to manage orders across a granular 5-stage fulfillment lifecycle, so that real-time order states and auto-completion are handled reliably.
   * **Requirement**: Fulfillment state progression:
     1. `Confirmed (UPI Paid)`: Initial verified state upon team pre-order placement.
     2. `Accepted`: Business Owner or Operations Manager clicks **"Accept Order"**, immediately triggering an order accepted notification to the customer app.
@@ -165,14 +296,14 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
   * **Requirement (Auto-Completion Rule)**: If an order in `In Transit` is not manually marked `Completed` by staff, the system automatically flips the status to `Completed` after 24 hours (1 day).
   * **Requirement**: Support for `Cancelled / Refunded` exception state with cancellation rationale (e.g., match rainout / severe weather).
 
-* **US-17**: As a Business Owner or Operations Manager, I want to view the itemized Invoice Copy for any order, so that I can verify order billing, tax, and squad items against accounting records.
+* **US-19**: As a Business Owner or Operations Manager, I want to view the itemized Invoice Copy for any order, so that I can verify order billing, tax, and squad items against accounting records.
   * **Requirement**: Dedicated **"View Invoice"** action on each order card, displaying the invoice copy generated at checkout (Order ID, Team Manager details, ground address, itemized squad breakdown, UPI transaction ID, and timestamp).
 
 ---
 
-### 3.6 Third-Party Delivery Dispatch Coordination
+### 3.7 Third-Party Delivery Dispatch Coordination
 
-* **US-18**: As an Operations Manager or Business Owner, I want to log mandatory courier booking details when dispatching an individual team order, so that every order is traceable against its delivery partner booking.
+* **US-20**: As an Operations Manager or Business Owner, I want to log mandatory courier booking details when dispatching an individual team order, so that every order is traceable against its delivery partner booking.
   * **Requirement**: Per-team order dispatch model for MVP (individual courier booking per order).
   * **Requirement**: When moving an order to `In Transit`, capture:
     - **Delivery Partner**: `Dunzo` | `Porter` | `Direct Courier` | `Other`
@@ -184,9 +315,9 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
 
 ---
 
-### 3.7 Help, Support & Quality Grievance Management
+### 3.8 Help, Support & Quality Grievance Management
 
-* **US-19**: As a Business Owner or Operations Manager, I want a dedicated Support & Issues tab in the Console, so that I can investigate and resolve post-delivery quality and service complaints submitted by Team Managers.
+* **US-21**: As a Business Owner or Operations Manager, I want a dedicated Support & Issues tab in the Console, so that I can investigate and resolve post-delivery quality and service complaints submitted by Team Managers.
   * **Requirement**: Order-specific support requests raised in the customer app appear instantly in the Console's **Support & Issues** tab.
   * **Requirement**: Each Support Ticket displays:
     - **Ticket ID & Timestamp**
@@ -198,7 +329,7 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
     - **Ticket Status**: `Open` ➔ `In Progress` ➔ `Resolved`
     - **Assigned Kitchen Hub** (scoped to the Operations Manager's kitchen)
 
-* **US-20**: As an Operations Manager or Business Owner, I want to resolve quality grievances by issuing In-App Soft Credits or logging investigation notes, so that customer satisfaction is restored while keeping financial value within the ecosystem.
+* **US-22**: As an Operations Manager or Business Owner, I want to resolve quality grievances by issuing In-App Soft Credits or logging investigation notes, so that customer satisfaction is restored while keeping financial value within the ecosystem.
   * **Requirement**: Staff can manually investigate issues (calling the manager or delivery courier) and execute:
     1. **"Issue In-App Soft Credit"**: Grants a partial credit (e.g., ₹200 for damaged items) directly to the Team Manager's wallet balance.
     2. **"Resolve with Notes"**: Closes the ticket with explanatory resolution notes.
@@ -206,9 +337,9 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
 
 ---
 
-### 3.8 In-App Soft Credits & Early Rainout Cancellation Engine
+### 3.9 In-App Soft Credits & Early Rainout Cancellation Engine
 
-* **US-21**: As a Business Owner or Operations Manager, I want to enforce a universal Match Cancellation Cutoff Window (at least 1.5 hours prior to the match slot time), so that the kitchen is alerted before food preparation begins, completely eliminating wasted ingredients.
+* **US-23**: As a Business Owner or Operations Manager, I want to enforce a universal Match Cancellation Cutoff Window (at least 1.5 hours prior to the match slot time), so that the kitchen is alerted before food preparation begins, completely eliminating wasted ingredients.
   * **Requirement (Universal 1.5-Hour Cancellation Cutoff)**: Team Managers can initiate an automated Rainout/Match Cancellation in the customer app up to **1.5 hours (90 minutes) before the scheduled match slot**:
     - **`6:30 AM Slot`** ➔ Cancellation Cutoff is **5:00 AM**
     - **`10:30 AM Slot`** ➔ Cancellation Cutoff is **9:00 AM**
@@ -218,7 +349,7 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
   * **Requirement**: Staff verifies the rainout and approves a **100% In-App Soft Credit** of the order value to the Team Manager's wallet balance.
   * **Requirement (Late Cancellations < 1.5h)**: Cancellations attempted with less than 1.5 hours remaining cannot be auto-cancelled (as cooking is already in progress) and require contacting the Support tab for manual handling.
 
-* **US-22**: As a Business Owner or Operations Manager, I want all reimbursements and rainout compensations to be credited as In-App Soft Credits (rather than cash bank transfers), so that capital remains in the business and repeat team orders are incentivized.
+* **US-24**: As a Business Owner or Operations Manager, I want all reimbursements and rainout compensations to be credited as In-App Soft Credits (rather than cash bank transfers), so that capital remains in the business and repeat team orders are incentivized.
   * **Requirement**: **Zero Cash/Bank Reversals**: All approved compensations (rainouts, quality issues, missing items) are credited directly as **In-App Match Credits (₹ INR)** to the Team Manager's account.
   * **Requirement**: Soft Credit issuance modal captures:
     - **Credit Amount (₹ INR)** (100% for rainouts; custom partial amount for quality/missing items)
@@ -239,6 +370,7 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
 7. **Soft Credit Retention**: 100% of rainout and grievance compensations are issued as In-App Soft Credits, retaining 100% of order capital within the Innings Break ecosystem.
 8. **Multi-Location Scalability**: Operations Managers are scoped 100% to their assigned Kitchen Hub without cross-hub data leakage.
 9. **Zero Persona / Role Drift**: 100% enforcement of role boundaries (Operations Managers restricted from Team Members management; unauthorized personas barred).
+10. **Operational Calendar & Scheduling Readiness**: 100% of current and upcoming weeks in the Active Month Calendar have operating days locked (either via interactive week/month/day configuration by staff or automated Sunday 2:00 PM fallback), ensuring 0% pre-order scheduling ambiguity.
 
 ---
 
@@ -250,9 +382,11 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
 * Dedicated **Business Presences Tab** (City: Chennai ➔ Kitchen Hubs: Primary Kitchen flag, GPS Coordinates, Address, Delivery Radius).
 * Location-scoped Console Dashboard for Operations Managers and Global Kitchen Switcher for Business Owner.
 * Multi-Kitchen ready database schema and entity models.
+* **Interactive Active Month Calendar View & Operations Engine**: Monday-to-Sunday responsive monthly calendar grid in the Console dashboard, multi-level controls (single-day toggle, week-level bulk setup, and month-level default application), midweek holiday tagging, Sunday 2:00 PM post-lunch scheduling cutoff, and automated fallback locking.
 * Centralized Menu Catalog with Kitchen-Level `In Stock / Sold Out` availability controls.
 * Configurable Delivery Radius Geofence (e.g., 10 km) with dynamic ground serviceability filtering.
 * 3 Standard Daytime Match Slots: `6:30 AM`, `10:30 AM`, and `2:30 PM` with configurable Pre-Order Cutoff Windows.
+* **Multi-Day Match Date Switcher**: Quick pills for `Today`, `Tomorrow`, active operational days (`Saturday`, `Sunday`, configured midweek holidays), and calendar date picker to view and plan pre-orders across different days.
 * Targeted exclusively for **Leather Ball Cricket Matches** (`Turf Wicket` & `Matting Wicket` grounds).
 * Order Cards capturing **Team Name**, **Primary Team Manager Contact**, **Secondary On-Field Teammate Contact**, Venue/Pitch details, and Gate notes.
 * 5-Stage Order Lifecycle: `Confirmed` ➔ `Accepted` (with customer notification) ➔ `Preparing` ➔ `In Transit` ➔ `Completed` (+ `Cancelled/Refunded`).
@@ -261,16 +395,14 @@ Amateur cricket in Chennai is a weekend-long ritual with dozens of teams competi
 * Mandatory 3rd-party Delivery Booking ID logging upon dispatch (Dunzo, Porter, Direct).
 * **Early Rainout Cancellation Engine**: Instant alert to halt kitchen preparation, saving food waste, with 100% soft credit approval.
 * Dedicated **Support & Issues Tab** for managing post-delivery quality and service grievances.
-* **In-App Soft Credit System**: Full and partial match credits issued directly to customer wallets, automatically deducted on their next order (zero cash refunds).
-* Independent Area management and Multi-Ground Venue hierarchy with auto-resolved Area tagging.
-* Ground classification taxonomy (Leather Ball: Turf/Matting/Astro, Box Cricket, Tennis Ball, Practice Nets).
-* Pinpoint GPS coordinates (Map pin drop / manual input) with Delivery Entrance Gate & Pavilion drop-off notes.
-* Ground media: Photo gallery upload & YouTube Walkthrough URL embed/link.
-* Ground Colloquial / Legacy Aliases support.
+* **Independent Area Management**: Dedicated CRUD Data Grid (Create, Read, Edit/Update, Delete with integrity guard), GPS Decimal Coordinates (`Latitude`, `Longitude`), optional Google Maps link, and instant `Active` / `Inactive` toggle.
+* **Independent Venue Management**: Decoupled Venue CRUD Data Grid (Name, Venue Type: Standalone vs Multi-Complex, GPS Coordinates, Google Maps link, Photo Gallery, Video Walkthrough URL, Active/Inactive toggle).
+* **Multi-Facility Ground & Pitch Drill-Down**: Add and configure facilities under any Venue (Leather Ball Turf/Matting grounds, Tennis Ball turfs, Practice Nets, Delivery Gate notes, optional pitch coordinates, and individual status toggles).
 * In-House Kitchen Menu with nutritional profiles (Calories, Protein, Carbs, Fats, Electrolytes) and dietary badges (`Veg`, `Non-Veg`, `Egg`).
 * 5 Standard Categories: `Beverages & Hydration`, `Fresh Cut Fruits`, `High Protein Power Snacks`, `Energy Bites`, `Team Meals` (including porridges).
 * Dynamic Bundle Builder for custom curated team packs.
-* Slot-grouped Order Queue & Consolidated Kitchen Batch Prep Sheet.
+* **Day-Specific Multi-Column Visual Order Pipeline (Kanban Board)**: Visually distinct status columns (`New/Not Accepted`, `Accepted`, `Preparing`, `In Transit`, `Delivered/Completed`), real-time card transition animations, and integrated match time slots (`6:30 AM`, `10:30 AM`, `2:30 PM`).
+* Consolidated Kitchen Batch Prep Sheet per match date and time slot.
 
 ### Out of Scope (Deferred to Future Phases)
 * Direct cash/bank account reversals (In-App Soft Credits exclusively used for MVP).

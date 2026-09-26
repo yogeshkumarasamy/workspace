@@ -58,3 +58,14 @@ Every feature in the repository moves through four clear stages:
 
 * Any developer or AI agent may propose additions or modifications to this constitution when new architectural standards are decided.
 * Amendments are recorded in this document with the rationale and date.
+
+### Amendments Log
+* **2026-09-21 (BMAD Framework & Strict Tooling Guardrails)**:
+  - Codified absolute `pnpm` and `pnpm dlx` enforcement in [AGENTS.md](file:///AGENTS.md). Strictly zero tolerance for `npm`, `npx`, or `yarn`.
+  - Added physical package manager lock (`"preinstall": "pnpm dlx only-allow pnpm"`).
+  - Formalized BMAD agent persona definitions in `.bmad-core/agents/` (`pm.md`, `architect.md`, `scrum-master.md`, `dev.md`, `qa.md`).
+* **2026-09-21 (Console Operations Staff Persona Formalization)**:
+  - Formalized `Operations Manager` persona as the console operations/fulfillment staff deployed by `Business Owner` in `apps/innings-break-console`.
+  - Updated [AGENTS.md](file:///AGENTS.md), [innings-break-personas.md](file:///.specify/memory/innings-break-personas.md), and [innings-break.md](file:///.specify/memory/innings-break.md).
+
+

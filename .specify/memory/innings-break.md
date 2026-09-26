@@ -128,12 +128,22 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 ## 5. Personas — ✅ DECIDED
 
 ### 5.1 Team Manager (Innings Break User)
-* **Who**: A dedicated person responsible for managing the team's logistics — could be the captain himself, or someone the captain assigns (e.g., a vice-captain, a friend, or any trusted team member).
-* **Why not "Captain"?** In weekend domestic cricket, the captain isn't always present for every match. Teams need a stable person who handles coordination regardless of who's captaining on the day.
-* **App access**: Full access to **Innings Break**. Logs in, sees his team, browses the menu, selects a ground, places orders for the entire playing XI, and pays via UPI.
-* **Coordination**: Collects player preferences via the team's **WhatsApp group**, then consolidates and places the order himself. Players do not interact with the app.
-* **Scope**: One team manager per team.
-* **Future consideration**: Could be extended to allow additional roles to place orders, based on feedback.
+* **Who**: The dedicated team logistics coordinator.
+* **Why not "Captain"?** In weekend domestic cricket, captains rotate or miss matches; the team needs a stable logistics manager regardless of who captains on the day.
+* **Role Hierarchy & Per-Week Delegation**:
+  - **`Primary Team Manager`**: Permanent team creator and account owner; holds permanent team profile and wallet ownership, manages squad roster, and possesses exclusive authority to delegate or revoke weekly manager access.
+  - **`Delegated Match-Week Manager`**: A registered squad member assigned by the Primary Manager to run logistics for a specific operating week via a secure tokenized Magic Delegation URL (`https://inningsbreak.app/delegate/...`). Holds full operational parity for that assigned week (scheduling, polling, ordering, UPI checkout using Team Wallet), displays a clear role header badge, cannot edit primary ownership, and access can be revoked instantly by the Primary Manager.
+* **App access**: Full access to **Innings Break** (`apps/innings-break`). Logs in, sees his team, browses the menu, selects a ground, places orders for the entire squad, and pays via UPI.
+* **Onboarding & Auth**: On first sign-up, captures Manager Name, Team Name, Mobile Number (verified via SMS OTP), **Mandatory CricHeroes Team Profile Link**, and **Optional CricHeroes Captain Profile Link**. Subsequent logins authenticate strictly via **Mobile Number + SMS OTP**.
+* **Landing & Match Scheduling**: Lands directly on the **Interactive Monthly Calendar View** with the active week focused for rapid weekend scheduling (`Saturday` / `Sunday`), active midweek holiday game scheduling, and future weeks/months advance booking—strictly gated by pre-order acceptance and operational status configured in the Console.
+* **Team Roster & Dual-Location Member Management**: Initial roster is populated via a one-time seed from the CricHeroes Team Profile link at sign-up (zero recurring background sync). Team Manager can add new or guest players in two places: (1) **Team Members Section** (under Team Profile tab for persistent squad management) and (2) **Match Scheduling Flow (Step 4: Squad Curation)** (inline `+ Add Player` action during match setup that immediately checks the player in and persists them to the main team roster).
+* **4-Step Quick Scheduling Flow**: Streamlined modal flow: (1) Date Confirmation ➔ (2) Smart Hierarchical Ground Search (Area / Venue / Ground; instant single-ground selection for `Standalone Venues`, nested ground picker for `Multi-Complex Venues`, default 20 km proximity radius search for Area queries) ➔ (3) Daytime Match Slot (`6:30 AM`, `10:30 AM`, `2:30 PM`) ➔ (4) Optional Match Squad Curation & Ad-Hoc Player Addition. Completed matches reflect immediately on the calendar.
+* **Menu Ordering, Player Assignment & Squad Polling**: Dual ordering modes (Blind Bulk squad ordering vs Per-Item Player Assignment via squad checkbox multi-select UI with `Select All` and auto-sync quantities). Supports domestic cricket squad sizing up to 13 players (with 2 Super Subs). **Squad Menu Polling**: when unsure about squad preferences, the Team Manager can trigger personalized WhatsApp web links for curated squad members (Name + Mobile Number) from the Menus page. Players submit choices via a lightweight, zero-login web link, notifying the manager and allowing 1-tap import into the order draft.
+* **Multi-Match Weekend Ordering**: Seamlessly switches between multiple scheduled matches in a weekend (Saturday & Sunday) via a top contextual match switcher, maintaining isolated cart payloads and executing unified partitioned checkouts.
+* **Order Summary & Dual Contacts**: Reviews consolidated order summary with in-cart quantity adjustments and back-to-menu navigation. Configures Primary Manager + Secondary On-Field Teammate contact (with gate notes) to guarantee delivery handoff without disrupting match play.
+* **Payment, Orders Page & Rainout Wallet**: Upfront UPI payment with zero-loss failure retry recovery. Dedicated Orders Page displaying textual delivery status synchronized with Console staff updates (`Confirmed` ➔ `Accepted` ➔ `Preparing` ➔ `In Transit` ➔ `Delivered`). Persistent in-app Team Wallet visibility with self-service 1-tap rainout cancellation ($\ge 1.5$h) automatically depositing 100% soft credits to the team wallet and auto-redeeming on subsequent pre-orders.
+* **Help & Support & Wallet Ledger**: Dedicated Help & Support screen tracking order-linked quality grievances, late cancellations, and provider resolution history. Dedicated Team Credits & Wallet History screen displaying a chronological transaction ledger of credit deposits and redemptions with clickable order references.
+* **Team Entity & Wallet**: Team Profile and In-App Soft Credit wallet are bound directly to the **Team Entity**, ensuring credits remain with the squad even if Team Managers rotate.
 
 ### 5.2 Business Owner (Innings Break Console Super-User)
 * **Who**: The Innings Break business owner — the sole entrepreneur who owns and oversees the entire operation (1 single Business Owner in MVP).
@@ -155,10 +165,9 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 * **Strict Boundary**: Restricted from viewing or managing the "Team Members" section, onboarding other managers, or changing core business configurations.
 
 ### 5.4 Player (Passive — No App Access)
-* **Who**: Team members in the playing XI.
-* **App access**: **None.** Players do not use Innings Break.
-* **Role**: Share their food/drink preferences with the team manager via WhatsApp. The team manager handles everything from there.
-* **Future consideration**: Players may eventually get app access to submit preferences directly, but this is explicitly out of scope for now.
+* **Who**: Team members in the playing XI / squad.
+* **App access**: **None.** Zero customer app accounts, logins, or ordering interfaces.
+* **Role**: May receive a personalized, zero-login lightweight web polling link via WhatsApp from their Team Manager to indicate refreshment preferences for an upcoming scheduled match, which feeds directly into the Team Manager's draft order.
 
 ### 5.5 Delivery (Third-Party — No App Interface)
 * **Who**: On-demand delivery partners from third-party apps (e.g., Dunzo, Porter, etc.).
@@ -259,13 +268,103 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 * **Team-Level Wallet Entity**: In-App Soft Credits are associated directly with the **Team entity / Team Profile** created on onboarding, ensuring credits remain with the squad even if Team Managers rotate across seasons.
 * **Kanban Background Polling**: Responsive Web and PWA sync order status via 15–30s interval background polling combined with a manual refresh button.
 
+### Session 15 — 2026-09-26: Customer App (Team Manager App) PRD Scaffolding
+* **Mobile-First PWA Customer App**: `apps/innings-break` scoped exclusively for the `Team Manager` to pre-order fresh in-house sports nutrition for the playing XI.
+* **Dual Contacts Enforcement**: Primary (Team Manager) + Secondary (On-Field Teammate) contacts captured to guarantee delivery handoff without disrupting match play.
+* **Team-Level Wallet Entity**: In-App Soft Credit wallet bound directly to the Team Entity, auto-applied to checkout subtotals.
+* **Universal 1.5-Hour Rainout Cancellation Engine**: 1-tap automated self-service cancellation with 100% instant soft credit deposit to team wallet for cancellations >= 1.5h prior to match slot.
+* **Active Day Gating & Daytime Match Slots**: Dynamic pre-order gating linked to active days configured in Console calendar; standardized across `6:30 AM`, `10:30 AM`, and `2:30 PM` slots.
+* **5-Stage Real-Time Visual Tracker**: Live fulfillment tracking (`Confirmed` ➔ `Accepted` ➔ `Preparing` ➔ `In Transit` ➔ `Delivered`) with polling sync and digital invoice sharing to WhatsApp.
 
+### Session 16 — 2026-09-27: CricHeroes Team Onboarding & Mobile OTP Authentication
+* **CricHeroes-Backed Squad Onboarding**: First-time sign-up captures:
+  1. Team Manager Full Name (Mandatory)
+  2. Mobile Number (Mandatory, verified via SMS OTP)
+  3. Team Name (Mandatory)
+  4. CricHeroes Team Profile Link (Mandatory — verifies team legitimacy, fixtures, roster)
+  5. CricHeroes Captain Profile Link (Optional — links match-day captain profile)
+* **Mobile OTP Authentication Layer**: Subsequent sign-ins require strictly Mobile Number + SMS OTP (zero password friction, zero redundant re-entry).
 
+### Session 17 — 2026-09-27: Monthly Calendar Landing & Strict Console Schedule Gating
+* **Default Post-Auth Landing Screen**: Team Manager lands directly on the **Interactive Monthly Calendar View** with the active week highlighted for immediate 1-tap weekend match pre-ordering (`Saturday` / `Sunday`).
+* **Active Midweek Holiday Matches**: If the active week has an operational holiday game configured/activated in the Console (e.g. Pongal, Republic Day, special tournaments), it is prominently badged and open for scheduling.
+* **Advance Multi-Week Scheduling**: Team Managers can navigate forward to future weeks/months to schedule upcoming match fixtures in advance.
+* **Strict Console Pre-Order Gating**: All date scheduling is 100% gated by the operational status set in the Console (non-operational days are locked/disabled with an explanatory tooltip). Unconfigured upcoming weeks safely fallback to Saturday & Sunday per Console automated fallback logic.
 
+### Session 18 — 2026-09-27: 4-Step Quick Match Scheduling & Hierarchical Ground Search
+* **4-Step Sequential Scheduling Modal**:
+  1. **Field 1: Date Confirmation**: Pre-selected from the active week calendar with active operating badge.
+  2. **Field 2: Unified Hierarchical Ground Search**:
+     - Searches across **Area ➔ Venue ➔ Ground** hierarchy.
+     - `Standalone Venue` (1 ground): Instantly loads/selects single ground details without extra clicks.
+     - `Multi-Complex Venue` (multiple grounds): Expands to show all nested grounds/pitches for manager selection.
+     - `Area Query`: Resolves all closest grounds within a default **20 km** proximity radius.
+     - Displays live Haversine delivery serviceability (`🟢 Deliverable` vs `⚪ Out of Range`) and pre-populates gate instructions.
+  3. **Field 3: Match Daytime Slots**: Standard 3 daytime slots (`6:30 AM`, `10:30 AM`, `2:30 PM`) with pre-order cutoff enforcement.
+  4. **Field 4: Optional Team Squad Curation**: Optional selection of playing XI / squad from the team member roster (from CricHeroes/onboarding) for itemized player-mapped invoices. Can be skipped for bulk squad ordering.
+* **Immediate Calendar Reflection**: Completed match schedule immediately reflects as an active scheduled badge on the Monthly Calendar View.
 
+### Session 19 — 2026-09-27: Per-Item Player Assignment & 13-Player Domestic Super Subs
+* **Dual Ordering Modes**:
+  - **Blind Bulk Ordering**: Standard quantity steppers & squad multipliers for uniform team orders.
+  - **Per-Item Player Assignment**: Expandable drawer under each recipe card rendering squad member checkboxes (`Select All` + individual players).
+* **Checkbox Multi-Select UI & Auto-Sync**: Checking player boxes automatically synchronizes the item quantity to the count of selected players and binds player names to line items in the order schema.
+* **Domestic Cricket Squad Sizing (Up to 13 Players)**: Accommodates Chennai weekend cricket rules permitting **2 Super Subs (Impact players)**, allowing 13-player match squads (`+1`, `+11`, `+13`, `+15`).
+* **Itemized Player Breakdown on Invoices**: Digital invoice copy and WhatsApp share summaries display item-by-item player assignment lists (e.g. *"Watermelon Juice x 4 [Dinesh, Rahul, Karthik, Yogesh]"*), completely resolving on-ground distribution confusion.
 
+### Session 20 — 2026-09-27: Multi-Match Weekend Pre-Ordering & Contextual Switcher
+* **Weekend Multi-Game Scenario**: Supports teams playing multiple games in a single week (Saturday & Sunday, or double-header tournament fixtures).
+* **Contextual Match Switcher Toolbar**: Renders match tabs on Menu and Cart screens (`🏏 Sat 26 Sep • 6:30 AM @ Marina Turf 1` vs `🏏 Sun 27 Sep • 10:30 AM @ St. Bedes Matting`), enabling 1-tap seamless switching.
+* **Isolated Match Contexts**: Switching tabs immediately pivots date, time slot, venue/pitch, kitchen stock availability, curated match squad, and cart payload without data collision.
+* **Partitioned Cart & Single UPI Checkout**: Cart groups line items cleanly by scheduled match, applies team soft credits across the combined total, and executes a single UPI transaction that generates independent match order IDs for kitchen prep sheets and dispatches.
 
+### Session 21 — 2026-09-27: Consolidated Order Summary & Dual Delivery Contacts
+* **Consolidated Order Summary Page**: Review full order logistics (match date, slot, venue/pitch, gate instructions) and itemized squad dish breakdowns with assigned player badges.
+* **In-Cart Quantity Adjustments**: `+` / `-` controls directly on line items to increase, decrease, or remove dishes from the cart.
+* **Seamless Back-to-Menu Navigation**: Prominent action to return to the sports menu to add additional items while preserving 100% of drafted selections and player assignments.
+* **Mandatory Dual Delivery Contacts**: Captures Primary Contact (Team Manager) and Secondary Contact (On-Field Teammate / Reserve / Scorekeeper) to ensure delivery handoff never fails while the squad is actively on the pitch.
 
+### Session 22 — 2026-09-27: Payment Failure Recovery, Orders Page & Rainout Wallet Engine
+* **Payment Flow & Failure Recovery**: Hitting "Pay" executes UPI transaction; successful payment routes to Order Confirmation with verified Order ID, UPI Reference, and invoice. Payment failures route to a Payment Failed screen with a 1-tap "Retry Payment" CTA preserving 100% of drafted cart data.
+* **Orders Page & Textual Status Sync**: Dedicated Orders Page listing active and past match orders. Order cards display intent-based textual fulfillment updates synchronized with Console staff actions (`Confirmed` ➔ `Accepted` ➔ `Preparing` ➔ `In Transit` ➔ `Delivered`) via lightweight polling.
+* **Persistent Team Wallet Visibility**: Wallet balance (`🪙 ₹[Amount]`) is permanently visible across the app header and profile tab.
+* **Self-Service Rainout Cancellation**: Team Manager can trigger 1-tap cancellation before the 1.5-hour cutoff, instantly depositing 100% soft credit into the team wallet, which automatically deducts from the cart on subsequent match orders.
 
+### Session 23 — 2026-09-27: Dedicated Help & Support Screen & Team Credits / Wallet Refund Ledger
+* **Dedicated Help & Support Screen**:
+  - Contextually linked to specific match orders (`ORD-XXXXX`).
+  - Allows Team Managers to log match-day issues, cancellations, or delivery feedback with category tagging (`Rainout / Weather Abandonment`, `Delayed Delivery`, `Missing / Incomplete Item`, `Food Quality / Temperature`, `Other Inquiry`).
+  - Real-time resolution timeline with resolution state badges (`Open`, `In Review`, `Resolved`, `Refund Credited`).
+  - Persistent long-term audit trail of all past grievances and support resolutions.
+* **Dedicated Team Credits & Wallet Refund Ledger Screen**:
+  - Transparent, chronological ledger of all soft credit deposits (rainouts, weather cancellations, customer support compensations) and debit redemptions (applied towards match orders).
+  - Every transaction is contextually linked to its source and destination `Order ID` (e.g., `+₹1,650 [Credited for Rainout ORD-2026-0927-01]`, `-₹500 [Redeemed on Match Order ORD-2026-1004-02]`).
+  - Displays running total balance (`🪙 Available Team Balance: ₹[Amount]`) matching the app header and instant checkout deduction.
 
+### Session 24 — 2026-09-27: Squad Menu Polling & WhatsApp Link Preference Collection
+* **Squad Contact Perfection**: Match squad curation ensures each curated player has their **Player Name** and a verified **10-Digit Mobile Contact Number (+91 format)**.
+* **1-Tap WhatsApp Menu Polling from Menus Page**: If the Team Manager wants the squad's opinion on refreshments before placing the order, the manager triggers the "Poll Squad / Share Menu via WhatsApp" action on the Menus page.
+* **Personalized Zero-Login Web Polling Links**: Generates a secure, tokenized web link per squad member (`https://inningsbreak.app/poll/{matchId}/{playerToken}`). Players tap the link from WhatsApp on their phones without creating an account or downloading an app, review the match menu for that day, select their refreshments, and submit.
+* **Live Manager Dashboard & C-Day Reminders**: The Team Manager's app renders a real-time response tracker (`9 of 13 responded`) showing individual player choices (`🟢 Submitted` vs `⚪ Pending`). On cutoff days ("C-Days"), the manager can send 1-tap WhatsApp reminders to pending teammates.
+* **1-Tap Auto-Sync & Import to Cart**: Aggregates all submitted player selections directly into the draft cart with per-item player assignments. The Team Manager reviews, adjusts buffer items if needed, and completes the pre-order with upfront UPI payment.
 
+### Session 25 — 2026-09-27: Dual-Location Team Member Onboarding & Ad-Hoc Squad Management
+* **One-Time Initial CricHeroes Seed**: Team member roster is populated once upon signup via the mandatory CricHeroes Team Profile link. Recurring background sync is deliberately avoided to prevent API instability and inadvertent roster overrides.
+* **Dual-Location Ad-Hoc Player Addition**:
+  1. **Place 1: Dedicated Team Members Management Section** (under Team Profile / Account tab):
+     - View, search, and manage persistent squad roster.
+     - `+ Add Team Member` action capturing Player Name, 10-Digit Mobile Number (+91), optional CricHeroes individual profile link, and playing role.
+     - Edit contact numbers or archive inactive squad members.
+  2. **Place 2: Contextual Match Scheduling Flow (Step 4: Squad Curation)**:
+     - When curating the match squad for an upcoming fixture, Team Manager can tap `+ Add Player` directly within the modal.
+     - Captures Player Name + Mobile Number and instantly checks the player into the current match squad while automatically saving them to the persistent team roster for future fixtures, WhatsApp polling, and secondary delivery contacts.
+
+### Session 26 — 2026-09-27: Per-Week Team Manager Delegation & Tokenized Magic URL
+* **Primary Team Manager vs Delegated Match-Week Manager**:
+  - `Primary Team Manager`: Permanent team creator and account owner; holds permanent roster control, soft credit wallet management, and delegation authority.
+  - `Delegated Match-Week Manager`: Registered team member assigned by the Primary Manager to run logistics for a specific operating week via a secure tokenized Magic Delegation URL (`https://inningsbreak.app/delegate/...`).
+* **Secure WhatsApp / SMS Delegation Link**: Generates a time-bound URL dispatched via WhatsApp. Delegate opens link, validates pre-registered mobile number via SMS OTP, and receives an active session scoped strictly for that match week.
+* **Full Operational Parity with Safety Guardrails**: Delegated Manager can schedule grounds, poll squad, customize menu/player mappings, and execute UPI payments (utilizing Team Wallet soft credits). Cannot transfer team ownership or revoke the Primary Manager.
+* **Prominent UI Header Role Status & Instant Revocation**:
+  - UI displays header pill: `👑 Delegated Manager (Week of 26 Sep) • Primary Manager: Yogesh Kumar`.
+  - Primary Manager can revoke delegation access with 1 tap at any time from the Team Members section or Calendar.

@@ -93,7 +93,7 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 * **Primary users**: Business Owner (Full Access) & Operations Manager (Order Fulfillment & Dispatch Staff)
 * **Format**: Responsive Web & PWA (desktop & mobile friendly)
 * **Core functions**:
-  - **Ground management**: Create and manage playing grounds, organized by City → Area → Ground hierarchy
+  - **Areas, Venues & Facilities management**: Independently manage decoupled Areas, Venues, and nested Pitch Facilities without manual mapping in the Console (spatial tie-ins resolved automatically by backend API services)
   - **Menu configuration**: Configure what food, beverages, refreshments, and recipes are offered
   - **Team Member management**: Business Owner onboards and manages Operations Managers (generates sign-up invite links)
   - **Order management**: View and manage incoming orders from team managers
@@ -112,20 +112,16 @@ Apps like Swiggy and Zomato have strong coverage across Chennai, so why build an
 
 ---
 
-## 4. Grounds & Location Management
+## 4. Grounds & Location Management (Decoupled Architecture)
 
 > Without a ground, there's no delivery destination — this is core to the platform.
 
 * Chennai has a huge canvas of playing grounds. Ground organizers are actively finding new grounds, so the count increases frequently.
-* Grounds are added dynamically by the Business Owner via **Innings Break Console** as new ones are discovered.
-* The Team Manager searches and selects a ground in **Innings Break** when placing an order.
-
-**Location hierarchy:**
-```
-City (e.g., Chennai)
- └── Area (e.g., Velachery, Tambaram, Porur)
-      └── Ground (e.g., "ABC Cricket Ground", "XYZ Turf")
-```
+* **Completely Decoupled Entities**: In **Innings Break Console**, `Areas`, `Venues`, and `Ground Facilities` are managed independently with zero manual mapping or dropdown binding:
+  - **Areas**: Locality directory with Decimal GPS coordinates (`Latitude`, `Longitude`) and optional Google Maps links.
+  - **Venues**: Sports facility complexes (Standalone vs Multi-Complex) with GPS coordinates, cover photo gallery, video walkthrough URLs, and description. Venues do **NOT** have an Area dropdown.
+  - **Ground Facilities & Pitches**: Drilled-down pitches nested strictly under a parent Venue (Leather Ball turf/matting wickets, Tennis Ball turfs, Practice Nets) with gate delivery notes and optional pitch-level GPS.
+* **API Spatial Resolution**: The backend API services handle spatial proximity, area clustering, and delivery geofencing automatically for customer search in **Innings Break** (`apps/innings-break`), eliminating manual data entry overhead for the Business Owner in the Console.
 
 ---
 
@@ -140,22 +136,23 @@ City (e.g., Chennai)
 * **Future consideration**: Could be extended to allow additional roles to place orders, based on feedback.
 
 ### 5.2 Business Owner (Innings Break Console Super-User)
-* **Who**: The Innings Break business owner — the entrepreneur who owns and oversees the entire operation.
-* **App access**: Full access to **Innings Break Console**.
+* **Who**: The Innings Break business owner — the sole entrepreneur who owns and oversees the entire operation (1 single Business Owner in MVP).
+* **App access**: Full access to **Innings Break Console** via pre-configured/whitelisted mobile number and OTP.
 * **Responsibilities**:
-  - **Grounds**: Creates and maintains the ground directory (City → Area → Ground hierarchy).
+  - **Grounds & Venues**: Creates and maintains independent Areas, Venues, and nested Pitch Facilities (completely decoupled in Console without manual mapping).
   - **Kitchen**: Manages the kitchen directly — no external vendors. All food and beverages are prepared in-house.
   - **Menu**: Configures what items are offered (recipes, beverages, refreshments, food).
-  - **Team Members**: Onboards, oversees, and manages console Operations Managers (generates invite links).
+  - **Team Members**: Onboards, oversees, and manages console Operations Managers by pre-whitelisting their mobile numbers and generating secure invite links.
   - **Orders & Fulfillment**: Oversees all incoming orders and delivery dispatches.
 
 ### 5.3 Operations Manager (Innings Break Console Staff User)
 * **Who**: Operations and kitchen staff deployed by the Business Owner to manage day-to-day order fulfillment.
-* **App access**: Staff access to **Innings Break Console** (restricted from Team Members / Owner Settings).
+* **App access**: Staff access to **Innings Break Console** strictly through invite-only mobile number pre-authorization and OTP (uninvited strangers are blocked).
 * **Responsibilities**:
-  - **Order Queue**: Views incoming team pre-orders and kitchen prep requirements.
+  - **Order Queue**: Views incoming team pre-orders and kitchen prep requirements for their assigned Kitchen Hub.
   - **Order Fulfillment**: Advances order lifecycle stages (`Confirmed` → `Preparing` → `In Transit` → `Delivered`).
   - **Delivery Dispatch**: Coordinates with third-party delivery partners (Dunzo, Porter) and logs tracking details.
+* **Strict Boundary**: Restricted from viewing or managing the "Team Members" section, onboarding other managers, or changing core business configurations.
 
 ### 5.4 Player (Passive — No App Access)
 * **Who**: Team members in the playing XI.
@@ -181,7 +178,7 @@ City (e.g., Chennai)
 * **Business model decided**: Team = minimum order unit. No individual orders. Bulk delivery absorbs cost. Margin built into item pricing.
 * **Payment decided**: Upfront UPI-only. No payment = no order. Zero-cost UPI integration preferred.
 * **Personas locked in**: Team Manager (Innings Break), Player (passive/WhatsApp), Business Owner (Innings Break Console), Delivery (third-party).
-* **Ground management scoped**: City → Area → Ground hierarchy. Business Owner manages in Console. Team Manager selects in Innings Break.
+* **Ground management scoped**: Independent Area and Venue/Facility management. Business Owner manages in Console. Team Manager selects in Innings Break (with API handling proximity mapping).
 * **App names finalized**: Innings Break, Innings Break Console, Innings Break API.
 
 ### Session 2 — 2026-09-21: Platform Delivery & PWA Strategy
@@ -213,8 +210,8 @@ City (e.g., Chennai)
 * **MVP vs Future Scale**: MVP launches with 1 Primary Kitchen in Chennai; data schemas and entity relationships are built multi-kitchen ready from day one.
 
 ### Session 7 — 2026-09-21: In-App Soft Credits & Early Rainout Cancellation Engine
-* **Universal 1.5-Hour Cancellation Cutoff**: Team Managers can initiate rainout cancellations up to 1.5 hours (90 minutes) prior to match slot time (5:00 AM for 6:30 AM slot, 9:00 AM for 10:30 AM slot, 1:00 PM for 2:30 PM slot), preventing kitchen prep and food waste. Cancellations < 1.5h require manual support review.
-* **In-App Soft Credits Model**: Zero cash/bank refunds. All rainouts, quality grievances, and missing item compensations are issued as In-App Match Credits (₹) directly into customer wallets, automatically deducted on their next order.
+* **Universal 1.5-Hour Cancellation Cutoff**: Team Managers can initiate rainout cancellations up to 1.5 hours (90 minutes) prior to match slot time (5:00 AM for 6:30 AM slot, 9:00 AM for 10:30 AM slot, 1:00 PM for 2:30 PM slot), immediately halting kitchen prep. The system automatically deposits a 100% In-App Soft Credit to the **Team's wallet balance** (associated with the Team entity) with zero delay. Cancellations < 1.5h require manual review via the Support tab.
+* **In-App Soft Credits Model**: Zero cash/bank refunds. All rainouts, quality grievances, and missing item compensations are issued as In-App Match Credits (₹) directly into the Team's wallet, automatically deducted on their next order.
 * **Support & Quality Grievances Tab**: Dedicated console tab for staff to manually investigate and resolve post-delivery quality complaints and issue soft credits.
 
 ### Session 8 — 2026-09-22: Weekend Multi-Day Match Date Switcher
@@ -229,7 +226,7 @@ City (e.g., Chennai)
 
 ### Session 10 — 2026-09-26: Active Month Calendar View & Operational Schedule Engine
 * **Interactive Active Month Calendar View**: Responsive 7-column (Monday to Sunday) monthly calendar grid embedded in the Console dashboard.
-* **Multi-Level Configuration**: Staff (Business Owner and Operations Manager) can set operations at the day level (single-day toggle with holiday tags), week level ("Set Default Weekend", "Activate Entire Week", "Deactivate Week"), or month level ("Apply Month Defaults").
+* **Multi-Level Governance**: Business Owner has exclusive authority over month-level bulk setup ("Apply Month Defaults", "Clear Month Schedule") and week-level controls ("Set Default Weekend", "Activate Entire Week", "Deactivate Week"). Operations Managers can view schedules and toggle day-level availability for their assigned Hub.
 * **Advance Long-Range Planning**: Enables planning operations for the current week, upcoming weeks, and future months.
 * **Sunday Post-Lunch Cutoff & Automated Fallback**: Cutoff for customizing the upcoming week is Sunday 2:00 PM (14:00 IST). Unconfigured weeks default safely to standard Saturday & Sunday.
 * **Customer Pre-Order Gating**: Team Managers in `Innings Break` can view and pre-order exclusively for days marked active in the Console calendar. Inactive days are disabled.
@@ -239,6 +236,28 @@ City (e.g., Chennai)
 * **Day-Specific Focus**: Board is scoped strictly per match day (for active weekend days or configured weekday holidays).
 * **Integrated Match Time Slots**: The 3 standard daytime match slots (`6:30 AM`, `10:30 AM`, `2:30 PM`) are visually clubbed and badged on each card, with slot filter tabs (`All Slots`, `6:30 AM`, `10:30 AM`, `2:30 PM`) for slot-focused kitchen batches.
 * **Real-Time Visual State Transitions**: Updating order statuses instantly transitions cards into their new respective columns with live customer app sync.
+
+### Session 12 — 2026-09-26: Location Architecture Decoupling & API-Level Resolution
+* **Complete Entity Decoupling in Console**: City, Area, and Venue are completely decoupled in `Innings Break Console`. No manual foreign-key mappings or dropdown associations exist in the console UI. Venues do **NOT** have an Area dropdown.
+* **Independent Entity Management**:
+  - `Areas`: Independent locality directory with GPS coordinates and optional Google Maps links.
+  - `Venues`: Independent sports complex entities (Standalone vs Multi-Complex) with GPS coordinates, cover photo, video walkthrough URL, and nested Pitch Facilities (Leather Turf/Matting, Tennis, Nets).
+* **Backend API Spatial Binding**: Spatial association, proximity search, area clustering, and delivery geofencing are calculated automatically by backend API services for the `Innings Break` customer app and Team Manager experience. Zero manual mapping overhead in the Console.
+
+### Session 13 — 2026-09-26: Whitelisted Authentication & Stranger Lockout
+* **Single Business Owner Bootstrap**: 1 single Business Owner operates the platform in MVP, with their mobile number pre-seeded/whitelisted.
+* **Invite-Only Operations Managers**: Operations Managers are pre-authorized when the Business Owner inputs their mobile number in the Team Members tab and generates an invite link with kitchen hub binding.
+* **Strict Stranger / Public Sign-Up Lockout**: Public/open registration is strictly disabled. Any unrecognized mobile number entering the login screen is immediately blocked (*"Access Denied: Mobile number not authorized"*), and no SMS OTP is dispatched.
+
+### Session 14 — 2026-09-26: Operational Mechanics & MVP Edge-Case Decisions
+* **Haversine Geofence Calculation**: Distance between Kitchen Hub and ground coordinates is calculated via straight-line Haversine formula for fast, zero-cost API geofencing.
+* **Venue Delivery Serviceability Badge**: Venue Data Grid displays real-time distance and delivery status (`🟢 Deliverable (7.2 km)` vs `⚪ Out of Range (14.5 km)`) relative to the active Kitchen Hub.
+* **Full Facility Cataloging vs Leather Ball Ordering Scope**: Console supports full CRUD across Leather Ball, Tennis Ball, and Practice Nets; customer app pre-ordering is enabled strictly for Leather Ball cricket grounds in MVP.
+* **Inclusive Kitchen Prep Sheet & One-Click Print View**: All Confirmed (UPI Paid) orders are automatically aggregated into the Batch Prep Sheet, regardless of whether staff clicked "Accept Order", with a dedicated printable/exportable modal for physical kitchen preparation counters.
+* **Printable & Shareable Invoice Receipt Modal**: Order cards provide an itemized invoice receipt modal displaying squad items, taxes, wallet credit deductions, and UPI reference IDs with print/copy support.
+* **Direct Dispatch Format**: When `Direct Courier` is chosen, internal dispatch references (e.g. `DIRECT-<TIMESTAMP>` / Driver Phone) satisfy mandatory booking audit requirements without blocking delivery handoff.
+* **Team-Level Wallet Entity**: In-App Soft Credits are associated directly with the **Team entity / Team Profile** created on onboarding, ensuring credits remain with the squad even if Team Managers rotate across seasons.
+* **Kanban Background Polling**: Responsive Web and PWA sync order status via 15–30s interval background polling combined with a manual refresh button.
 
 
 

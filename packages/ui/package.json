@@ -3,22 +3,35 @@
   "version": "0.0.0",
   "exports": {
     ".": "./index.ts",
-    "./banner": "./components/banner.ts"
+    "./styles.css": "./src/styles/globals.css",
+    "./lib/utils": "./src/lib/utils.ts",
+    "./components/*": "./components/*.tsx",
+    "./components/ui/*": "./components/ui/*.tsx"
   },
   "license": "MIT",
   "scripts": {
-    "lint": "eslint \"**/*.ts\""
+    "lint": "eslint \"**/*.{ts,tsx}\""
   },
   "dependencies": {
+    "@radix-ui/react-separator": "^1.1.15",
+    "@radix-ui/react-slot": "^1.3.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "cn": "^0.4.0",
+    "lucide-react": "^1.48.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "tailwind-merge": "^3.7.0",
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
-    "@types/react": "^19.0.1",
-    "@types/react-dom": "^19.0.2",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.2",
     "eslint": "^8.57.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "5.5.4"
   }
 }

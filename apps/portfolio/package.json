@@ -7,7 +7,7 @@
     "dev": "vite --clearScreen false",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "lint": "eslint \"src/**/*.ts\""
+    "lint": "eslint \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {
     "@repo/ui": "workspace:*",
@@ -17,10 +17,13 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^22.10.0",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^3.1.0",
     "eslint": "^8.57.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "5.5.4",
     "vite": "^5.1.4"
   }

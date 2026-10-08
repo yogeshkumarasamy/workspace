@@ -1,0 +1,63 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+# Project context (trial - see AGENTS.md, which remains the authoritative rulebook)
+context: |
+  Repository: pnpm + Turborepo monorepo (yogeshkumarasamy/workspace).
+  Package manager is strictly pnpm / pnpm dlx; npm, npx, yarn and bun are forbidden (AGENTS.md section 1).
+  Apps live in apps/, shared packages in packages/ (@repo/ui, @repo/eslint-config, @repo/typescript-config).
+  Existing spec system: GitHub Spec Kit / BMAD. PRDs live in specs/<domain>/<app>/prd.md, memory in .specify/memory/,
+  templates in .specify/templates/ and .bmad-core/. OpenSpec is being trialled alongside it, not replacing it.
+  Approval gates (AGENTS.md section 2): no production code without an approved spec and tasks; explicit human
+  approval is required between PRD -> Tech Spec -> Tasks -> Code. An OpenSpec proposal is NOT approval to apply.
+  Innings Break domain (specs/innings-break/**, apps/innings-break*) is governed by
+  .specify/memory/innings-break-personas.md. Only three personas have app access: Team Manager (apps/innings-break),
+  Business Owner and Operations Manager (apps/innings-break-console). Player and Delivery have zero app access.
+  Banned misnomers in Innings Break PRDs, specs, tasks and code: Captain, Admin, Vendor, User.
+  Innings Break platform: responsive web + PWA clients; backend apps/innings-break-api (Node.js + Express REST),
+  per .specify/memory/innings-break.md. Chennai-only MVP; daytime match slots 6:30 AM, 10:30 AM, 2:30 PM.
+  The Portfolio domain (apps/portfolio, specs/portfolio/**) is exempt from Innings Break persona rules.
+
+rules:
+  proposal:
+    - Link the source PRD file and user-story IDs (for example specs/innings-break/customer/prd.md US-13) and state the PRD's approval status
+    - Do not add requirements that are not in the source PRD; list gaps or contradictions as open questions instead
+  specs:
+    - Every Innings Break requirement that describes a screen or API behaviour states its Authorized Persona (Team Manager, Business Owner or Operations Manager)
+    - Never use the banned persona terms Captain, Admin, Vendor or User in Innings Break specs
+  tasks:
+    - Every Innings Break task declares its target persona
+    - Verification steps use pnpm / pnpm turbo commands only
+    - The first task group is a human approval gate; no implementation task may start before it is checked by the repository owner
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

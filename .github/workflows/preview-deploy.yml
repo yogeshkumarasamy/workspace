@@ -1,0 +1,62 @@
+name: Preview Deploy for PRs to Main
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  preview-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+    steps:
+      - name: ⛔ Skip if PR is closed or merged
+        if: ${{ github.event.pull_request.merged == true || github.event.pull_request.state == 'closed' }}
+        run: echo "PR is merged or closed. Skipping preview deploy." && exit 0
+
+      - name: ⬇️ Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ secrets.NODE_VERSION || '18' }}
+
+      - name: 📦 Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 📦 Install dependencies
+        run: pnpm install
+
+      - name: 🛠️ Build Vite app
+        run: pnpm --filter @apps/portfolio... build
+
+      - name: 🧼 Sanitize branch name for path
+        id: sanitize
+        run: echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ ' '__')" >> $GITHUB_OUTPUT
+
+      - name: 📤 Upload preview to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: apps/portfolio/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
+
+      - name: 💬 Comment preview URL on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            🚀 Preview ready:  
+            [${{ secrets.PREVIEW_DOMAIN }}/${{ steps.sanitize.outputs.safe_name }}/](${{ secrets.PREVIEW_DOMAIN }}/${{ steps.sanitize.outputs.safe_name }}/)

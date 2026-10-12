@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "preinstall": "pnpm dlx only-allow pnpm",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",

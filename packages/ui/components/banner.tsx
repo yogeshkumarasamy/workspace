@@ -27,7 +27,12 @@ export const Banner: React.FC<BannerProps> = ({ text, speed = 80 }) => {
 
   return (
     <div
-      style={{ fontSize: "2rem", fontWeight: "bold", fontFamily: "monospace" }}
+      style={{
+        fontSize: "2rem",
+        fontWeight: "bold",
+        fontFamily: "monospace",
+        lineHeight: "2rem",
+      }}
     >
       {displayed}
       {isTyping && <span style={{ opacity: 0.5 }}>|</span>}

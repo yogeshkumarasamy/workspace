@@ -1,0 +1,30 @@
+name: Cleanup Preview on PR Close
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+
+jobs:
+  cleanup-preview:
+    runs-on: ubuntu-latest
+
+    env:
+      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+
+    steps:
+      - name: 🧼 Sanitize branch name
+        id: sanitize
+        run: echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ ' '__')" >> $GITHUB_OUTPUT
+
+      - name: 🧹 Delete preview folder via FTP using lftp
+        run: |
+          sudo apt-get update && sudo apt-get install -y lftp
+          lftp -u "${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_HOST }}" <<EOF
+          set ssl:verify-certificate no
+          set ftp:list-options -a
+          cd "${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}"
+          rm -r "${{ steps.sanitize.outputs.safe_name }}"
+          bye
+          EOF

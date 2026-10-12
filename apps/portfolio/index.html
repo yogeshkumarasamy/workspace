@@ -29,5 +29,39 @@
       })(document, "script", window, "_ls");
       _ls("init", { projectId: "LS-570d5d3d" });
     </script>
+    <script data-no-bundle>
+      function initFreshdesk() {
+        window.fdWidget.init({
+          token: "01M4QQCAYC4QME4DC076EJYW7B",
+          host: "https://yogeshkumarasamy.freshdesk.com",
+          widgetId: "01M4QQJ0NSGTJ6VZE4VHQX7YV9",
+        });
+      }
+
+      function initialize(doc, scriptId) {
+        var sdk = doc.getElementById(scriptId);
+        if (sdk) {
+          initFreshdesk();
+          return;
+        }
+        sdk = doc.createElement("script");
+        sdk.id = scriptId;
+        sdk.async = true;
+        sdk.src =
+          "https://yogeshkumarasamy.freshdesk.com/webchat/js/widget.js";
+        sdk.onload = initFreshdesk;
+        doc.head.appendChild(sdk);
+      }
+
+      function initiateCall() {
+        initialize(document, "Freshdesk-js-sdk");
+      }
+
+      if (window.addEventListener) {
+        window.addEventListener("load", initiateCall, false);
+      } else {
+        window.attachEvent("load", initiateCall, false);
+      }
+    </script>
   </body>
 </html>

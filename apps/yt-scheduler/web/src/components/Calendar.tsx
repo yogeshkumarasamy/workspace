@@ -4,7 +4,41 @@ import { api } from "../api";
 import type { Job } from "../api";
 import { useApp } from "../state";
 import { dayKey, fmt, fromWall, tzLabel, wall } from "../time";
-import { canMove } from "./StatusBadge";
+import { canMove, StatusBadge } from "./StatusBadge";
+import { MoveDialog } from "./MoveDialog";
+import { useNarrow } from "../pwa";
+
+function Agenda({ days, byDay, tz, todayKey, onOpen, onMove, onCreateAt }: { days: Date[]; byDay: Map<string, Job[]>; tz: string; todayKey: string; onOpen(j: Job): void; onMove(j: Job): void; onCreateAt(iso: string): void }) {
+  const withItems = days.filter((d) => (byDay.get(dayKey(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate())) ?? []).length > 0);
+  if (withItems.length === 0) return <p className="rounded-lg border p-6 text-center text-sm text-muted-foreground">Nothing scheduled this month.</p>;
+  return (
+    <div className="space-y-3">
+      {withItems.map((d) => {
+        const k = dayKey(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
+        return (
+          <section key={k} className="overflow-hidden rounded-lg border">
+            <header className={`flex items-center justify-between bg-muted px-3 py-2 text-sm font-medium ${k === todayKey ? "text-primary" : ""}`}>
+              <span>{new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" }).format(d)}{k === todayKey && " · Today"}</span>
+              <button className="h-8 px-2 text-xs text-muted-foreground" onClick={() => onCreateAt(fromWall(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), 7, 0, tz).toISOString())}>+ Add</button>
+            </header>
+            <ul className="divide-y">
+              {byDay.get(k)!.map((j) => (
+                <li key={j.id} className="flex items-center gap-3 px-3 py-3">
+                  <span className={`h-10 w-1.5 shrink-0 rounded ${color[j.status]}`} />
+                  <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(j)}>
+                    <div className="truncate text-sm font-medium">{j.metadata.title}</div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">{fmt(j.publishAt, tz, { timeStyle: "short" })} · {j.metadata.type} <StatusBadge status={j.status} /></div>
+                  </button>
+                  {canMove(j.status) && <button className="h-10 shrink-0 rounded-md border px-3 text-xs" onClick={() => onMove(j)}>Move to…</button>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
 
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOURS = Array.from({ length: 18 }, (_, i) => i + 6); // 06:00–23:00
@@ -14,18 +48,21 @@ const color: Record<string, string> = {
 
 export function Calendar({ onOpen, onCreateAt }: { onOpen(j: Job): void; onCreateAt(iso: string): void }) {
   const { jobs, tz, refresh, toast, channelById } = useApp();
-  const [view, setView] = useState<"month" | "week">("month");
   const now = wall(new Date(), tz);
   const [anchor, setAnchor] = useState(() => new Date(Date.UTC(now.y, now.m - 1, now.d)));
   const [drag, setDrag] = useState<string | null>(null);
+  const narrow = useNarrow();
+  const [moving, setMoving] = useState<Job | null>(null);
+  const [mode, setMode] = useState<"month" | "week" | "agenda">("month");
+  const shown = narrow ? "agenda" : mode;
 
   const days = useMemo(() => {
     const a = new Date(anchor);
-    if (view === "week") { a.setUTCDate(a.getUTCDate() - a.getUTCDay()); return Array.from({ length: 7 }, (_, i) => new Date(a.getTime() + i * 864e5)); }
+    if (shown === "week") { a.setUTCDate(a.getUTCDate() - a.getUTCDay()); return Array.from({ length: 7 }, (_, i) => new Date(a.getTime() + i * 864e5)); }
     const first = new Date(Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), 1));
     const start = new Date(first.getTime() - first.getUTCDay() * 864e5);
     return Array.from({ length: 42 }, (_, i) => new Date(start.getTime() + i * 864e5));
-  }, [anchor, view]);
+  }, [anchor, shown]);
 
   const byDay = useMemo(() => {
     const m = new Map<string, Job[]>();
@@ -49,8 +86,8 @@ export function Calendar({ onOpen, onCreateAt }: { onOpen(j: Job): void; onCreat
     catch (e) { toast((e as Error).message, "err"); }
   }
 
-  const move = (n: number) => { const a = new Date(anchor); if (view === "week") a.setUTCDate(a.getUTCDate() + 7 * n); else a.setUTCMonth(a.getUTCMonth() + n, 1); setAnchor(a); };
-  const title = view === "month" ? new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(anchor)
+  const move = (n: number) => { const a = new Date(anchor); if (shown === "week") a.setUTCDate(a.getUTCDate() + 7 * n); else a.setUTCMonth(a.getUTCMonth() + n, 1); setAnchor(a); };
+  const title = shown !== "week" ? new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(anchor)
     : `${new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" }).format(days[0]!)} – ${new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(days[6]!)}`;
   const todayKey = dayKey(now.y, now.m, now.d);
   const chip = (j: Job) => (
@@ -68,11 +105,13 @@ export function Calendar({ onOpen, onCreateAt }: { onOpen(j: Job): void; onCreat
         <Button variant="outline" size="sm" onClick={() => setAnchor(new Date(Date.UTC(now.y, now.m - 1, now.d)))}>Today</Button>
         <Button variant="outline" size="sm" onClick={() => move(1)}>›</Button>
         <h2 className="ml-2 text-lg font-semibold">{title}</h2>
-        <span className="text-xs text-muted-foreground">({tzLabel(tz)}) · drag a video to reschedule · click a day to add</span>
+        <span className="text-xs text-muted-foreground max-sm:w-full">({tzLabel(tz)}) · {shown === "agenda" ? "tap Move to reschedule" : "drag a video to reschedule · click a day to add"}</span>
         <span className="flex-1" />
-        <Tabs value={view} onValueChange={setView} items={[{ value: "month", label: "Month" }, { value: "week", label: "Week" }]} />
+        {!narrow && <Tabs value={mode} onValueChange={setMode} items={[{ value: "month", label: "Month" }, { value: "week", label: "Week" }, { value: "agenda", label: "Agenda" }]} />}
       </div>
-      {view === "month" ? (
+      {shown === "agenda" ? (
+        <Agenda days={days.filter((d) => d.getUTCMonth() === anchor.getUTCMonth())} byDay={byDay} tz={tz} todayKey={todayKey} onOpen={onOpen} onMove={setMoving} onCreateAt={onCreateAt} />
+      ) : shown === "month" ? (
         <div className="grid grid-cols-7 overflow-hidden rounded-lg border">
           {DOW.map((d) => <div key={d} className="border-b bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">{d}</div>)}
           {days.map((d) => {
@@ -105,6 +144,7 @@ export function Calendar({ onOpen, onCreateAt }: { onOpen(j: Job): void; onCreat
           ))}
         </div>
       )}
+      <MoveDialog job={moving} onClose={() => setMoving(null)} />
       <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">{Object.entries(color).map(([s, c]) => <span key={s} className="flex items-center gap-1"><span className={`h-2.5 w-2.5 rounded ${c}`} />{s}</span>)}<span>▮ short · ▬ long</span></div>
     </div>
   );

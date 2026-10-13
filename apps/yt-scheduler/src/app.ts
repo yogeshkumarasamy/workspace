@@ -19,7 +19,8 @@ import type { BulkAction } from "./manage.js";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { serveStatic } from "@hono/node-server/serve-static";
+import { readFile } from "node:fs/promises";
+import { extname, resolve, sep } from "node:path";
 
 export interface OAuthPort {
   authUrl(state: string): string;
@@ -61,11 +62,33 @@ export function createApp(d: AppDeps) {
   });
 
   const spa = d.webDir && existsSync(join(d.webDir, "index.html")) ? readFileSync(join(d.webDir, "index.html"), "utf8") : null;
-  app.get("/", (c) => (spa ? c.html(spa) : c.html(renderUi({ audited: d.audited }))));
+  app.get("/", (c) => { c.header("cache-control", "no-cache"); return spa ? c.html(spa) : c.html(renderUi({ audited: d.audited })); });
   app.get("/api/health", (c) => c.json({ ok: true }));
   /** Public, non-secret flags for the SPA (shown before login). */
   app.get("/api/config", (c) => c.json({ audited: d.audited, dailyQuota: d.dailyQuota }));
-  if (spa) app.use("/assets/*", serveStatic({ root: d.webDir! }));
+  if (spa) {
+    const root = resolve(d.webDir!);
+    const MIME: Record<string, string> = { ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".html": "text/html; charset=utf-8", ".ico": "image/x-icon" };
+    const file = (cache: (p: string) => string) => async (c: Context) => {
+      const p = resolve(root, "." + decodeURIComponent(c.req.path));
+      if (!p.startsWith(root + sep)) return c.notFound();
+      try {
+        const body = await readFile(p);
+        const headers: Record<string, string> = { "content-type": MIME[extname(p)] ?? "application/octet-stream", "cache-control": cache(p) };
+        if (p.endsWith("/sw.js")) headers["service-worker-allowed"] = "/";
+        return new Response(body, { headers });
+      } catch { return c.notFound(); }
+    };
+    // Service worker + manifest must always revalidate so updates roll out; hashed assets are immutable.
+    const noCache = () => "no-cache, no-store, must-revalidate";
+    app.get("/sw.js", file(noCache));
+    app.get("/registerSW.js", file(noCache));
+    app.get("/manifest.webmanifest", file(noCache));
+    app.get("/assets/*", file(() => "public, max-age=31536000, immutable"));
+    app.get("/workbox-*", file(() => "public, max-age=31536000, immutable"));
+    app.get("/icons/*", file(() => "public, max-age=604800"));
+  }
+
 
   // OAuth: browser navigation can't send headers, so the key is passed once as a query param.
   app.get("/oauth/start", (c) => {
@@ -219,7 +242,7 @@ export function createApp(d: AppDeps) {
 
   app.route("/api", api);
   // SPA client-side routes
-  if (spa) app.get("*", (c) => (c.req.path.startsWith("/api") || c.req.path.startsWith("/oauth") ? c.notFound() : c.html(spa)));
+  if (spa) app.get("*", (c) => { if (c.req.path.startsWith("/api") || c.req.path.startsWith("/oauth")) return c.notFound(); c.header("cache-control", "no-cache"); return c.html(spa); });
   return app;
 }
 

@@ -11,5 +11,7 @@
 - [x] T12 Management endpoints (edit, reschedule incl. videos.update, bulk, Drive list/preview, playlists). Verified by `test/manage.test.ts`
 - [x] T13 shadcn primitives in `@repo/ui/shadcn`
 - [x] T14 React SPA: login, channel switcher, calendar month/week drag-to-reschedule, jobs table + bulk, job form with Drive picker + preview + slot suggestion, detail/log, Drive import dry-run, channel settings. Verified by `pnpm build` and a headless Chrome run of the demo server (screenshots in `apps/yt-scheduler/docs/screenshots`)
+- [x] T15 PWA: manifest, icons, SW precache, NetworkOnly for API/OAuth, update toast, offline screen, install button and iOS hint, server headers. Verified by `test/pwa.test.ts` and headless Chrome (`Page.getInstallabilityErrors` returned `[]` in a persistent profile, SW active, no `/api` entries in the cache, offline reload shows the offline screen)
+- [x] T16 Mobile pass: agenda + Move to…, full-screen dialogs, card job list, compact header. Verified with iPhone 13 viewport screenshots
 - [ ] T10 First real upload to @meeyazhpirai after the Google Cloud setup (manual)
 - [ ] T11 Submit the YouTube API audit form (manual)

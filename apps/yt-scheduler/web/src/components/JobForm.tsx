@@ -104,7 +104,7 @@ export function JobForm({ open, onOpenChange, job, initialPublishAt }: { open: b
             <div className="space-y-2"><Label>Channel</Label>
               <Select value={chId} disabled={!!job} onChange={(e) => setChId(e.target.value)}>{channels.map((c) => <option key={c.id} value={c.id}>{c.title} {c.handle ?? ""}</option>)}</Select></div>
             <div className="space-y-2"><Label>Type</Label>
-              <Tabs value={m.type} onValueChange={(v) => !locked && set("type", v)} items={[{ value: "long", label: "Long episode" }, { value: "short", label: "Short" }]} /></div>
+              <Tabs value={m.type} onValueChange={(v) => !locked && set("type", v)} items={[{ value: "long", label: "Long" }, { value: "short", label: "Short" }]} /></div>
           </div>
           {src("Video", video, setVideo, "video")}
           <div className="space-y-2">

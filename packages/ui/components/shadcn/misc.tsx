@@ -35,10 +35,10 @@ export function Alert({ className, variant = "default", ...p }: React.HTMLAttrib
 
 export function Tabs<T extends string>({ value, onValueChange, items, className }: { value: T; onValueChange: (v: T) => void; items: { value: T; label: React.ReactNode }[]; className?: string }) {
   return (
-    <div className={cn("inline-flex h-9 items-center rounded-lg bg-muted p-1 text-muted-foreground", className)}>
+    <div className={cn("inline-flex h-9 max-w-full items-center overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground", className)}>
       {items.map((i) => (
         <button key={i.value} type="button" onClick={() => onValueChange(i.value)}
-          className={cn("inline-flex items-center rounded-md px-3 py-1 text-sm font-medium transition-all", value === i.value && "bg-background text-foreground shadow")}>
+          className={cn("inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-all", value === i.value && "bg-background text-foreground shadow")}>
           {i.label}
         </button>
       ))}
@@ -58,9 +58,10 @@ export function Dialog({ open, onOpenChange, title, children, className }: { ope
   }, [open]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-4" onMouseDown={() => onOpenChange(false)}>
-      <div className={cn("mt-8 w-full max-w-3xl rounded-xl border bg-background p-6 shadow-lg", className)} onMouseDown={(e) => e.stopPropagation()}>
-        {title && <div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">{title}</h2><button onClick={() => onOpenChange(false)} className="text-muted-foreground hover:text-foreground">✕</button></div>}
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/70 p-0 sm:p-4" onMouseDown={() => onOpenChange(false)}>
+      {/* Full-screen sheet on mobile, centered card from sm: up */}
+      <div role="dialog" aria-modal="true" className={cn("min-h-full w-full max-w-3xl border-0 bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] shadow-lg sm:mt-8 sm:min-h-0 sm:rounded-xl sm:border sm:p-6", className)} onMouseDown={(e) => e.stopPropagation()}>
+        {title && <div className="sticky top-0 z-10 -mx-4 mb-4 flex items-center justify-between gap-2 bg-background px-4 py-1 sm:static sm:mx-0 sm:px-0"><h2 className="text-lg font-semibold">{title}</h2><button aria-label="Close" onClick={() => onOpenChange(false)} className="flex h-10 w-10 items-center justify-center text-muted-foreground hover:text-foreground">✕</button></div>}
         {children}
       </div>
     </div>

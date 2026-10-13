@@ -23,5 +23,8 @@ Node 20 and TypeScript (ESM). **Hono** HTTP on `@hono/node-server`, **Postgres**
 ## Web app (v2)
 `web/` is a React 18 + Vite 5 + Tailwind 3 SPA built from `@repo/ui/shadcn` primitives (added to `packages/ui`: Button, Card, Input/Textarea/Select/Label/Switch/Checkbox, Badge, Progress, Alert, Tabs, Dialog, Table). Vite builds it to `dist/web`, and Hono serves it with `serveStatic`, falling back to `index.html` for client routes. Drag-to-reschedule uses HTML5 DnD and calls `POST /jobs/:id/reschedule`. That updates the job locally before upload, and calls `videos.update` (status part: private + publishAt + our flags) once the video is uploaded and scheduled. New endpoints: `PATCH /jobs/:id`, `POST /jobs/bulk`, `GET /drive/list`, `GET /drive/file/:id`, `GET /channels/:id/playlists`, `GET /config`. Jobs gain a `log` jsonb column (added with `alter table … add column if not exists`).
 
+## PWA (v3)
+vite-plugin-pwa (`registerType: "prompt"` plus an hourly `reg.update()`), a Workbox precache of the app shell, `navigateFallback` with a denylist for `/api/` and `/oauth/`, and runtime `NetworkOnly` for both. The manifest and icons are described in the README. The Hono server serves `sw.js`, `registerSW.js` and the manifest itself with no-cache headers, and serves assets as immutable (a small `readFile` helper with a path-traversal guard). On mobile (<768px) the calendar is an agenda with a "Move to…" sheet, and dialogs are full-screen.
+
 ## Schema
 `src/schema.ts` is the source of truth. `pnpm --filter @apps/yt-scheduler gen:schema` writes `schema/metadata.schema.json` and `schema/job.schema.json`.

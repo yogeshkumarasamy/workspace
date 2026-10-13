@@ -5,6 +5,7 @@ import type { Job } from "../api";
 import { useApp } from "../state";
 import { fmt, fromInput, tzLabel } from "../time";
 import { STATUSES, StatusBadge } from "./StatusBadge";
+import { useNarrow } from "../pwa";
 
 export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
   const { jobs, tz, refresh, toast, channelById, channelId } = useApp();
@@ -13,6 +14,7 @@ export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
   const [type, setType] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [when, setWhen] = useState("");
+  const narrow = useNarrow();
   const rows = useMemo(() => jobs.filter((j) =>
     (!status || j.status === status) && (!type || j.metadata.type === type) &&
     (!q || `${j.metadata.title} ${j.idempotencyKey} ${j.metadata.tags.join(" ")} ${j.youtubeVideoId ?? ""}`.toLowerCase().includes(q.toLowerCase()))), [jobs, q, status, type]);
@@ -31,13 +33,13 @@ export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Input className="max-w-xs" placeholder="Search title, tag, key, video id…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <Select className="w-40" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</Select>
-        <Select className="w-32" value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option><option value="short">Shorts</option><option value="long">Long</option></Select>
+        <Input className="w-full sm:max-w-xs" placeholder="Search title, tag, key, video id…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Select className="flex-1 sm:w-40 sm:flex-none" value={status} onChange={(e) => setStatus(e.target.value)}><option value="">All statuses</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</Select>
+        <Select className="flex-1 sm:w-32 sm:flex-none" value={type} onChange={(e) => setType(e.target.value)}><option value="">All types</option><option value="short">Shorts</option><option value="long">Long</option></Select>
         <span className="self-center text-xs text-muted-foreground">{rows.length} jobs</span>
       </div>
       {sel.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 p-2 text-sm">
+        <div className="sticky top-[7.5rem] z-30 flex flex-wrap items-center gap-2 rounded-lg border bg-muted p-2 text-sm sm:static sm:bg-muted/50">
           <b>{sel.size} selected</b>
           <Button size="sm" variant="outline" onClick={() => bulk("cancel")}>Cancel</Button>
           <Button size="sm" variant="outline" onClick={() => bulk("retry")}>Retry</Button>
@@ -47,6 +49,21 @@ export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
           <Button size="sm" variant="ghost" onClick={() => setSel(new Set())}>Clear</Button>
         </div>
       )}
+      {narrow ? (
+        <ul className="divide-y rounded-lg border">
+          {rows.map((j) => (
+            <li key={j.id} className="flex items-start gap-3 px-3 py-3">
+              <span className="pt-1"><Checkbox aria-label="select" checked={sel.has(j.id)} onCheckedChange={() => toggle(j.id)} /></span>
+              <button className="min-w-0 flex-1 text-left" onClick={() => onOpen(j)}>
+                <div className="truncate text-sm font-medium">{j.metadata.title}</div>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><StatusBadge status={j.status} /><span>{j.metadata.type}</span><span>{fmt(j.publishAt, tz)}</span>{!channelId && <span>{channelById(j.channelId)?.title}</span>}</div>
+                {j.lastError && <div className="mt-1 truncate text-xs text-red-400">{j.lastError}</div>}
+              </button>
+            </li>
+          ))}
+          {rows.length === 0 && <li className="py-8 text-center text-sm text-muted-foreground">No jobs</li>}
+        </ul>
+      ) : (
       <div className="rounded-lg border">
         <Table>
           <THead><TR><TH className="w-8"><Checkbox checked={all} onCheckedChange={(v) => setSel(v ? new Set(rows.map((r) => r.id)) : new Set())} /></TH><TH>Title</TH>{!channelId && <TH>Channel</TH>}<TH>Type</TH><TH>Status</TH><TH>Publish ({tzLabel(tz)})</TH><TH>YouTube</TH></TR></THead>
@@ -66,6 +83,7 @@ export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
           </TBody>
         </Table>
       </div>
+      )}
     </div>
   );
 }

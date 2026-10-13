@@ -4,11 +4,13 @@ import { api, driveImageUrl } from "../api";
 import type { Job } from "../api";
 import { useApp } from "../state";
 import { fmt, tzLabel } from "../time";
-import { StatusBadge } from "./StatusBadge";
+import { StatusBadge, canMove } from "./StatusBadge";
+import { MoveDialog } from "./MoveDialog";
 
 export function JobDetail({ job, onClose, onEdit }: { job: Job | null; onClose(): void; onEdit(j: Job): void }) {
   const { refresh, toast, channelById } = useApp();
   const [thumb, setThumb] = useState("");
+  const [moving, setMoving] = useState(false);
   const ch = job ? channelById(job.channelId) : undefined;
   const tz = ch?.slots.timezone ?? "Asia/Kolkata";
   useEffect(() => {
@@ -25,10 +27,10 @@ export function JobDetail({ job, onClose, onEdit }: { job: Job | null; onClose()
   const src = (s: Job["video"]) => (s.kind === "drive" ? <a className="text-blue-400 hover:underline" target="_blank" rel="noreferrer" href={`https://drive.google.com/file/d/${s.fileId}/view`}>Drive {s.fileId}</a> : <a className="break-all text-blue-400 hover:underline" href={s.url} target="_blank" rel="noreferrer">{s.url}</a>);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={job.metadata.title}>
-      <div className="grid gap-5 md:grid-cols-[1fr_220px]">
+      <div className="grid gap-5 md:grid-cols-[1fr_220px] [&>div:last-child]:max-md:order-first">
         <div className="space-y-3 text-sm">
           <div className="flex flex-wrap items-center gap-2"><StatusBadge status={job.status} /><Badge variant="outline">{job.metadata.type}</Badge><Badge variant="outline">{job.metadata.privacyStatus}</Badge>{job.metadata.madeForKids && <Badge variant="outline">made for kids</Badge>}<span className="text-muted-foreground">{ch?.title}</span></div>
-          <dl className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-1">
+          <dl className="grid grid-cols-[96px_1fr] gap-x-3 gap-y-1 break-words sm:grid-cols-[120px_1fr]">
             <dt className="text-muted-foreground">Publish at</dt><dd>{fmt(job.publishAt, tz)} {tzLabel(tz)}</dd>
             <dt className="text-muted-foreground">Upload</dt><dd>{job.uploadMode === "at" ? `deferred until ${fmt(job.runAt, tz)}` : "immediately"} · attempts {job.attempts}</dd>
             <dt className="text-muted-foreground">Video</dt><dd>{src(job.video)}</dd>
@@ -51,11 +53,13 @@ export function JobDetail({ job, onClose, onEdit }: { job: Job | null; onClose()
           <div className={`overflow-hidden rounded-lg border bg-muted ${job.metadata.type === "short" ? "aspect-[9/16]" : "aspect-video"}`}>{thumb && <img src={thumb} alt="" className="h-full w-full object-cover" />}</div>
           <div className="flex flex-col gap-2">
             {!["uploading", "published", "cancelled"].includes(job.status) && <Button variant="secondary" onClick={() => onEdit(job)}>{job.youtubeVideoId ? "Reschedule" : "Edit"}</Button>}
+            {canMove(job.status) && job.publishAt && <Button variant="outline" onClick={() => setMoving(true)}>Move to…</Button>}
             {["queued", "failed"].includes(job.status) && <Button variant="outline" onClick={() => act("cancel")}>Cancel job</Button>}
             {["failed", "cancelled"].includes(job.status) && <Button onClick={() => act("retry")}>Retry</Button>}
           </div>
         </div>
       </div>
+      {moving && <MoveDialog job={job} onClose={() => setMoving(false)} />}
     </Dialog>
   );
 }

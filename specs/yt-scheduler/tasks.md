@@ -8,5 +8,8 @@
 - [x] T7 Drive folder import. Verified with a mocked lister
 - [x] T8 HTTP API + multi-channel OAuth + UI. API key and bulk paths tested
 - [x] T9 Docker/compose/Render + README. `pnpm turbo run build lint test`
+- [x] T12 Management endpoints (edit, reschedule incl. videos.update, bulk, Drive list/preview, playlists). Verified by `test/manage.test.ts`
+- [x] T13 shadcn primitives in `@repo/ui/shadcn`
+- [x] T14 React SPA: login, channel switcher, calendar month/week drag-to-reschedule, jobs table + bulk, job form with Drive picker + preview + slot suggestion, detail/log, Drive import dry-run, channel settings. Verified by `pnpm build` and a headless Chrome run of the demo server (screenshots in `apps/yt-scheduler/docs/screenshots`)
 - [ ] T10 First real upload to @meeyazhpirai after the Google Cloud setup (manual)
 - [ ] T11 Submit the YouTube API audit form (manual)

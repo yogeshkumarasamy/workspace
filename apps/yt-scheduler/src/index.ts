@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { google } from "googleapis";
 import { createApp } from "./app.js";
@@ -23,7 +24,9 @@ const worker: WorkerDeps = {
   apiFor: (ch) => googleYouTubeApi(authFor(ch.refreshTokenEnc), driveAuth(ch)),
 };
 
+const webDir = fileURLToPath(new URL("./web", import.meta.url));
 const app = createApp({
+  webDir,
   store, apiKey: cfg.apiKey, encryptionKey: cfg.encryptionKey, dailyQuota: cfg.dailyQuota, audited: cfg.audited, defaultSlots: cfg.defaultSlots, worker,
   oauth: {
     authUrl: (state) => oauthClient(cfg.google).generateAuthUrl({ access_type: "offline", prompt: "consent select_account", scope: SCOPES, state, include_granted_scopes: true }),
@@ -47,11 +50,16 @@ const app = createApp({
         const out: { id: string; name: string; mimeType: string }[] = [];
         let pageToken: string | undefined;
         do {
-          const r = await drive.files.list({ q: `'${folderId.replace(/'/g, "")}' in parents and trashed=false`, fields: "nextPageToken,files(id,name,mimeType)", pageSize: 200, pageToken, supportsAllDrives: true, includeItemsFromAllDrives: true });
-          out.push(...(r.data.files ?? []).map((f) => ({ id: f.id!, name: f.name!, mimeType: f.mimeType! })));
+          const r = await drive.files.list({ q: `'${folderId.replace(/'/g, "")}' in parents and trashed=false`, fields: "nextPageToken,files(id,name,mimeType,size,thumbnailLink,modifiedTime)", pageSize: 200, pageToken, supportsAllDrives: true, includeItemsFromAllDrives: true });
+          out.push(...(r.data.files ?? []).map((f) => ({ id: f.id!, name: f.name!, mimeType: f.mimeType!, size: f.size ?? undefined, thumbnailLink: f.thumbnailLink ?? undefined, modifiedTime: f.modifiedTime ?? undefined })));
           pageToken = r.data.nextPageToken ?? undefined;
         } while (pageToken);
         return out;
+      },
+      async download(fileId) {
+        const meta = await drive.files.get({ fileId, fields: "mimeType", supportsAllDrives: true });
+        const r = await drive.files.get({ fileId, alt: "media", supportsAllDrives: true }, { responseType: "stream" });
+        return { stream: r.data as unknown as NodeJS.ReadableStream, mimeType: meta.data.mimeType ?? "application/octet-stream" };
       },
       async readText(fileId) {
         const r = await drive.files.get({ fileId, alt: "media", supportsAllDrives: true }, { responseType: "text" });

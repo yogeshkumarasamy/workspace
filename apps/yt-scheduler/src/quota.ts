@@ -1,7 +1,7 @@
 import { wallParts, zonedToUtc } from "./time.js";
 
 /** YouTube Data API v3 unit costs. */
-export const COST = { videosInsert: 1600, thumbnailsSet: 50, playlistItemsInsert: 50, playlistsList: 1, playlistsInsert: 50 } as const;
+export const COST = { videosInsert: 1600, thumbnailsSet: 50, playlistItemsInsert: 50, playlistsList: 1, playlistsInsert: 50, videosUpdate: 50 } as const;
 export const JOB_COST = COST.videosInsert + COST.thumbnailsSet + COST.playlistItemsInsert + COST.playlistsList;
 
 /** Quota resets at midnight America/Los_Angeles. Returns the key for the current quota day. */

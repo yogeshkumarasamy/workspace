@@ -4,6 +4,38 @@ This is a self-hosted, free-to-run YouTube upload scheduler. It's built for agen
 
 > ⚠️ **Private-locked until audited.** If a Google Cloud project hasn't passed the YouTube API compliance audit, every video it uploads through `videos.insert` is locked to **Private**, and scheduled publishing won't make it public. The UI shows a banner about this. See [API audit](#api-audit).
 
+## Web app
+The service ships a React + Vite + Tailwind single-page app. It uses the shadcn-style primitives in `@repo/ui/shadcn`. The Hono server serves the static build from `dist/web`, so the whole thing stays **one deployable service**.
+
+| | |
+|---|---|
+| ![calendar](docs/screenshots/02-calendar-month.png) | ![week](docs/screenshots/03-calendar-week.png) |
+| ![jobs](docs/screenshots/04-jobs-bulk.png) | ![form](docs/screenshots/07-job-form.png) |
+| ![detail](docs/screenshots/05-job-detail.png) | ![import](docs/screenshots/08-drive-import-dryrun.png) |
+| ![drive picker](docs/screenshots/06-drive-picker.png) | ![settings](docs/screenshots/09-channel-settings.png) |
+
+- **Sign-in gate:** the API key is checked against the server and kept in `localStorage`.
+- **Header:** channel switcher (all channels or one), **+ Connect channel** (OAuth), and a quota meter with uploads left today.
+- **Calendar (month/week, in the channel's timezone, IST by default):**
+  - Drag a video to another day (keeps its time) or to another hour (week view) to reschedule it.
+  - Videos already on YouTube are moved with `videos.update`.
+  - Click an empty day or hour to create a job at that time.
+- **Jobs:** search, status and type filters, plus bulk **cancel / retry / auto-slot / reschedule**.
+- **Create/Edit form:**
+  - Choose Drive or URL for the video and thumbnail. The **Drive picker** browses folders and starts at the Episodes folder.
+  - Thumbnail preview (16:9 or 9:16).
+  - Title with a 100-char counter, description, tags with a 500-char counter, category, language, privacy.
+  - Playlist picker filled from the channel's playlists.
+  - Made-for-kids and synthetic-media switches, short/long, and publish time in IST with a **Next free slot** button.
+  - Upload now or later.
+- **Job detail:** activity log, last error, warnings, Drive/URL links, YouTube Studio and youtu.be links, plus edit/reschedule, cancel and retry.
+- **Import:** Drive folder import with a **dry-run preview**, and a bulk JSON paste box.
+- **Channels:** schedule slot editor (timezone, Shorts daily time, long-episode weekday and time, minimum lead) and defaults (category, language, Shorts and long playlists, made-for-kids). Also reconnect, and pick a separate Drive account.
+
+**Development:**
+- Run `pnpm --filter @apps/yt-scheduler dev` (API on :8787) and `pnpm --filter @apps/yt-scheduler dev:web` (Vite on :5173, proxying `/api` and `/oauth`).
+- **Offline demo with mock data, no Google needed:** `pnpm --filter @apps/yt-scheduler build && pnpm --filter @apps/yt-scheduler demo`, then open http://localhost:8788 with API key `demo`.
+
 ## Market reference (what we copied as ideas, not code)
 | Tool | Takeaways |
 |---|---|
@@ -108,6 +140,19 @@ curl -X POST "$APP_URL/api/jobs" -H "x-api-key: $API_KEY" -H "content-type: appl
 - **Defer the upload itself:** `"uploadMode":"at","uploadAt":"…"`. By default it uploads right away and lets YouTube publish at `publishAt`.
 - **Other endpoints:** `GET /api/slots/next?channel=@meeyazhpirai&type=short`, `GET /api/quota`, `GET /api/jobs?channel=…&status=failed`.
 
+## Management API (used by the web app)
+| Endpoint | Purpose |
+|---|---|
+| `PATCH /api/jobs/:id` | edit a queued, failed or cancelled job (fully re-validated). After upload, only `metadata.publishAt` can change |
+| `POST /api/jobs/:id/reschedule {publishAt}` | move the publish time. If the video is already uploaded and scheduled, it calls YouTube `videos.update` (50 units) |
+| `POST /api/jobs/bulk {ids, action, publishAt?}` | `action` is `cancel`, `retry`, `reschedule` or `autoslot` |
+| `GET /api/drive/list?channel=&folderId=` | Drive browser (`root` by default) |
+| `GET /api/drive/file/:id?channel=` | image preview proxy |
+| `GET /api/channels/:id/playlists` | playlists for the picker |
+| `GET /api/config` | public flags (audited, quota limit) |
+
+Each job also keeps a `log` of `{at, msg}` entries: created, auto-slotted, attempts, upload id, thumbnail, playlist, reschedules.
+
 ## Per-channel defaults and slots
 `PATCH /api/channels/:id` with a body like:
 `{"defaults":{"shortsPlaylist":"Meeyazh & Pirai Shorts","categoryId":"1"},"slots":{"shortsTime":"07:00","longWeekday":6,"longTime":"18:00","timezone":"Asia/Kolkata"}}`
@@ -118,4 +163,5 @@ curl -X POST "$APP_URL/api/jobs" -H "x-api-key: $API_KEY" -H "content-type: appl
 - The Postgres store's SQL is covered by review but not by CI. The tests run against the in-memory store.
 - You can't cancel a job after upload from here. Use YouTube Studio for that.
 - If a mid-upload crash happens after YouTube accepted the bytes but before we saved the id, a retry could create a duplicate private video.
-- Channel slots are edited through the API; there's no UI form yet.
+- Drag-to-reschedule can't move published, uploading or cancelled videos. Moving a video that's already uploaded only changes its publish time on YouTube, not its title or description.
+- Drive thumbnail previews are proxied through the server with the API key. The Drive picker only lists what the connected Google account can see.

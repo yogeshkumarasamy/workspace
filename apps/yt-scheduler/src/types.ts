@@ -35,6 +35,7 @@ export interface Job {
   lastError: string | null;
   youtubeVideoId: string | null;
   warnings: string[];
+  log: { at: string; msg: string }[];
   createdAt: Date;
   updatedAt: Date;
 }

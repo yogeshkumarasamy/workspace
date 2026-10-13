@@ -11,6 +11,9 @@ export interface YouTubeApi {
   setThumbnail(videoId: string, media: MediaStream): Promise<void>;
   resolvePlaylist(ref: string, createIfMissing: boolean): Promise<string | null>;
   addToPlaylist(playlistId: string, videoId: string): Promise<void>;
+  listPlaylists(): Promise<{ id: string; title: string }[]>;
+  /** Change publish time of an already-uploaded (private, scheduled) video via videos.update. */
+  updateSchedule(videoId: string, meta: Metadata, publishAt: Date): Promise<void>;
 }
 
 export const SCOPES = [
@@ -85,6 +88,20 @@ export function googleYouTubeApi(ytAuth: InstanceType<typeof google.auth.OAuth2>
       if (!createIfMissing) return null;
       const created = await yt.playlists.insert({ part: ["snippet", "status"], requestBody: { snippet: { title: ref }, status: { privacyStatus: "public" } } });
       return created.data.id ?? null;
+    },
+    async listPlaylists() {
+      const out: { id: string; title: string }[] = [];
+      let pageToken: string | undefined;
+      do {
+        const res = await yt.playlists.list({ part: ["snippet"], mine: true, maxResults: 50, pageToken });
+        for (const p of res.data.items ?? []) if (p.id) out.push({ id: p.id, title: p.snippet?.title ?? p.id });
+        pageToken = res.data.nextPageToken ?? undefined;
+      } while (pageToken);
+      return out;
+    },
+    async updateSchedule(videoId, meta, publishAt) {
+      // part=status replaces the whole status object, so resend the flags we own.
+      await yt.videos.update({ part: ["status"], requestBody: { id: videoId, status: buildVideoResource(meta, publishAt).status } });
     },
     async addToPlaylist(playlistId, videoId) {
       await yt.playlistItems.insert({ part: ["snippet"], requestBody: { snippet: { playlistId, resourceId: { kind: "youtube#video", videoId } } } });

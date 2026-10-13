@@ -20,5 +20,8 @@ Node 20 and TypeScript (ESM). **Hono** HTTP on `@hono/node-server`, **Postgres**
 ## API (all `/api/*` need `x-api-key`)
 `GET/PATCH /channels[/:id]`, `GET /jobs?channel=&status=`, `POST /jobs` (single, or `{jobs:[]}` returning 207 with a result per item), `GET /jobs/:id`, `POST /jobs/:id/cancel|retry`, `POST /drive/import {folderId, channel?, dryRun?}`, `GET /slots/next?channel=&type=`, `GET /quota`, `POST /tick`. OAuth: `GET /oauth/start?key=…[&purpose=drive&channelId=…]`, then `/oauth/callback`.
 
+## Web app (v2)
+`web/` is a React 18 + Vite 5 + Tailwind 3 SPA built from `@repo/ui/shadcn` primitives (added to `packages/ui`: Button, Card, Input/Textarea/Select/Label/Switch/Checkbox, Badge, Progress, Alert, Tabs, Dialog, Table). Vite builds it to `dist/web`, and Hono serves it with `serveStatic`, falling back to `index.html` for client routes. Drag-to-reschedule uses HTML5 DnD and calls `POST /jobs/:id/reschedule`. That updates the job locally before upload, and calls `videos.update` (status part: private + publishAt + our flags) once the video is uploaded and scheduled. New endpoints: `PATCH /jobs/:id`, `POST /jobs/bulk`, `GET /drive/list`, `GET /drive/file/:id`, `GET /channels/:id/playlists`, `GET /config`. Jobs gain a `log` jsonb column (added with `alter table … add column if not exists`).
+
 ## Schema
 `src/schema.ts` is the source of truth. `pnpm --filter @apps/yt-scheduler gen:schema` writes `schema/metadata.schema.json` and `schema/job.schema.json`.

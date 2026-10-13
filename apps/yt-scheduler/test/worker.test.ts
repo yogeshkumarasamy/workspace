@@ -64,7 +64,7 @@ describe("drive import", () => {
       ],
       sf: [{ id: "v2", name: "s.mp4", mimeType: "video/mp4" }, { id: "m2", name: "metadata.json", mimeType: "application/json" }],
     };
-    const r = await draftJobsFromFolder({ list: async (id) => tree[id] ?? [], readText: async () => JSON.stringify({ title: "T" }) }, "ep", { channel: "UC1", recursive: true });
+    const r = await draftJobsFromFolder({ list: async (id) => tree[id] ?? [], readText: async () => JSON.stringify({ title: "T" }), download: async () => { throw new Error("x"); } }, "ep", { channel: "UC1", recursive: true });
     expect(r.jobs).toHaveLength(2);
     expect(r.jobs[1]).toMatchObject({ idempotencyKey: "drive:v2", metadata: { type: "short" } });
     expect(r.jobs[0]).toMatchObject({ thumbnail: { driveFileId: "t1" }, metadata: { type: "long" } });
@@ -77,7 +77,7 @@ describe("http api", () => {
     const app = createApp({
       store, apiKey: "secret", encryptionKey: Buffer.alloc(32).toString("base64"), dailyQuota: 10000, audited: false, defaultSlots: DEFAULT_RULES,
       oauth: { authUrl: () => "", exchange: async () => ({ refreshToken: "", email: null, channels: [] }) },
-      worker: { store, apiFor: () => mockApi(), dailyQuota: 10000 }, driveFor: () => ({ list: async () => [], readText: async () => "" }),
+      worker: { store, apiFor: () => mockApi(), dailyQuota: 10000 }, driveFor: () => ({ list: async () => [], readText: async () => "", download: async () => { throw new Error("x"); } }),
     });
     expect((await app.request("/api/jobs")).status).toBe(401);
     const res = await app.request("/api/jobs", { method: "POST", headers: { "x-api-key": "secret", "content-type": "application/json" }, body: JSON.stringify({ jobs: [raw, { ...raw, channel: "@nope", idempotencyKey: "z" }] }) });

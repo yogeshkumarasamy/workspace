@@ -20,6 +20,8 @@ export function mockApi(over: Partial<YouTubeApi> = {}): YouTubeApi {
     setThumbnail: vi.fn(async () => {}),
     resolvePlaylist: vi.fn(async () => "PLabcdefghijkl"),
     addToPlaylist: vi.fn(async () => {}),
+    listPlaylists: vi.fn(async () => [{ id: "PLabcdefghijkl", title: "Meeyazh & Pirai Shorts" }]),
+    updateSchedule: vi.fn(async () => {}),
     ...over,
   };
 }

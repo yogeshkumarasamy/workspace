@@ -1,7 +1,9 @@
-export interface DriveFile { id: string; name: string; mimeType: string }
+export interface DriveFile { id: string; name: string; mimeType: string; size?: string; thumbnailLink?: string; modifiedTime?: string }
 export interface DriveLister {
   list(folderId: string): Promise<DriveFile[]>;
   readText(fileId: string): Promise<string>;
+  /** Stream file bytes (used for thumbnail previews). */
+  download(fileId: string): Promise<{ stream: NodeJS.ReadableStream; mimeType: string }>;
 }
 
 const FOLDER = "application/vnd.google-apps.folder";

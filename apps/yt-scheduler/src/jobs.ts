@@ -25,10 +25,11 @@ export async function createJob(raw: unknown, store: Store, now = new Date()): P
   const input = parsed.data;
 
   const warnings: string[] = [];
+  let autoNote = "";
   let publishAt: Date | null = input.metadata.publishAt ? new Date(input.metadata.publishAt) : null;
   if (!publishAt && input.metadata.privacyStatus === "private") {
     publishAt = nextFreeSlot(input.metadata.type, now, await store.takenPublishSlots(channel.id, input.metadata.type), channel.slots);
-    warnings.push(`auto-slotted publishAt ${publishAt.toISOString()}`);
+    autoNote = `auto-slotted publishAt ${publishAt.toISOString()}`;
   }
   if (publishAt && publishAt.getTime() < now.getTime()) warnings.push("publishAt is in the past; video will be uploaded with privacyStatus as given");
   const runAt = input.uploadMode === "at" ? new Date(input.uploadAt!) : now;
@@ -38,6 +39,6 @@ export async function createJob(raw: unknown, store: Store, now = new Date()): P
   return store.insertJob({
     channelId: channel.id, idempotencyKey: input.idempotencyKey, status: "queued",
     video: input.video, thumbnail: input.thumbnail ?? null, metadata, uploadMode: input.uploadMode,
-    runAt, publishAt, attempts: 0, lastError: null, youtubeVideoId: null, warnings,
+    runAt, publishAt, attempts: 0, lastError: null, youtubeVideoId: null, warnings, log: [{ at: now.toISOString(), msg: "created" }, ...(autoNote ? [{ at: now.toISOString(), msg: autoNote }] : [])],
   });
 }

@@ -14,6 +14,12 @@ import type { Channel, JobStatus } from "./types.js";
 import { tick } from "./worker.js";
 import type { WorkerDeps } from "./worker.js";
 import { renderUi } from "./ui.js";
+import { ConflictError, bulkAction, editJob, rescheduleJob } from "./manage.js";
+import type { BulkAction } from "./manage.js";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { Readable } from "node:stream";
+import { serveStatic } from "@hono/node-server/serve-static";
 
 export interface OAuthPort {
   authUrl(state: string): string;
@@ -31,6 +37,8 @@ export interface AppDeps {
   oauth: OAuthPort;
   worker: WorkerDeps;
   driveFor(channel: Channel): DriveLister;
+  /** Built SPA directory (dist/web). Falls back to the minimal HTML page when absent. */
+  webDir?: string;
 }
 
 const safeEq = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
@@ -46,13 +54,18 @@ export function createApp(d: AppDeps) {
   };
 
   app.onError((e, c) => {
-    if (e instanceof InputError) return c.json({ error: e.message, issues: e.issues }, 400);
+    if (e instanceof InputError) return c.json({ error: e.message, issues: e.issues }, e.message === "not found" ? 404 : 400);
+    if (e instanceof ConflictError) return c.json({ error: e.message }, 409);
     console.error(e);
     return c.json({ error: e.message }, 500);
   });
 
-  app.get("/", (c) => c.html(renderUi({ audited: d.audited })));
+  const spa = d.webDir && existsSync(join(d.webDir, "index.html")) ? readFileSync(join(d.webDir, "index.html"), "utf8") : null;
+  app.get("/", (c) => (spa ? c.html(spa) : c.html(renderUi({ audited: d.audited }))));
   app.get("/api/health", (c) => c.json({ ok: true }));
+  /** Public, non-secret flags for the SPA (shown before login). */
+  app.get("/api/config", (c) => c.json({ audited: d.audited, dailyQuota: d.dailyQuota }));
+  if (spa) app.use("/assets/*", serveStatic({ root: d.webDir! }));
 
   // OAuth: browser navigation can't send headers, so the key is passed once as a query param.
   app.get("/oauth/start", (c) => {
@@ -167,10 +180,46 @@ export function createApp(d: AppDeps) {
     return c.json({ day: quotaDay(now), limit: d.dailyQuota, used: used.total, byChannel: used.byChannel, uploadsLeftToday: Math.max(0, Math.floor((d.dailyQuota - used.total) / JOB_COST)), resetsAt: nextQuotaReset(now), note: "Quota is shared by all channels in one Google Cloud project." });
   });
 
+  const mdeps = { store: d.store, apiFor: d.worker.apiFor };
+  api.patch("/jobs/:id", async (c) => c.json(await editJob(c.req.param("id"), await c.req.json(), mdeps)));
+  api.post("/jobs/:id/reschedule", async (c) => {
+    const b = (await c.req.json()) as { publishAt?: string };
+    if (!b.publishAt) throw new InputError("publishAt required");
+    return c.json(await rescheduleJob(c.req.param("id"), new Date(b.publishAt), mdeps));
+  });
+  api.post("/jobs/bulk", async (c) => {
+    const b = (await c.req.json()) as BulkAction;
+    if (!Array.isArray(b.ids) || !["cancel", "retry", "reschedule", "autoslot"].includes(b.action)) throw new InputError("ids[] and action required");
+    return c.json({ results: await bulkAction(b, mdeps) });
+  });
+
+  const channelOr404 = async (ref: string | undefined) => {
+    const all = await d.store.listChannels();
+    const ch = ref ? await d.store.findChannel(ref) : all.length === 1 ? all[0]! : null;
+    if (!ch) throw new InputError("unknown channel");
+    return ch;
+  };
+  api.get("/channels/:id/playlists", async (c) => c.json(await d.worker.apiFor(await channelOr404(c.req.param("id"))).listPlaylists()));
+  /** Drive browser for the file picker. folderId defaults to "root". */
+  api.get("/drive/list", async (c) => {
+    const ch = await channelOr404(c.req.query("channel"));
+    const files = await d.driveFor(ch).list(c.req.query("folderId") || "root");
+    return c.json(files.sort((a, b) => Number(b.mimeType.endsWith("folder")) - Number(a.mimeType.endsWith("folder")) || a.name.localeCompare(b.name)));
+  });
+  /** Stream a Drive file (thumbnail preview). */
+  api.get("/drive/file/:fileId", async (c) => {
+    const ch = await channelOr404(c.req.query("channel"));
+    const f = await d.driveFor(ch).download(c.req.param("fileId"));
+    if (!/^image\//.test(f.mimeType)) return c.json({ error: "only images can be previewed" }, 415);
+    return new Response(Readable.toWeb(Readable.from(f.stream as AsyncIterable<Uint8Array>)) as ReadableStream, { headers: { "content-type": f.mimeType, "cache-control": "private, max-age=3600" } });
+  });
+
   /** For external cron (e.g. if the host sleeps). */
   api.post("/tick", async (c) => c.json({ processed: await tick(d.worker) }));
 
   app.route("/api", api);
+  // SPA client-side routes
+  if (spa) app.get("*", (c) => (c.req.path.startsWith("/api") || c.req.path.startsWith("/oauth") ? c.notFound() : c.html(spa)));
   return app;
 }
 

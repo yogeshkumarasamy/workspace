@@ -79,17 +79,18 @@ create table if not exists jobs (
   id uuid primary key, channel_id uuid not null references channels(id), idempotency_key text not null,
   status text not null, video jsonb not null, thumbnail jsonb, metadata jsonb not null, upload_mode text not null,
   run_at timestamptz not null, publish_at timestamptz, attempts int not null default 0, last_error text,
-  youtube_video_id text, warnings jsonb not null default '[]',
+  youtube_video_id text, warnings jsonb not null default '[]', log jsonb not null default '[]',
   created_at timestamptz not null default now(), updated_at timestamptz not null default now(),
   unique (channel_id, idempotency_key));
+alter table jobs add column if not exists log jsonb not null default '[]';
 create index if not exists jobs_due on jobs (status, run_at);
 create table if not exists quota_usage (day text not null, channel_id uuid not null, units int not null default 0, primary key (day, channel_id));
 `;
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const rowToChannel = (r: any): Channel => ({ id: r.id, youtubeChannelId: r.youtube_channel_id, handle: r.handle, title: r.title, refreshTokenEnc: r.refresh_token_enc, googleEmail: r.google_email, driveRefreshTokenEnc: r.drive_refresh_token_enc, defaults: r.defaults, slots: r.slots, createdAt: r.created_at });
-const rowToJob = (r: any): Job => ({ id: r.id, channelId: r.channel_id, idempotencyKey: r.idempotency_key, status: r.status, video: r.video, thumbnail: r.thumbnail, metadata: r.metadata, uploadMode: r.upload_mode, runAt: r.run_at, publishAt: r.publish_at, attempts: r.attempts, lastError: r.last_error, youtubeVideoId: r.youtube_video_id, warnings: r.warnings, createdAt: r.created_at, updatedAt: r.updated_at });
-const jobCols: Record<string, string> = { status: "status", runAt: "run_at", publishAt: "publish_at", attempts: "attempts", lastError: "last_error", youtubeVideoId: "youtube_video_id", warnings: "warnings", metadata: "metadata" };
+const rowToJob = (r: any): Job => ({ id: r.id, channelId: r.channel_id, idempotencyKey: r.idempotency_key, status: r.status, video: r.video, thumbnail: r.thumbnail, metadata: r.metadata, uploadMode: r.upload_mode, runAt: r.run_at, publishAt: r.publish_at, attempts: r.attempts, lastError: r.last_error, youtubeVideoId: r.youtube_video_id, warnings: r.warnings, log: r.log ?? [], createdAt: r.created_at, updatedAt: r.updated_at });
+const jobCols: Record<string, string> = { status: "status", runAt: "run_at", publishAt: "publish_at", attempts: "attempts", lastError: "last_error", youtubeVideoId: "youtube_video_id", warnings: "warnings", metadata: "metadata", log: "log", video: "video", thumbnail: "thumbnail", uploadMode: "upload_mode" };
 
 export class PgStore implements Store {
   pool: pg.Pool;
@@ -116,9 +117,9 @@ export class PgStore implements Store {
   }
   async insertJob(j: Omit<Job, "id" | "createdAt" | "updatedAt">) {
     const r = await this.pool.query(
-      `insert into jobs (id,channel_id,idempotency_key,status,video,thumbnail,metadata,upload_mode,run_at,publish_at,attempts,warnings)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11) on conflict (channel_id,idempotency_key) do nothing returning *`,
-      [randomUUID(), j.channelId, j.idempotencyKey, j.status, j.video, j.thumbnail, j.metadata, j.uploadMode, j.runAt, j.publishAt, JSON.stringify(j.warnings)]);
+      `insert into jobs (id,channel_id,idempotency_key,status,video,thumbnail,metadata,upload_mode,run_at,publish_at,attempts,warnings,log)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,0,$11,$12) on conflict (channel_id,idempotency_key) do nothing returning *`,
+      [randomUUID(), j.channelId, j.idempotencyKey, j.status, j.video, j.thumbnail, j.metadata, j.uploadMode, j.runAt, j.publishAt, JSON.stringify(j.warnings), JSON.stringify(j.log ?? [])]);
     if (r.rows[0]) return { job: rowToJob(r.rows[0]), created: true };
     const e = await this.pool.query("select * from jobs where channel_id=$1 and idempotency_key=$2", [j.channelId, j.idempotencyKey]);
     return { job: rowToJob(e.rows[0]), created: false };
@@ -130,7 +131,7 @@ export class PgStore implements Store {
   }
   async updateJob(id: string, patch: Partial<Job>) {
     const sets: string[] = []; const vals: unknown[] = [id];
-    for (const [k, v] of Object.entries(patch)) { const col = jobCols[k]; if (!col) continue; vals.push(k === "warnings" ? JSON.stringify(v) : v); sets.push(`${col}=$${vals.length}`); }
+    for (const [k, v] of Object.entries(patch)) { const col = jobCols[k]; if (!col) continue; vals.push(k === "warnings" || k === "log" ? JSON.stringify(v) : v); sets.push(`${col}=$${vals.length}`); }
     if (sets.length) await this.pool.query(`update jobs set ${sets.join(",")}, updated_at=now() where id=$1`, vals);
   }
   async claimDue(now: Date) {

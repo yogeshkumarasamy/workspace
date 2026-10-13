@@ -1,0 +1,12 @@
+# Tasks
+- [x] T1 zod job + sidecar schema, JSON Schema export. Verified by `pnpm --filter @apps/yt-scheduler test`
+- [x] T2 per-channel auto-slotting (tz/DST aware). Verified by tests
+- [x] T3 quota accounting + Pacific reset, backoff/error classification. Verified by tests
+- [x] T4 AES-GCM refresh-token encryption. Verified by tests
+- [x] T5 Memory + Postgres store, idempotency per channel. Memory store tested; Postgres SQL not yet run against a live DB (see README)
+- [x] T6 Worker: stream upload, thumbnail, playlist resolve/create, retries. Verified with a mocked client
+- [x] T7 Drive folder import. Verified with a mocked lister
+- [x] T8 HTTP API + multi-channel OAuth + UI. API key and bulk paths tested
+- [x] T9 Docker/compose/Render + README. `pnpm turbo run build lint test`
+- [ ] T10 First real upload to @meeyazhpirai after the Google Cloud setup (manual)
+- [ ] T11 Submit the YouTube API audit form (manual)

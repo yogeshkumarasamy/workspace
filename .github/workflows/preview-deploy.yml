@@ -43,9 +43,46 @@ jobs:
 
       - name: 🧼 Sanitize branch name for path
         id: sanitize
-        run: echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ ' '__')" >> $GITHUB_OUTPUT
+        run: |
+          # '#' would be a URL fragment in the preview link and a bad FTP path segment.
+          echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ #' '___')" >> "$GITHUB_OUTPUT"
 
+      # Hostinger drops the FTP data socket (ECONNRESET) on the first MKD of a new
+      # preview folder. ftp-deploy swallows that error as "first publish" and then
+      # fails instantly because the client is already closed. A fresh connection retries.
       - name: 📤 Upload preview to Hostinger
+        id: ftp1
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: apps/portfolio/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
+
+      - name: ⏳ Wait before FTP retry
+        if: steps.ftp1.outcome == 'failure'
+        run: sleep 20
+
+      - name: 📤 Upload preview to Hostinger (retry)
+        id: ftp2
+        if: steps.ftp1.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: apps/portfolio/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
+
+      - name: ⏳ Wait before second FTP retry
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        run: sleep 20
+
+      - name: 📤 Upload preview to Hostinger (retry 2)
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}

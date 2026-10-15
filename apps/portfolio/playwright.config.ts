@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright E2E configuration for Retro Portfolio (YK-OS).
  * Runs automated tests against vite preview for keyboard navigation,
  * accessibility, reduced-motion, and mobile viewport requirements.
- * See: PRD §13 (S15 E2E & a11y test harness)
+ * See: PRD §13 (S15 E2E & a11y test harness).
  */
 export default defineConfig({
   testDir: "./e2e",

@@ -58,6 +58,19 @@ describe("Router & Navigation", () => {
       expect(parseRoute("#/unknown-route")).toEqual({ view: "desktop" });
       expect(parseRoute("#/app/invalid-app-id")).toEqual({ view: "desktop" });
     });
+
+    it("handles trailing slashes and query strings gracefully", () => {
+      expect(parseRoute("#/classic/")).toEqual({ view: "classic" });
+      expect(parseRoute("#/app/terminal/")).toEqual({
+        view: "app",
+        appId: "terminal",
+      });
+      expect(parseRoute("#/app/terminal?ref=nav")).toEqual({
+        view: "app",
+        appId: "terminal",
+      });
+      expect(parseRoute("#/?utm_source=test")).toEqual({ view: "desktop" });
+    });
   });
 
   describe("routeToHash", () => {

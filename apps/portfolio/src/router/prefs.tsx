@@ -31,8 +31,8 @@ function getInitialCrt(): boolean {
   if (typeof window === "undefined") return true;
   try {
     const stored = window.localStorage.getItem(CRT_STORAGE_KEY);
-    if (stored === "off" || stored === "false") return false;
-    if (stored === "on" || stored === "true") return true;
+    if (stored === "off" || stored === "false" || stored === "0") return false;
+    if (stored === "on" || stored === "true" || stored === "1") return true;
   } catch {
     // localStorage may be disabled
   }

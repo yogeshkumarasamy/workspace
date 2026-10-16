@@ -129,7 +129,7 @@ describe("PrefsProvider & usePrefs", () => {
   it("initializes crt from window.localStorage", () => {
     window.localStorage.setItem("yk-crt", "off");
 
-    render(
+    const { unmount } = render(
       <PrefsProvider>
         <PrefsConsumer />
       </PrefsProvider>
@@ -137,6 +137,15 @@ describe("PrefsProvider & usePrefs", () => {
 
     expect(screen.getByTestId("pref-crt").textContent).toBe("off");
     expect(document.documentElement.getAttribute("data-crt")).toBe("off");
+    unmount();
+
+    window.localStorage.setItem("yk-crt", "0");
+    render(
+      <PrefsProvider>
+        <PrefsConsumer />
+      </PrefsProvider>
+    );
+    expect(screen.getByTestId("pref-crt").textContent).toBe("off");
   });
 
   it("disables CRT when reducedMotion is true", () => {

@@ -18,7 +18,9 @@ const VALID_APP_IDS: readonly AppId[] = [
  * #/app/<id> -> { view: "app", appId: id }
  */
 export function parseRoute(hash: string): Route {
-  const clean = hash.replace(/^#\/?/, "");
+  const raw = hash.replace(/^#\/?/, "");
+  const [withoutQuery] = raw.split("?");
+  const clean = withoutQuery.replace(/\/+$/, "");
 
   if (!clean || clean === "/") {
     return { view: "desktop" };

@@ -1,3 +1,5 @@
+import "@testing-library/jest-dom";
+
 // Ensure matchMedia exists in test environment
 if (typeof window !== "undefined" && !window.matchMedia) {
   Object.defineProperty(window, "matchMedia", {

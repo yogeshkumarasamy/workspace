@@ -17,7 +17,7 @@ export const AboutView: React.FC<AboutAppProps> = ({
   const profile: Profile = inputProfile ?? verifiedProfile;
   const isDev = isDevProp ?? Boolean(import.meta.env?.DEV);
 
-  const showAbout = Boolean(profile.about);
+  const showAbout = Boolean(profile.about && profile.about.trim().length > 0);
   const showPlaceholder = !showAbout && isDev;
 
   return (
@@ -142,7 +142,9 @@ export const AboutView: React.FC<AboutAppProps> = ({
                       <p className="yk-about-edu-credential">{edu.credential}</p>
                     )}
                     <p className="yk-about-edu-dates">
-                      {edu.start}–{edu.end}
+                      {edu.end && edu.start !== edu.end
+                        ? `${edu.start}–${edu.end}`
+                        : edu.start}
                     </p>
                   </div>
                 ))}

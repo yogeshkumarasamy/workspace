@@ -96,6 +96,54 @@ it("renders bio placeholder in dev mode when about is null", () => {
   assert.match(html, /about-placeholder/);
 });
 
+it("treats whitespace-only or empty about as null (omitted in prod, placeholder in dev)", () => {
+  const profileWithEmptyAbout: Profile = {
+    ...verifiedProfile,
+    about: "   ",
+  };
+
+  const htmlProd = renderToStaticMarkup(
+    React.createElement(AboutView, {
+      profile: profileWithEmptyAbout,
+      isDev: false,
+    }),
+  );
+  assert.ok(!htmlProd.includes(ABOUT_DEV_PLACEHOLDER));
+  assert.ok(!htmlProd.includes('id="about-section-bio"'));
+
+  const htmlDev = renderToStaticMarkup(
+    React.createElement(AboutView, {
+      profile: profileWithEmptyAbout,
+      isDev: true,
+    }),
+  );
+  assert.match(htmlDev, /\[TODO: Owner bio placeholder/);
+});
+
+it("formats single-year education as single year without dash", () => {
+  const profileWithSingleYearEdu: Profile = {
+    ...verifiedProfile,
+    education: [
+      {
+        institution: "Single Year Academy",
+        credential: "Certification",
+        start: 2020,
+        end: 2020,
+      },
+    ],
+  };
+
+  const html = renderToStaticMarkup(
+    React.createElement(AboutView, {
+      profile: profileWithSingleYearEdu,
+      isDev: false,
+    }),
+  );
+
+  assert.match(html, />2020</);
+  assert.ok(!html.includes("2020–2020"));
+});
+
 it("renders bio text when about is provided, both in dev and prod", () => {
   const htmlProd = renderToStaticMarkup(
     React.createElement(AboutView, {

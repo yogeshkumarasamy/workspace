@@ -1,0 +1,38 @@
+@media print {
+  .yk-classic {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #000;
+  }
+
+  .yk-classic h2 {
+    border-bottom-color: #000;
+  }
+
+  .yk-classic a {
+    color: #000;
+    text-decoration: none;
+  }
+
+  .yk-classic__skip,
+  .yk-classic__desktop,
+  .yk-classic__toc,
+  .yk-classic__placeholder,
+  .yk-classic__photo {
+    display: none;
+  }
+
+  .yk-classic a[href^="https:"]::after,
+  .yk-classic a[href^="mailto:"]::after {
+    content: " (" attr(href) ")";
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  .yk-classic section,
+  .yk-classic article {
+    break-inside: avoid;
+  }
+}

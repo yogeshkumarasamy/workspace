@@ -16,7 +16,9 @@ jobs:
     steps:
       - name: 🧼 Sanitize branch name
         id: sanitize
-        run: echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ ' '__')" >> $GITHUB_OUTPUT
+        run: |
+          # Keep in sync with preview-deploy.yml so close deletes the folder we published.
+          echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ #' '___')" >> "$GITHUB_OUTPUT"
 
       - name: 🧹 Delete preview folder via FTP using lftp
         run: |

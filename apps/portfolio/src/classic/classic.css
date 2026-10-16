@@ -1,0 +1,177 @@
+/*
+ * Plain résumé. Colors come from S02 tokens so `data-theme="light"` wins.
+ * Fallbacks are a light page for CRT off and for the gap before tokens load.
+ * No keyframes, transitions, or CRT overlays.
+ */
+
+.yk-classic {
+  --yk-classic-bg: var(--yk-bg, #f4efe4);
+  --yk-classic-fg: var(--yk-fg, #1a140c);
+  --yk-classic-muted: var(--yk-muted, #3f3426);
+  --yk-classic-accent: var(--yk-accent, #083e8a);
+  --yk-classic-focus: var(--yk-focus, #083e8a);
+  --yk-classic-rule: var(--yk-bevel-dark, #c8bfae);
+
+  box-sizing: border-box;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3rem;
+  background: var(--yk-classic-bg);
+  color: var(--yk-classic-fg);
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  scroll-behavior: auto;
+}
+
+.yk-classic *,
+.yk-classic *::before,
+.yk-classic *::after {
+  box-sizing: border-box;
+  animation: none;
+  transition: none;
+}
+
+.yk-classic h1,
+.yk-classic h2,
+.yk-classic h3 {
+  font-family: var(--yk-font-ui, system-ui, sans-serif);
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.yk-classic h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 2rem;
+}
+
+.yk-classic h2 {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--yk-classic-rule);
+  font-size: 1.25rem;
+}
+
+.yk-classic h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+}
+
+.yk-classic p,
+.yk-classic ul,
+.yk-classic ol {
+  margin: 0 0 0.75rem;
+}
+
+.yk-classic a {
+  color: var(--yk-classic-accent);
+  text-underline-offset: 0.15em;
+}
+
+.yk-classic a:focus-visible {
+  outline: 2px solid var(--yk-classic-focus);
+  outline-offset: 2px;
+}
+
+.yk-classic__skip {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.yk-classic__skip:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0 0 1rem;
+  overflow: visible;
+  clip: auto;
+  padding: 0.5rem 0.75rem;
+  background: var(--yk-classic-bg);
+}
+
+.yk-classic__lede {
+  margin-top: 0;
+  font-size: 1.125rem;
+}
+
+.yk-classic__meta,
+.yk-classic__aka {
+  color: var(--yk-classic-muted);
+}
+
+.yk-classic__photo {
+  display: block;
+  width: 6rem;
+  height: 6rem;
+  object-fit: cover;
+  margin-bottom: 0.75rem;
+}
+
+.yk-classic__toc {
+  margin: 0 0 1.5rem;
+}
+
+.yk-classic__toc ul,
+.yk-classic__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.yk-classic__toc a,
+.yk-classic__links a,
+.yk-classic__desktop a {
+  display: inline-block;
+  min-height: 1.5rem;
+  padding: 0.15rem 0;
+}
+
+.yk-classic section {
+  margin: 0 0 1.75rem;
+}
+
+.yk-classic article {
+  margin: 0 0 1.25rem;
+}
+
+.yk-classic address {
+  font-style: normal;
+}
+
+.yk-classic__placeholder {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--yk-classic-rule);
+  font-size: 0.9rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yk-classic,
+  .yk-classic *,
+  .yk-classic *::before,
+  .yk-classic *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .yk-classic {
+    background: canvas;
+    color: canvastext;
+  }
+
+  .yk-classic a {
+    color: linktext;
+  }
+}

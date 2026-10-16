@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "test": "vitest run",
+    "test": "VITEST_SKIP_INSTALL_CHECKS=1 vitest run",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -17,19 +17,20 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@axe-core/playwright": "^4.10.1",
-    "@playwright/test": "^1.48.0",
+    "@axe-core/playwright": "^4.9.1",
+    "@playwright/test": "^1.45.0",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@testing-library/jest-dom": "^6.4.2",
-    "@testing-library/react": "^14.3.1",
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@testing-library/react": "^14.2.1",
+    "@types/node": "^26.6.5",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
     "@vitejs/plugin-react": "^3.1.0",
     "eslint": "^8.57.0",
-    "jsdom": "^24.1.0",
+    "jsdom": "^24.0.0",
     "typescript": "5.5.4",
     "vite": "^5.1.4",
-    "vitest": "^1.6.0"
+    "vitest": "^1.4.0"
   }
 }

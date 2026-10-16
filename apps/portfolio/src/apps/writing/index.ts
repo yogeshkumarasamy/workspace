@@ -1,24 +1,17 @@
-import { lazy } from "react";
-import type { ComponentType } from "react";
+import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 import type { AppDefinition, AppProps } from "./types";
 
-const LazyWritingApp = lazy(
-  () =>
-    import("./WritingApp") as Promise<{
-      default: ComponentType<AppProps>;
-    }>,
+const component: LazyExoticComponent<ComponentType<AppProps>> = lazy(
+  () => import("./WritingApp"),
 );
 
-export const writingApp: AppDefinition = {
+const writing: AppDefinition = {
   id: "writing",
-  title: "Writing/",
-  icon: "📰",
+  title: "Writing",
+  icon: "✎",
   order: 4,
-  defaultSize: { w: 600, h: 440 },
-  component: LazyWritingApp,
+  defaultSize: { w: 480, h: 360 },
+  component,
 };
 
-export default writingApp;
-export { verifiedArticles, verifiedMediumUrl } from "./__fixtures__/writing";
-export * from "./types";
-export * from "./format";
+export default writing;

@@ -1,4 +1,4 @@
-const MONTH_NAMES = [
+const MONTHS = [
   "Jan",
   "Feb",
   "Mar",
@@ -13,51 +13,33 @@ const MONTH_NAMES = [
   "Dec",
 ] as const;
 
-/**
- * Formats an ISO date string (YYYY-MM-DD, YYYY-MM, or YYYY) into a readable retro format.
- * Examples:
- * - "2025-04-17" -> "Apr 17, 2025"
- * - "2025-04" -> "Apr 2025"
- * - "2025" -> "2025"
- *
- * If the input does not match expected patterns, returns the original string safely.
- */
-export function formatArticleDate(dateStr: string): string {
-  if (!dateStr || typeof dateStr !== "string") {
-    return "";
-  }
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-  const trimmed = dateStr.trim();
-  const parts = trimmed.split("-");
+function monthName(month: string): string | null {
+  const index = Number(month) - 1;
+  return MONTHS[index] ?? null;
+}
 
-  if (parts.length === 3) {
-    const [yearStr, monthStr, dayStr] = parts;
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-    const day = parseInt(dayStr, 10);
+/** Calendar `YYYY-MM-DD` only. Anything else is not a machine date. */
+export function isoDateTime(value: string): string | null {
+  const match = ISO_DATE.exec(value);
+  if (!match) return null;
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return value;
+}
 
-    if (
-      !isNaN(year) &&
-      !isNaN(month) &&
-      !isNaN(day) &&
-      month >= 1 &&
-      month <= 12 &&
-      day >= 1 &&
-      day <= 31
-    ) {
-      const monthName = MONTH_NAMES[month - 1];
-      return `${monthName} ${day}, ${year}`;
-    }
-  } else if (parts.length === 2) {
-    const [yearStr, monthStr] = parts;
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
+/** Visible label for a calendar date. Unknown input is returned unchanged. */
+export function formatIsoDate(value: string): string {
+  const match = ISO_DATE.exec(value);
+  if (!match) return value;
+  const month = monthName(match[2]);
+  if (!month) return value;
+  return `${Number(match[3])} ${month} ${match[1]}`;
+}
 
-    if (!isNaN(year) && !isNaN(month) && month >= 1 && month <= 12) {
-      const monthName = MONTH_NAMES[month - 1];
-      return `${monthName} ${year}`;
-    }
-  }
-
-  return trimmed;
+/** Article and profile links are https-only. Other schemes are not rendered as links. */
+export function httpsHref(href: string): string | null {
+  return /^https:\/\//i.test(href) ? href : null;
 }

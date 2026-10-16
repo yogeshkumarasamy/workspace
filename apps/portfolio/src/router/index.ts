@@ -1,87 +1,62 @@
 import { useEffect, useState } from "react";
-import type { AppId } from "../contracts/apps";
 import type { Route } from "../contracts/os";
+import type { AppId } from "../contracts/apps";
 
-const VALID_APP_IDS: readonly AppId[] = [
-  "about",
-  "experience",
-  "projects",
-  "writing",
-  "contact",
-  "terminal",
-] as const;
+export type { Route };
 
-/**
- * Parses a hash string into a typed Route object.
- * #/ -> { view: "desktop" }
- * #/classic -> { view: "classic" }
- * #/app/<id> -> { view: "app", appId: id }
- */
-export function parseRoute(hash: string): Route {
-  const raw = hash.replace(/^#\/?/, "");
-  const [withoutQuery] = raw.split("?");
-  const clean = withoutQuery.replace(/\/+$/, "");
+export function parseHash(hash: string): Route {
+  const cleanHash = hash.startsWith("#") ? hash.slice(1) : hash;
+  const path = cleanHash.startsWith("/") ? cleanHash : `/${cleanHash}`;
 
-  if (!clean || clean === "/") {
-    return { view: "desktop" };
-  }
-
-  if (clean === "classic") {
+  if (path === "/classic") {
     return { view: "classic" };
   }
 
-  if (clean.startsWith("app/")) {
-    const id = clean.slice(4) as AppId;
-    if (VALID_APP_IDS.includes(id)) {
-      return { view: "app", appId: id };
-    }
+  const appMatch = path.match(/^\/app\/([a-zA-Z0-9_-]+)$/);
+  if (appMatch && appMatch[1]) {
+    return { view: "app", appId: appMatch[1] as AppId };
   }
 
   return { view: "desktop" };
 }
 
-/**
- * Converts a Route object into a hash string.
- */
 export function routeToHash(route: Route): string {
-  switch (route.view) {
-    case "classic":
-      return "#/classic";
-    case "app":
-      return `#/app/${route.appId}`;
-    case "desktop":
-    default:
-      return "#/";
+  if (route.view === "classic") {
+    return "#/classic";
   }
+  if (route.view === "app") {
+    return `#/app/${route.appId}`;
+  }
+  return "#/";
 }
 
-/**
- * Navigates by updating the window hash.
- */
-export function navigate(route: Route): void {
+export function navigate(route: Route | string): void {
   if (typeof window === "undefined") return;
-  const hash = routeToHash(route);
-  if (window.location.hash !== hash) {
-    window.location.hash = hash;
+
+  if (typeof route === "string") {
+    if (route.startsWith("#")) {
+      window.location.hash = route;
+    } else {
+      window.location.hash = `#${route.startsWith("/") ? route : `/${route}`}`;
+    }
+  } else {
+    window.location.hash = routeToHash(route);
   }
 }
 
-/**
- * Hook to subscribe to hash changes and return the active Route.
- */
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => {
     if (typeof window === "undefined") {
       return { view: "desktop" };
     }
-    return parseRoute(window.location.hash);
+    return parseHash(window.location.hash);
   });
 
   useEffect(() => {
-    if (typeof window === "undefined") return undefined;
+    if (typeof window === "undefined") return;
 
     const onHashChange = () => {
-      setRoute(parseRoute(window.location.hash));
+      setRoute(parseHash(window.location.hash));
     };
 
     window.addEventListener("hashchange", onHashChange);
@@ -93,4 +68,4 @@ export function useRoute(): Route {
   return route;
 }
 
-export * from "./prefs";
+export { PrefsProvider, usePrefs } from "./prefs";

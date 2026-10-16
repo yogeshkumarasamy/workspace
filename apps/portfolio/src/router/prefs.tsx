@@ -2,160 +2,151 @@ import React, {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useState,
+  useCallback,
+  useMemo,
 } from "react";
-import type { PrefsApi, Theme } from "../contracts/os";
+import type { Theme, PrefsApi } from "../contracts/os";
 
-const THEME_STORAGE_KEY = "yk-theme";
-const CRT_STORAGE_KEY = "yk-crt";
+export type { Theme, PrefsApi };
 
-const VALID_THEMES: readonly Theme[] = ["green", "amber", "light"] as const;
+const STORAGE_KEY_THEME = "yk-os-theme";
+const STORAGE_KEY_CRT = "yk-os-crt";
 
-function isTheme(val: unknown): val is Theme {
-  return typeof val === "string" && VALID_THEMES.includes(val as Theme);
-}
+const DEFAULT_THEME: Theme = "green";
 
-function getInitialTheme(): Theme {
-  if (typeof window === "undefined") return "green";
+export const PrefsContext = createContext<PrefsApi>({
+  theme: DEFAULT_THEME,
+  setTheme: () => {},
+  crt: true,
+  setCrt: () => {},
+  reducedMotion: false,
+});
+
+function readStoredTheme(): Theme {
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (isTheme(stored)) return stored;
+    if (typeof window === "undefined" || !window.localStorage) {
+      return DEFAULT_THEME;
+    }
+    const val = window.localStorage.getItem(STORAGE_KEY_THEME);
+    if (val === "green" || val === "amber" || val === "light") {
+      return val;
+    }
   } catch {
-    // localStorage may be disabled / private mode
+    // Gracefully handle storage errors
   }
-  return "green";
+  return DEFAULT_THEME;
 }
 
-function getInitialCrt(): boolean {
-  if (typeof window === "undefined") return true;
+function readStoredCrt(reducedMotion: boolean): boolean {
+  if (reducedMotion) return false;
   try {
-    const stored = window.localStorage.getItem(CRT_STORAGE_KEY);
-    if (stored === "off" || stored === "false" || stored === "0") return false;
-    if (stored === "on" || stored === "true" || stored === "1") return true;
+    if (typeof window === "undefined" || !window.localStorage) {
+      return true;
+    }
+    const val = window.localStorage.getItem(STORAGE_KEY_CRT);
+    if (val !== null) {
+      return val === "true" || val === "1" || val === "on";
+    }
   } catch {
-    // localStorage may be disabled
+    // Gracefully handle storage errors
   }
   return true;
 }
 
-function getInitialReducedMotion(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  try {
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  } catch {
-    return false;
-  }
-}
-
-const PrefsContext = createContext<PrefsApi | null>(null);
-
-export interface PrefsProviderProps {
+export const PrefsProvider: React.FC<{
   children: React.ReactNode;
   initialTheme?: Theme;
   initialCrt?: boolean;
-}
+}> = ({ children, initialTheme, initialCrt }) => {
+  const [reducedMotion, setReducedMotion] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    try {
+      return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      return false;
+    }
+  });
 
-export function PrefsProvider({
-  children,
-  initialTheme,
-  initialCrt,
-}: PrefsProviderProps): React.ReactElement {
   const [theme, setThemeState] = useState<Theme>(
-    () => initialTheme ?? getInitialTheme()
-  );
-  const [crtPref, setCrtPref] = useState<boolean>(
-    () => initialCrt ?? getInitialCrt()
-  );
-  const [reducedMotion, setReducedMotion] = useState<boolean>(
-    getInitialReducedMotion
+    () => initialTheme ?? readStoredTheme(),
   );
 
-  // Sync reducedMotion with media query changes
+  const [crt, setCrtState] = useState<boolean>(
+    () => initialCrt ?? readStoredCrt(reducedMotion),
+  );
+
+  // Watch reduced-motion media query
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return undefined;
     try {
-      const mql = window.matchMedia("(prefers-reduced-motion: reduce)");
-      setReducedMotion(mql.matches);
-
-      const handler = (e: MediaQueryListEvent | MediaQueryList) => {
+      const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+      const handler = (e: MediaQueryListEvent) => {
         setReducedMotion(e.matches);
+        if (e.matches) {
+          setCrtState(false);
+        }
       };
-
-      if (mql.addEventListener) {
-        mql.addEventListener("change", handler as (e: MediaQueryListEvent) => void);
-        return () =>
-          mql.removeEventListener(
-            "change",
-            handler as (e: MediaQueryListEvent) => void
-          );
-      } else if ("addListener" in mql) {
-        // Fallback for older browsers
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (mql as any).addListener(handler);
-        return () => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (mql as any).removeListener(handler);
-        };
-      }
+      media.addEventListener("change", handler);
+      return () => media.removeEventListener("change", handler);
     } catch {
-      // Ignore media query listener errors
+      return undefined;
     }
-    return undefined;
   }, []);
 
-  const setTheme = (newTheme: Theme) => {
-    if (!VALID_THEMES.includes(newTheme)) return;
-    setThemeState(newTheme);
+  // Sync theme to documentElement & localStorage
+  const setTheme = useCallback((t: Theme) => {
+    setThemeState(t);
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, newTheme);
+      if (typeof window !== "undefined") {
+        window.localStorage?.setItem(STORAGE_KEY_THEME, t);
+      }
     } catch {
-      // Ignore storage failure
+      // Storage failure handled
     }
-  };
+  }, []);
 
-  const setCrt = (on: boolean) => {
-    setCrtPref(on);
+  // Sync crt to documentElement & localStorage
+  const setCrt = useCallback((on: boolean) => {
+    setCrtState(on);
     try {
-      window.localStorage.setItem(CRT_STORAGE_KEY, on ? "on" : "off");
+      if (typeof window !== "undefined") {
+        window.localStorage?.setItem(STORAGE_KEY_CRT, on ? "on" : "off");
+      }
     } catch {
-      // Ignore storage failure
+      // Storage failure handled
     }
-  };
+  }, []);
 
-  // CRT is disabled when reduced motion is requested
-  const effectiveCrt = reducedMotion ? false : crtPref;
-
-  // Sync DOM attributes on <html>: data-theme and data-crt
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
     document.documentElement.setAttribute(
       "data-crt",
-      effectiveCrt ? "on" : "off"
+      crt && !reducedMotion ? "on" : "off",
     );
-  }, [theme, effectiveCrt]);
+  }, [crt, reducedMotion]);
 
   const value = useMemo<PrefsApi>(
     () => ({
       theme,
       setTheme,
-      crt: effectiveCrt,
+      crt: crt && !reducedMotion,
       setCrt,
       reducedMotion,
     }),
-    [theme, effectiveCrt, reducedMotion]
+    [theme, setTheme, crt, setCrt, reducedMotion],
   );
 
   return (
     <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>
   );
-}
+};
 
 export function usePrefs(): PrefsApi {
-  const ctx = useContext(PrefsContext);
-  if (!ctx) {
-    throw new Error("usePrefs must be used within a PrefsProvider");
-  }
-  return ctx;
+  return useContext(PrefsContext);
 }

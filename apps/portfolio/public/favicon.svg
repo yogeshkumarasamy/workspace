@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" shape-rendering="crispEdges">
+  <!-- Outer retro monitor chassis -->
+  <rect x="2" y="2" width="28" height="24" rx="2" fill="#c0c0c0"/>
+  <rect x="2" y="2" width="28" height="1" fill="#ffffff"/>
+  <rect x="2" y="2" width="1" height="24" fill="#ffffff"/>
+  <rect x="2" y="25" width="28" height="1" fill="#808080"/>
+  <rect x="29" y="2" width="1" height="24" fill="#808080"/>
+
+  <!-- Screen bezel cutout (dark inset) -->
+  <rect x="4" y="4" width="24" height="18" fill="#808080"/>
+  <rect x="4" y="4" width="24" height="1" fill="#404040"/>
+  <rect x="4" y="4" width="1" height="18" fill="#404040"/>
+  <rect x="4" y="21" width="24" height="1" fill="#dfdfdf"/>
+  <rect x="27" y="4" width="1" height="18" fill="#dfdfdf"/>
+
+  <!-- Phosphor green CRT display -->
+  <rect x="5" y="5" width="22" height="16" fill="#041208"/>
+
+  <!-- Pixel CRT terminal prompt ">_" in phosphor green (#00ff66) -->
+  <!-- ">" symbol -->
+  <rect x="7" y="9" width="2" height="2" fill="#00ff66"/>
+  <rect x="9" y="11" width="2" height="2" fill="#00ff66"/>
+  <rect x="11" y="13" width="2" height="2" fill="#00ff66"/>
+  <rect x="9" y="15" width="2" height="2" fill="#00ff66"/>
+  <rect x="7" y="17" width="2" height="2" fill="#00ff66"/>
+
+  <!-- "_" cursor (blinking underscore) -->
+  <rect x="15" y="17" width="5" height="2" fill="#00ff66"/>
+
+  <!-- Power LED -->
+  <rect x="25" y="23" width="2" height="2" fill="#00ff66"/>
+
+  <!-- Monitor stand & foot -->
+  <rect x="12" y="26" width="8" height="2" fill="#a0a0a0"/>
+  <rect x="12" y="26" width="8" height="1" fill="#dfdfdf"/>
+  <rect x="9" y="28" width="14" height="2" fill="#c0c0c0"/>
+  <rect x="9" y="28" width="14" height="1" fill="#ffffff"/>
+  <rect x="9" y="29" width="14" height="1" fill="#808080"/>
+</svg>

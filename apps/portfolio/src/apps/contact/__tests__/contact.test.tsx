@@ -23,7 +23,7 @@ describe("Contact App (workspace#38 / S12)", () => {
       expect(contactAppDefinition.order).toBe(5);
       expect(contactAppDefinition.defaultSize.w).toBe(520);
       expect(contactAppDefinition.defaultSize.h).toBe(360);
-      expect(contactAppDefinition.component).toBeTruthy();
+      expect(contactAppDefinition.component).toBeDefined();
     });
   });
 
@@ -31,14 +31,14 @@ describe("Contact App (workspace#38 / S12)", () => {
     it("renders verified facts: name, headline, location, email without invented data", () => {
       const { container } = render(<ContactApp />);
 
-      expect(screen.getByText("Yogesh Kumarasamy")).toBeTruthy();
-      expect(screen.getByText("Senior Software Engineer at FULL Creative")).toBeTruthy();
-      expect(screen.getByText("Chennai, Tamil Nadu, India")).toBeTruthy();
+      expect(screen.getByText("Yogesh Kumarasamy")).toBeDefined();
+      expect(screen.getByText("Senior Software Engineer at FULL Creative")).toBeDefined();
+      expect(screen.getByText("Chennai, Tamil Nadu, India")).toBeDefined();
       expect(screen.getByTestId("contact-email").textContent).toBe("yogeshkumarasamy@gmail.com");
 
       // Verify no invented facts
-      expect(container.innerHTML).not.toContain("tel:");
-      expect(container.innerHTML).not.toContain("workspace#");
+      expect(container.innerHTML.includes("tel:")).toBe(false);
+      expect(container.innerHTML.includes("workspace#")).toBe(false);
     });
 
     it("renders custom contact data when provided via props", () => {
@@ -56,9 +56,9 @@ describe("Contact App (workspace#38 / S12)", () => {
 
       render(<ContactApp contact={customContact} />);
 
-      expect(screen.getByText("Test Recruiter Contact")).toBeTruthy();
-      expect(screen.getByText("Staff Recruiter")).toBeTruthy();
-      expect(screen.getByText("Remote")).toBeTruthy();
+      expect(screen.getByText("Test Recruiter Contact")).toBeDefined();
+      expect(screen.getByText("Staff Recruiter")).toBeDefined();
+      expect(screen.getByText("Remote")).toBeDefined();
       expect(screen.getByTestId("contact-email").textContent).toBe("recruiter@example.com");
 
       const mailtoLink = screen.getByTestId("contact-mailto-link");
@@ -71,7 +71,7 @@ describe("Contact App (workspace#38 / S12)", () => {
       render(<ContactApp />);
 
       const mailtoLink = screen.getByTestId("contact-mailto-link");
-      expect(mailtoLink).toBeTruthy();
+      expect(mailtoLink).toBeDefined();
       expect(mailtoLink.getAttribute("href")).toBe(`mailto:${verifiedContact.email}`);
       expect(mailtoLink.getAttribute("aria-label")).toBe(`Send email to ${verifiedContact.email}`);
     });
@@ -118,7 +118,7 @@ describe("Contact App (workspace#38 / S12)", () => {
         fireEvent.click(copyBtn);
       });
 
-      expect(writeTextMock).toHaveBeenCalledWith(verifiedContact.email);
+      expect(writeTextMock.mock.calls[0][0]).toBe(verifiedContact.email);
       expect(statusArea.textContent).toBe("Email copied to clipboard!");
 
       // Advances timer by 3 seconds to verify auto-clear
@@ -183,7 +183,7 @@ describe("Contact App (workspace#38 / S12)", () => {
         fireEvent.click(copyBtn);
       });
 
-      expect(execCommandMock).toHaveBeenCalledWith("copy");
+      expect(execCommandMock.mock.calls[0][0]).toBe("copy");
       expect(statusArea.textContent).toBe("Email copied to clipboard!");
 
       // @ts-expect-error cleanup
@@ -196,7 +196,7 @@ describe("Contact App (workspace#38 / S12)", () => {
     it("contains no form element, no inputs, and no textareas", () => {
       const { container } = render(<ContactApp />);
 
-      expect(container.querySelector("form")).toBeNull();
+      expect(container.querySelector("form")).toBe(null);
       expect(container.querySelectorAll("input").length).toBe(0);
       expect(container.querySelectorAll("textarea").length).toBe(0);
     });

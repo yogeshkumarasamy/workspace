@@ -22,6 +22,7 @@ declare module "vitest" {
     toBeFalsy: () => void;
     toBeNull: () => void;
     toBeUndefined: () => void;
+    toBeDefined: () => void;
     toHaveLength: (expected: number) => void;
     toThrow: (expected?: unknown) => void;
     toBeGreaterThan: (expected: number) => void;
@@ -31,4 +32,11 @@ declare module "vitest" {
     not: FullAssertion;
   }
   export function expect(actual: unknown): FullAssertion;
+}
+
+declare module "node:assert/strict" {
+  interface Assert {
+    deepEqual(actual: unknown, expected: unknown, message?: string): void;
+    notEqual(actual: unknown, expected: unknown, message?: string): void;
+  }
 }

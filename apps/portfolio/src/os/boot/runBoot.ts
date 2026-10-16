@@ -71,10 +71,12 @@ export function bindBootInput(target: EventTarget, skip: () => void): () => void
   };
   target.addEventListener("keydown", onSkip);
   target.addEventListener("pointerdown", onSkip);
+  target.addEventListener("touchstart", onSkip);
   target.addEventListener("click", onSkip);
   return () => {
     target.removeEventListener("keydown", onSkip);
     target.removeEventListener("pointerdown", onSkip);
+    target.removeEventListener("touchstart", onSkip);
     target.removeEventListener("click", onSkip);
   };
 }

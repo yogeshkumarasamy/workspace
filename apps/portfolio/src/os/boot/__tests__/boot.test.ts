@@ -7,6 +7,7 @@ import { BootScreen } from "../BootScreen";
 import {
   BOOT_STORAGE_KEY,
   persistBooted,
+  prefersReducedMotion,
   readAlreadyBooted,
   readBootEnvironment,
   shouldSkipBoot,
@@ -332,7 +333,7 @@ test("cancel drops the fake timers without finishing", () => {
   assert.equal(clock.pending(), 0);
 });
 
-test("keydown, click, and pointerdown skip, then unbind", () => {
+test("keydown, click, pointerdown, and touchstart skip, then unbind", () => {
   const target = new EventTarget();
   let skips = 0;
   const unbind = bindBootInput(target, () => {
@@ -341,12 +342,14 @@ test("keydown, click, and pointerdown skip, then unbind", () => {
   target.dispatchEvent(new Event("keydown"));
   target.dispatchEvent(new Event("click"));
   target.dispatchEvent(new Event("pointerdown"));
-  assert.equal(skips, 3);
+  target.dispatchEvent(new Event("touchstart"));
+  assert.equal(skips, 4);
   unbind();
   target.dispatchEvent(new Event("keydown"));
   target.dispatchEvent(new Event("click"));
   target.dispatchEvent(new Event("pointerdown"));
-  assert.equal(skips, 3);
+  target.dispatchEvent(new Event("touchstart"));
+  assert.equal(skips, 4);
 });
 
 test("renders a visible Skip button and hides the BIOS log from assistive tech", () => {
@@ -396,6 +399,42 @@ test("renders nothing when reduced motion, a prior boot, or webdriver is set", (
       assert.equal(html, "");
     });
   }
+});
+
+test("prefersReducedMotion handles undefined and exceptions safely", () => {
+  assert.equal(prefersReducedMotion(undefined), false);
+  assert.equal(
+    prefersReducedMotion(() => {
+      throw new Error("unsupported");
+    }),
+    false,
+  );
+  assert.equal(prefersReducedMotion(() => ({ matches: true })), true);
+  assert.equal(prefersReducedMotion(() => ({ matches: false })), false);
+});
+
+test("rapid consecutive skips are idempotent", () => {
+  const clock = createFakeTimers();
+  let doneCount = 0;
+  let persistCount = 0;
+  const handle = runBoot({
+    env: visibleEnv(),
+    schedule: clock.schedule,
+    cancelTimer: clock.cancelTimer,
+    onText: () => {},
+    onDone: () => {
+      doneCount += 1;
+    },
+    persist: () => {
+      persistCount += 1;
+    },
+  });
+
+  handle.skip();
+  handle.skip();
+  handle.skip();
+  assert.equal(doneCount, 1);
+  assert.equal(persistCount, 1);
 });
 
 test("entry module exports BootScreen", () => {

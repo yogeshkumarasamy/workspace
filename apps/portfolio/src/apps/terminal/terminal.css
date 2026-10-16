@@ -1,0 +1,165 @@
+/**
+ * Retro Terminal App Styling
+ * Conforming to PRD §6 & §7: Green/amber phosphor, prompt yogesh@yk-os:~$,
+ * mobile command chips, accessible focus rings, and high contrast.
+ */
+
+.yk-terminal-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  background-color: var(--yk-bg, #0d1117);
+  color: var(--yk-fg, #33ff33);
+  font-family: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+  box-sizing: border-box;
+  overflow: hidden;
+  user-select: text;
+}
+
+.yk-terminal-output {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 12px 14px;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.yk-terminal-output:focus-visible {
+  outline: 2px solid var(--yk-focus, #33ff33);
+  outline-offset: -2px;
+}
+
+.yk-terminal-entry {
+  margin-bottom: 8px;
+}
+
+.yk-terminal-entry-command {
+  display: flex;
+  align-items: baseline;
+  font-weight: 600;
+  color: var(--yk-fg, #33ff33);
+}
+
+.yk-terminal-prompt-label {
+  color: var(--yk-accent, #55ff55);
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.yk-terminal-entry-text {
+  color: var(--yk-fg, #ffffff);
+}
+
+.yk-terminal-entry-output {
+  margin-top: 4px;
+  color: var(--yk-muted, #a3e635);
+}
+
+.yk-terminal-line {
+  min-height: 1.3em;
+}
+
+.yk-terminal-input-row {
+  display: flex;
+  align-items: center;
+  padding: 4px 14px 10px 14px;
+  flex-shrink: 0;
+}
+
+.yk-terminal-active-prompt {
+  color: var(--yk-accent, #55ff55);
+  font-weight: 600;
+  margin-right: 8px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.yk-terminal-input-wrapper {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.yk-terminal-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--yk-fg, #33ff33);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  padding: 0;
+  margin: 0;
+  outline: none;
+  caret-color: var(--yk-fg, #33ff33);
+}
+
+.yk-terminal-input:focus {
+  outline: none;
+}
+
+.yk-terminal-input::placeholder {
+  color: rgba(51, 255, 51, 0.4);
+}
+
+/* Mobile Command Chips per PRD §6 */
+.yk-terminal-chips {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid var(--yk-bevel-dark, #238636);
+  overflow-x: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+  scrollbar-width: thin;
+}
+
+.yk-terminal-chips::-webkit-scrollbar {
+  height: 4px;
+}
+
+.yk-terminal-chips::-webkit-scrollbar-thumb {
+  background: var(--yk-bevel-light, #2ea043);
+}
+
+.yk-terminal-chip-btn {
+  background: var(--yk-window-bg, #161b22);
+  color: var(--yk-fg, #33ff33);
+  border: 1px solid var(--yk-bevel-light, #30363d);
+  border-radius: 0;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background-color 0.1s ease, border-color 0.1s ease;
+  min-height: 28px;
+}
+
+.yk-terminal-chip-btn:hover {
+  background-color: var(--yk-focus, #238636);
+  color: #000000;
+}
+
+.yk-terminal-chip-btn:focus-visible {
+  outline: 2px solid var(--yk-focus, #33ff33);
+  outline-offset: 1px;
+}
+
+.yk-terminal-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

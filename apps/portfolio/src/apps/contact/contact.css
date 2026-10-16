@@ -1,0 +1,233 @@
+/**
+ * Contact App Retro Styling (workspace#38 / PRD §6, §7 & §13)
+ * Uses S02 design tokens and semantic retro utilities.
+ */
+
+.yk-contact-app {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  padding: var(--yk-space-4, 16px);
+  background-color: var(--yk-window-bg, #0c180c);
+  color: var(--yk-fg, #33ff33);
+  font-family: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-y: auto;
+  user-select: text;
+}
+
+.yk-contact-banner {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--yk-muted, #82e076);
+  text-transform: uppercase;
+  margin: 0 0 var(--yk-space-2, 8px) 0;
+  user-select: none;
+}
+
+.yk-contact-header {
+  margin-bottom: var(--yk-space-3, 12px);
+}
+
+.yk-contact-name {
+  font-family: var(--yk-font-ui, "Pixelify Sans", system-ui, sans-serif);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--yk-fg, #33ff33);
+  margin: 0 0 var(--yk-space-1, 4px) 0;
+  letter-spacing: 0.5px;
+}
+
+.yk-contact-headline {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--yk-accent, #66ff66);
+  margin: 0 0 var(--yk-space-1, 4px) 0;
+}
+
+.yk-contact-location {
+  font-size: 12px;
+  color: var(--yk-muted, #82e076);
+  margin: 0;
+}
+
+.yk-contact-divider {
+  border: 0;
+  border-top: 1px dashed var(--yk-bevel-light, #246e24);
+  margin: var(--yk-space-3, 12px) 0;
+  width: 100%;
+}
+
+.yk-contact-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-2, 8px);
+  margin-bottom: var(--yk-space-3, 12px);
+}
+
+.yk-contact-section-title {
+  font-family: var(--yk-font-ui, "Pixelify Sans", system-ui, sans-serif);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--yk-accent, #66ff66);
+  margin: 0 0 var(--yk-space-1, 4px) 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.yk-contact-email-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-2, 8px);
+  padding: var(--yk-space-3, 12px);
+  background-color: var(--yk-bg, #081008);
+}
+
+.yk-contact-email-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--yk-space-2, 8px);
+}
+
+.yk-contact-email-text {
+  font-family: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--yk-fg, #33ff33);
+  word-break: break-all;
+}
+
+.yk-contact-button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--yk-space-2, 8px);
+  align-items: center;
+}
+
+.yk-contact-btn {
+  font-family: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 600;
+  padding: var(--yk-space-1, 4px) var(--yk-space-3, 12px);
+  min-height: 28px;
+  min-width: 90px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--yk-space-1, 4px);
+  text-decoration: none;
+  background-color: var(--yk-window-bg, #0c180c);
+  color: var(--yk-fg, #33ff33);
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: var(--yk-bevel-light, #246e24);
+  border-left-color: var(--yk-bevel-light, #246e24);
+  border-right-color: var(--yk-bevel-dark, #040a04);
+  border-bottom-color: var(--yk-bevel-dark, #040a04);
+  border-radius: var(--yk-radius, 0);
+  box-sizing: border-box;
+  transition: background-color 0.1s ease, color 0.1s ease;
+}
+
+.yk-contact-btn:hover {
+  background-color: var(--yk-accent, #66ff66);
+  color: #000000;
+}
+
+.yk-contact-btn:active {
+  border-top-color: var(--yk-bevel-dark, #040a04);
+  border-left-color: var(--yk-bevel-dark, #040a04);
+  border-right-color: var(--yk-bevel-light, #246e24);
+  border-bottom-color: var(--yk-bevel-light, #246e24);
+}
+
+.yk-contact-btn:focus-visible {
+  outline: 2px solid var(--yk-focus, #33ff33);
+  outline-offset: 2px;
+}
+
+.yk-contact-status {
+  min-height: 20px;
+  font-size: 12px;
+  color: var(--yk-accent, #66ff66);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.yk-contact-status--error {
+  color: var(--yk-danger, #ff5555);
+}
+
+.yk-contact-links-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--yk-space-2, 8px);
+}
+
+.yk-contact-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--yk-space-1, 4px);
+  padding: var(--yk-space-2, 8px) var(--yk-space-3, 12px);
+  min-height: 32px;
+  font-family: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  background-color: var(--yk-window-bg, #0c180c);
+  color: var(--yk-fg, #33ff33);
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: var(--yk-bevel-light, #246e24);
+  border-left-color: var(--yk-bevel-light, #246e24);
+  border-right-color: var(--yk-bevel-dark, #040a04);
+  border-bottom-color: var(--yk-bevel-dark, #040a04);
+  box-sizing: border-box;
+}
+
+.yk-contact-social-link:hover {
+  background-color: var(--yk-accent, #66ff66);
+  color: #000000;
+}
+
+.yk-contact-social-link:active {
+  border-top-color: var(--yk-bevel-dark, #040a04);
+  border-left-color: var(--yk-bevel-dark, #040a04);
+  border-right-color: var(--yk-bevel-light, #246e24);
+  border-bottom-color: var(--yk-bevel-light, #246e24);
+}
+
+.yk-contact-social-link:focus-visible {
+  outline: 2px solid var(--yk-focus, #33ff33);
+  outline-offset: 2px;
+}
+
+.yk-contact-footer {
+  margin-top: auto;
+  padding-top: var(--yk-space-2, 8px);
+  font-size: 11px;
+  color: var(--yk-muted, #82e076);
+  text-align: center;
+  user-select: none;
+}
+
+.yk-contact-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

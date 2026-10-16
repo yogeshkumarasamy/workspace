@@ -263,5 +263,46 @@ describe("Portfolio Content Module (PRD §4 & §13.1)", () => {
       assert.equal(profile.phone, null);
       assert.deepEqual(profile.certifications, []);
     });
+
+    it("verifies all external URLs use secure HTTPS protocol", () => {
+      assert.ok(profile.links.linkedin.startsWith("https://"));
+      assert.ok(profile.links.github.startsWith("https://"));
+      assert.ok(profile.links.medium.startsWith("https://"));
+
+      profile.projects.forEach((proj) => {
+        assert.ok(proj.href.startsWith("https://"));
+      });
+
+      profile.writing.forEach((art) => {
+        assert.ok(art.href.startsWith("https://"));
+      });
+
+      profile.experience.forEach((role) => {
+        if (role.companyUrl) {
+          assert.ok(role.companyUrl.startsWith("https://"));
+        }
+      });
+    });
+
+    it("verifies unique skills and valid education year spans", () => {
+      const uniqueSkills = new Set(profile.skills);
+      assert.equal(uniqueSkills.size, profile.skills.length);
+
+      profile.education.forEach((edu) => {
+        assert.ok(edu.start > 1900 && edu.start <= edu.end);
+        assert.ok(edu.end <= new Date().getFullYear());
+      });
+    });
+
+    it("verifies no property in profile is undefined", () => {
+      for (const [key, value] of Object.entries(profile)) {
+        assert.notEqual(
+          value,
+          undefined,
+          `Profile key ${key} must not be undefined`,
+        );
+      }
+    });
   });
 });
+

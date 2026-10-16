@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
 import { register } from "node:module";
-import { pathToFileURL, fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 
 // Register custom loader for .css and .tsx modules in raw Node
 try {
@@ -94,8 +95,13 @@ const { defaultAppsFixture } = await import("../__fixtures__/apps");
 import type { PrefsApi, Theme, AppId, WindowState } from "../types";
 
 function readDesktopCss(): string {
-  const cssPath = fileURLToPath(new URL("../desktop.css", import.meta.url));
-  return readFileSync(cssPath, "utf8");
+  const candidates = [
+    path.resolve(process.cwd(), "apps/portfolio/src/os/desktop/desktop.css"),
+    path.resolve(process.cwd(), "src/os/desktop/desktop.css"),
+  ];
+  const p = candidates.find((c) => existsSync(c));
+  if (p) return readFileSync(p, "utf8");
+  throw new Error("desktop.css not found");
 }
 
 describe("S04: Desktop, icons, taskbar & start menu", () => {

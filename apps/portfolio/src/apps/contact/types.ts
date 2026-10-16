@@ -1,21 +1,9 @@
-import type { AppDefinition, AppId, AppProps } from "../../contracts/apps";
+import type { AppProps, AppDefinition } from "../../contracts/apps";
+import type { Profile } from "../../contracts/content";
 
-export interface ContactLinks {
-  linkedin: string;
-  github: string;
-  medium: string;
+export type { AppProps, AppDefinition, Profile };
+
+export interface ContactViewProps {
+  windowId: string;
+  profile?: Profile;
 }
-
-export interface ContactData {
-  name: string;
-  headline: string;
-  location: string;
-  email: string;
-  links: ContactLinks;
-}
-
-export interface ContactAppProps extends Partial<AppProps> {
-  contact?: ContactData;
-}
-
-export type { AppDefinition, AppId, AppProps };

@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
 import { register } from "node:module";
-import { pathToFileURL, fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 
 // Custom loader to transpile .ts, .tsx, and stub .css in raw Node
 try {
@@ -104,8 +105,13 @@ const { sampleAppsFixture } = await import("../__fixtures__/apps");
 import type { AppId, WindowState } from "../types";
 
 function readWindowCss(): string {
-  const cssPath = fileURLToPath(new URL("../window-manager.css", import.meta.url));
-  return readFileSync(cssPath, "utf8");
+  const candidates = [
+    path.resolve(process.cwd(), "apps/portfolio/src/os/window-manager/window-manager.css"),
+    path.resolve(process.cwd(), "src/os/window-manager/window-manager.css"),
+  ];
+  const p = candidates.find((c) => existsSync(c));
+  if (p) return readFileSync(p, "utf8");
+  throw new Error("window-manager.css not found");
 }
 
 describe("Window Manager (S03 · workspace#29)", () => {

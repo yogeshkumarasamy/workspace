@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, it } from "node:test";
-import { createRequire } from "node:module";
+import { describe, it } from "vitest";
 import { BootScreen } from "../BootScreen";
 import {
   BOOT_STORAGE_KEY,
@@ -441,21 +440,8 @@ test("entry module exports BootScreen", () => {
   assert.equal(BootScreenFromIndex, BootScreen);
 });
 
-const underVitest =
-  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-    ?.VITEST === "true";
-
-if (underVitest) {
-  const vitest = createRequire(import.meta.url)("vitest");
-  vitest.describe("YK-OS boot", () => {
-    for (const [name, fn] of cases) {
-      vitest.it(name, fn);
-    }
-  });
-} else {
-  describe("YK-OS boot", () => {
-    for (const [name, fn] of cases) {
-      it(name, fn);
-    }
-  });
-}
+describe("YK-OS boot", () => {
+  for (const [name, fn] of cases) {
+    it(name, fn);
+  }
+});

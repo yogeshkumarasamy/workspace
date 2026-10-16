@@ -412,3 +412,37 @@ body[data-crt="off"] .yk-crt,
     border-width: 2px;
   }
 }
+
+/* ==========================================================================
+   Mobile Banner (PRD §6)
+   ========================================================================== */
+
+.yk-mobile-banner {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .yk-mobile-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--yk-titlebar-bg, #008080);
+    color: var(--yk-titlebar-fg, #ffffff);
+    font-size: 13px;
+    font-family: var(--yk-font-mono, monospace);
+    z-index: var(--yk-z-taskbar, 100);
+    position: relative;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .yk-mobile-banner__link {
+    color: var(--yk-accent, #7dffb3);
+    text-decoration: underline;
+    font-weight: bold;
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+  }
+}

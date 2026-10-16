@@ -1,414 +1,177 @@
-/**
- * Classic View (Accessible Fallback) Stylesheet
- * PRD §5, §7, §8, §13 · Ticket workspace#39 (S13)
- *
- * Implements:
- * - Semantic one-page résumé styling
- * - Light theme token support and high contrast
- * - CRT off & no animations
- * - Focus rings for keyboard navigation
- * - Comprehensive print stylesheet
+/*
+ * Plain résumé. Colors come from S02 tokens so `data-theme="light"` wins.
+ * Fallbacks are a light page for CRT off and for the gap before tokens load.
+ * No keyframes, transitions, or CRT overlays.
  */
 
-/* ==========================================================================
-   1. Base & Token Scoping
-   ========================================================================== */
+.yk-classic {
+  --yk-classic-bg: var(--yk-bg, #f4efe4);
+  --yk-classic-fg: var(--yk-fg, #1a140c);
+  --yk-classic-muted: var(--yk-muted, #3f3426);
+  --yk-classic-accent: var(--yk-accent, #083e8a);
+  --yk-classic-focus: var(--yk-focus, #083e8a);
+  --yk-classic-rule: var(--yk-bevel-dark, #c8bfae);
 
-.yk-classic-view {
-  --classic-bg: var(--yk-bg, #ffffff);
-  --classic-fg: var(--yk-fg, #111111);
-  --classic-accent: var(--yk-accent, #000080);
-  --classic-muted: var(--yk-muted, #3d3d3d);
-  --classic-border: var(--yk-bevel-dark, #808080);
-  --classic-focus: var(--yk-focus, #000080);
-  --classic-card-bg: var(--yk-window-bg, #f4f4f4);
-  --classic-tag-bg: #e0e0e0;
-
-  background-color: var(--classic-bg);
-  color: var(--classic-fg);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
-  font-size: 1rem;
-  line-height: 1.6;
+  box-sizing: border-box;
+  max-width: 46rem;
   margin: 0 auto;
-  max-width: 860px;
   padding: 1.5rem 1.25rem 3rem;
-  box-sizing: border-box;
-
-  /* PRD §6, §8: Strictly NO animations in classic view */
-  animation: none !important;
-  transition: none !important;
+  background: var(--yk-classic-bg);
+  color: var(--yk-classic-fg);
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  scroll-behavior: auto;
 }
 
-.yk-classic-view *,
-.yk-classic-view *::before,
-.yk-classic-view *::after {
-  animation: none !important;
-  transition: none !important;
+.yk-classic *,
+.yk-classic *::before,
+.yk-classic *::after {
   box-sizing: border-box;
+  animation: none;
+  transition: none;
 }
 
-/* ==========================================================================
-   2. Keyboard Accessibility & Focus
-   ========================================================================== */
-
-.yk-classic__skip-link {
-  position: absolute;
-  top: -9999px;
-  left: 1rem;
-  z-index: 1000;
-  background: var(--classic-fg);
-  color: var(--classic-bg);
-  padding: 0.5rem 1rem;
+.yk-classic h1,
+.yk-classic h2,
+.yk-classic h3 {
+  font-family: var(--yk-font-ui, system-ui, sans-serif);
+  line-height: 1.25;
   font-weight: 700;
-  text-decoration: underline;
 }
 
-.yk-classic__skip-link:focus {
-  top: 1rem;
+.yk-classic h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 2rem;
 }
 
-.yk-classic-view a {
-  color: var(--classic-accent);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.yk-classic h2 {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--yk-classic-rule);
+  font-size: 1.25rem;
 }
 
-.yk-classic-view a:hover {
-  text-decoration-thickness: 2px;
+.yk-classic h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
 }
 
-.yk-classic-view a:focus-visible,
-.yk-classic-view button:focus-visible,
-.yk-classic-view [tabindex]:focus-visible {
-  outline: 3px solid var(--classic-focus);
+.yk-classic p,
+.yk-classic ul,
+.yk-classic ol {
+  margin: 0 0 0.75rem;
+}
+
+.yk-classic a {
+  color: var(--yk-classic-accent);
+  text-underline-offset: 0.15em;
+}
+
+.yk-classic a:focus-visible {
+  outline: 2px solid var(--yk-classic-focus);
   outline-offset: 2px;
 }
 
-/* ==========================================================================
-   3. Top Bar & Navigation
-   ========================================================================== */
-
-.yk-classic__toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 1rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 2px solid var(--classic-border);
+.yk-classic__skip {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
-.yk-classic__back-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  padding: 0.35rem 0.65rem;
-  border: 1px solid var(--classic-border);
-  background: var(--classic-card-bg);
-  color: var(--classic-fg) !important;
-  text-decoration: none !important;
+.yk-classic__skip:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0 0 1rem;
+  overflow: visible;
+  clip: auto;
+  padding: 0.5rem 0.75rem;
+  background: var(--yk-classic-bg);
 }
 
-.yk-classic__back-link:hover {
-  background: var(--classic-tag-bg);
+.yk-classic__lede {
+  margin-top: 0;
+  font-size: 1.125rem;
 }
 
-.yk-classic__print-hint {
-  font-size: 0.875rem;
-  color: var(--classic-muted);
+.yk-classic__meta,
+.yk-classic__aka {
+  color: var(--yk-classic-muted);
 }
 
-.yk-classic__nav {
-  margin: 1.5rem 0 2rem;
-  padding: 0.75rem 1rem;
-  background-color: var(--classic-card-bg);
-  border: 1px solid var(--classic-border);
+.yk-classic__photo {
+  display: block;
+  width: 6rem;
+  height: 6rem;
+  object-fit: cover;
+  margin-bottom: 0.75rem;
 }
 
-.yk-classic__nav-list {
+.yk-classic__toc {
+  margin: 0 0 1.5rem;
+}
+
+.yk-classic__toc ul,
+.yk-classic__links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  list-style: none;
-  margin: 0;
+  gap: 0.25rem 1rem;
   padding: 0;
-}
-
-.yk-classic__nav-item {
-  margin: 0;
-}
-
-.yk-classic__nav-item a {
-  font-weight: 500;
-  font-size: 0.95rem;
-}
-
-/* ==========================================================================
-   4. Header & Contact Bar
-   ========================================================================== */
-
-.yk-classic__header {
-  margin-bottom: 2rem;
-}
-
-.yk-classic__title {
-  font-size: 2.25rem;
-  font-weight: 800;
-  line-height: 1.2;
-  margin: 0 0 0.5rem;
-  color: var(--classic-fg);
-}
-
-.yk-classic__aliases {
-  font-size: 1rem;
-  font-weight: 400;
-  color: var(--classic-muted);
-  margin-left: 0.5rem;
-}
-
-.yk-classic__headline {
-  font-size: 1.25rem;
-  font-weight: 500;
-  margin: 0 0 0.5rem;
-  color: var(--classic-fg);
-}
-
-.yk-classic__location {
-  font-size: 1rem;
-  color: var(--classic-muted);
-  margin: 0 0 1rem;
-}
-
-.yk-classic__header-contacts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.5rem;
   list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 0.95rem;
 }
 
-/* ==========================================================================
-   5. Sections & Content Layout
-   ========================================================================== */
-
-.yk-classic__main {
-  outline: none;
+.yk-classic__toc a,
+.yk-classic__links a,
+.yk-classic__desktop a {
+  display: inline-block;
+  min-height: 1.5rem;
+  padding: 0.15rem 0;
 }
 
-.yk-classic__section {
-  margin-bottom: 2.5rem;
+.yk-classic section {
+  margin: 0 0 1.75rem;
 }
 
-.yk-classic__section-heading {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 1rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid var(--classic-border);
-  color: var(--classic-fg);
+.yk-classic article {
+  margin: 0 0 1.25rem;
+}
+
+.yk-classic address {
+  font-style: normal;
 }
 
 .yk-classic__placeholder {
-  font-style: italic;
-  color: var(--classic-muted);
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed var(--yk-classic-rule);
   font-size: 0.9rem;
-  margin: 0.5rem 0 0;
 }
 
-/* Items in Experience, Projects, Education, Writing */
-.yk-classic__item-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
+@media (prefers-reduced-motion: reduce) {
+  .yk-classic,
+  .yk-classic *,
+  .yk-classic *::before,
+  .yk-classic *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
 }
 
-.yk-classic__item {
-  margin: 0;
-}
-
-.yk-classic__item-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 0.25rem;
-}
-
-.yk-classic__item-title {
-  font-size: 1.15rem;
-  font-weight: 600;
-  margin: 0;
-  color: var(--classic-fg);
-}
-
-.yk-classic__item-meta {
-  font-size: 0.9rem;
-  color: var(--classic-muted);
-}
-
-.yk-classic__item-location {
-  font-size: 0.9rem;
-  color: var(--classic-muted);
-  margin-bottom: 0.5rem;
-}
-
-.yk-classic__bullets {
-  margin: 0.5rem 0 0 1.25rem;
-  padding: 0;
-  color: var(--classic-fg);
-}
-
-.yk-classic__bullets li {
-  margin-bottom: 0.25rem;
-}
-
-/* Skills list */
-.yk-classic__skills-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.yk-classic__skill-badge {
-  background: var(--classic-card-bg);
-  border: 1px solid var(--classic-border);
-  padding: 0.25rem 0.65rem;
-  font-size: 0.95rem;
-  font-weight: 500;
-}
-
-/* Contact Section Details */
-.yk-classic__contact-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.yk-classic__contact-item {
-  display: flex;
-  gap: 0.5rem;
-  align-items: baseline;
-}
-
-.yk-classic__contact-label {
-  font-weight: 600;
-  min-width: 6rem;
-  color: var(--classic-muted);
-}
-
-/* ==========================================================================
-   6. Footer
-   ========================================================================== */
-
-.yk-classic__footer {
-  margin-top: 3rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--classic-border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 1rem;
-  font-size: 0.9rem;
-  color: var(--classic-muted);
-}
-
-.yk-classic__footer-copy {
-  margin: 0;
-}
-
-/* ==========================================================================
-   7. Print Stylesheet (PRD §8, Acceptance Criteria)
-   ========================================================================== */
-
-@media print {
-  @page {
-    margin: 1.2cm;
-    size: auto;
+@media (prefers-contrast: more) {
+  .yk-classic {
+    background: canvas;
+    color: canvastext;
   }
 
-  body,
-  .yk-app-root,
-  .yk-classic-view {
-    background: #ffffff !important;
-    color: #000000 !important;
-    max-width: 100% !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    font-size: 10.5pt !important;
-    line-height: 1.35 !important;
-  }
-
-  /* Hide interactive-only chrome */
-  .yk-classic__skip-link,
-  .yk-classic__toolbar,
-  .yk-classic__back-link,
-  .yk-classic__nav,
-  .yk-classic__footer-link,
-  .yk-classic__print-hint,
-  .yk-skip-link {
-    display: none !important;
-  }
-
-  /* Show link destinations for printing */
-  .yk-classic-view a[href^="http"]::after {
-    content: " (" attr(href) ")";
-    font-size: 0.85em;
-    color: #333333;
-  }
-
-  .yk-classic-view a[href^="mailto:"]::after {
-    content: " (" attr(href) ")";
-    font-size: 0.85em;
-    color: #333333;
-  }
-
-  .yk-classic-view a[href^="#"]::after {
-    content: "" !important;
-  }
-
-  .yk-classic-view a {
-    color: #000000 !important;
-    text-decoration: underline !important;
-  }
-
-  /* Prevent awkward page cuts */
-  .yk-classic__section {
-    page-break-inside: avoid;
-    break-inside: avoid;
-    margin-bottom: 1.25rem !important;
-  }
-
-  .yk-classic__item {
-    page-break-inside: avoid;
-    break-inside: avoid;
-    margin-bottom: 0.75rem !important;
-  }
-
-  h1,
-  h2,
-  h3 {
-    page-break-after: avoid;
-    break-after: avoid;
-    color: #000000 !important;
-  }
-
-  .yk-classic__skill-badge {
-    background: transparent !important;
-    border: 1px solid #333333 !important;
+  .yk-classic a {
+    color: linktext;
   }
 }

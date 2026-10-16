@@ -1,9 +1,9 @@
-import type { AppDefinition, AppId, AppProps } from "../../contracts/apps";
-import type { Project } from "../../contracts/content";
+import type { AppProps, AppDefinition } from "../../contracts/apps";
+import type { Profile, Project } from "../../contracts/content";
 
-export type { AppDefinition, AppId, AppProps, Project };
+export type { AppProps, AppDefinition, Profile, Project };
 
-export interface ProjectsAppProps extends Partial<AppProps> {
-  projects?: Project[];
-  githubUrl?: string;
+export interface ProjectsViewProps {
+  windowId: string;
+  profile?: Profile;
 }

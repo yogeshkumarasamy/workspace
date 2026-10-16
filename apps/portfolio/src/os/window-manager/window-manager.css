@@ -1,0 +1,227 @@
+/* Window Manager — Retro OS Styling & Layout */
+
+.yk-window-layer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - var(--yk-taskbar-height, 38px));
+  pointer-events: none;
+  z-index: var(--yk-z-window, 100);
+  overflow: hidden;
+}
+
+/* Individual Window Dialog */
+.yk-window {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  pointer-events: auto;
+  background-color: var(--yk-window-bg, var(--yk-bg, #c0c0c0));
+  color: var(--yk-fg, #000000);
+  border: 2px solid var(--yk-bg, #c0c0c0);
+  box-shadow:
+    inset 1px 1px var(--yk-bevel-light, #ffffff),
+    inset -1px -1px var(--yk-bevel-darkest, #000000),
+    inset 2px 2px var(--yk-bevel-light, #ffffff),
+    inset -2px -2px var(--yk-bevel-dark, #808080),
+    var(--yk-shadow-window, 3px 3px 10px rgba(0, 0, 0, 0.45));
+  font-family: var(--yk-font-mono, "IBM Plex Mono", monospace);
+  font-size: 13px;
+  outline: none;
+  user-select: none;
+}
+
+/* Minimized state */
+.yk-window--minimized {
+  display: none !important;
+}
+
+/* Maximized state */
+.yk-window--maximized {
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: calc(100vh - var(--yk-taskbar-height, 38px)) !important;
+  max-width: 100vw !important;
+  max-height: calc(100vh - var(--yk-taskbar-height, 38px)) !important;
+  transform: none !important;
+}
+
+/* Window Titlebar */
+.yk-window__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 4px;
+  margin: 2px;
+  background: var(--yk-titlebar-bg, var(--yk-accent, #000080));
+  color: var(--yk-titlebar-fg, var(--yk-accent-fg, #ffffff));
+  font-family: var(--yk-font-ui, "Pixelify Sans", sans-serif);
+  font-weight: bold;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  min-height: 24px;
+  box-sizing: border-box;
+}
+
+.yk-window--active .yk-window__titlebar {
+  background: var(--yk-titlebar-bg, var(--yk-accent, #000080));
+  color: var(--yk-titlebar-fg, var(--yk-accent-fg, #ffffff));
+}
+
+.yk-window--inactive .yk-window__titlebar {
+  background: var(--yk-muted, #7f7f7f);
+  color: var(--yk-bevel-light, #d4d0c8);
+}
+
+.yk-window__titlebar:active,
+.yk-window__titlebar--dragging {
+  cursor: grabbing;
+}
+
+.yk-window__titlebar:focus-visible {
+  outline: 2px solid var(--yk-focus, #ffff00);
+  outline-offset: -2px;
+}
+
+.yk-window__title-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yk-window__icon {
+  font-size: 14px;
+  line-height: 1;
+  user-select: none;
+}
+
+.yk-window__title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+/* Window Titlebar Controls */
+.yk-window__controls {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.yk-window__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  margin: 0;
+  background: var(--yk-bg, #c0c0c0);
+  color: var(--yk-fg, #000000);
+  border: 1px solid var(--yk-bevel-darkest, #000000);
+  box-shadow:
+    inset 1px 1px var(--yk-bevel-light, #ffffff),
+    inset -1px -1px var(--yk-bevel-dark, #808080);
+  font-family: var(--yk-font-mono, monospace);
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+  touch-action: manipulation;
+}
+
+.yk-window__btn:active {
+  box-shadow:
+    inset 1px 1px var(--yk-bevel-dark, #808080),
+    inset -1px -1px var(--yk-bevel-light, #ffffff);
+  padding: 1px 0 0 1px;
+}
+
+.yk-window__btn:focus-visible {
+  outline: 2px solid var(--yk-focus, #ffff00);
+  outline-offset: 1px;
+}
+
+.yk-window__btn--close:hover {
+  background: var(--yk-danger, #800000);
+  color: #ffffff;
+}
+
+/* Window Content Body */
+.yk-window__content {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 8px;
+  margin: 2px;
+  background: var(--yk-bg, #c0c0c0);
+  box-shadow:
+    inset 1px 1px var(--yk-bevel-dark, #808080),
+    inset -1px -1px var(--yk-bevel-light, #ffffff);
+  color: var(--yk-fg, #000000);
+  user-select: text;
+}
+
+.yk-window__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  color: var(--yk-muted, #555555);
+  font-style: italic;
+}
+
+/* Screen Reader Announcements */
+.yk-window__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Move Mode Active Status */
+.yk-window__titlebar--move-mode {
+  outline: 2px dashed var(--yk-focus, #ffff00);
+  outline-offset: -2px;
+}
+
+/* Mobile Responsive (< 768px): full screen, no free dragging */
+@media (max-width: 767px) {
+  .yk-window {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: calc(100vh - var(--yk-taskbar-height, 48px)) !important;
+    max-width: 100vw !important;
+    max-height: calc(100vh - var(--yk-taskbar-height, 48px)) !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  .yk-window__titlebar {
+    cursor: default !important;
+  }
+
+  .yk-window__btn--maximize {
+    display: none !important;
+  }
+}

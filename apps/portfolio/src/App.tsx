@@ -63,8 +63,9 @@ const DesktopWorkspace: React.FC<{ route: Route }> = ({ route }) => {
           os={os}
           prefs={prefs}
           onNavigate={(target) => navigate(target)}
-        />
-        <WindowLayer apps={apps} />
+        >
+          <WindowLayer apps={apps} />
+        </Desktop>
       </DesktopPrefsContext.Provider>
     </DesktopOSContext.Provider>
   );

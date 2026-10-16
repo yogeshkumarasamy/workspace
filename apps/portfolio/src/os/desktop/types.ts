@@ -70,4 +70,5 @@ export interface DesktopProps {
   onNavigate?: (path: string) => void;
   initialSelectedId?: string;
   defaultTheme?: Theme;
+  children?: React.ReactNode;
 }

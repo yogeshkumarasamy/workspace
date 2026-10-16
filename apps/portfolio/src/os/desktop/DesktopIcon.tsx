@@ -23,7 +23,12 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
 
   // When tabIndex becomes 0 due to keyboard navigation, keep element focused if needed
   useEffect(() => {
-    if (isSelected && tabIndex === 0 && ref.current && document.activeElement !== ref.current) {
+    if (
+      isSelected &&
+      tabIndex === 0 &&
+      ref.current &&
+      document.activeElement !== ref.current
+    ) {
       // Only focus if something in desktop grid is already active
       const grid = ref.current.closest("[data-role='desktop-grid']");
       if (grid && grid.contains(document.activeElement)) {
@@ -46,7 +51,17 @@ export const DesktopIcon: React.FC<DesktopIconProps> = ({
 
   const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
-    onSelect();
+    const isMobile =
+      typeof window !== "undefined" &&
+      (window.innerWidth < 768 ||
+        (typeof window.matchMedia === "function" &&
+          window.matchMedia("(max-width: 767px)").matches));
+
+    if (isMobile || isSelected) {
+      onOpen();
+    } else {
+      onSelect();
+    }
   };
 
   return (

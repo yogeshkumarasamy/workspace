@@ -11,6 +11,7 @@ export const Desktop: React.FC<DesktopProps> = ({
   prefs: propPrefs,
   onNavigate,
   initialSelectedId,
+  children,
 }) => {
   // Use hooks from context if props are not explicitly provided
   const contextOs = useOS();
@@ -50,13 +51,10 @@ export const Desktop: React.FC<DesktopProps> = ({
         />
       </main>
 
+      {children}
+
       {/* Taskbar & Start Menu */}
-      <Taskbar
-        apps={apps}
-        os={os}
-        prefs={prefs}
-        onNavigate={onNavigate}
-      />
+      <Taskbar apps={apps} os={os} prefs={prefs} onNavigate={onNavigate} />
     </div>
   );
 };

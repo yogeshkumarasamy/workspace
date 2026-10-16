@@ -204,6 +204,10 @@
 
 /* Mobile Responsive (< 768px): full screen, no free dragging */
 @media (max-width: 767px) {
+  .yk-window-layer {
+    height: calc(100vh - var(--yk-taskbar-height, 48px));
+  }
+
   .yk-window {
     position: fixed !important;
     top: 0 !important;

@@ -1,10 +1,10 @@
-import type { Profile } from "../../contracts/content";
+import type { Profile } from "../types";
 
 /**
  * Verified facts from PRD §4 only.
- * Fallback stub for S01 until S07 merges.
+ * about, photo, phone, certifications, and role bullets stay empty on purpose.
  */
-export const profile: Profile = {
+export const verifiedProfile: Profile = {
   name: "Yogesh Kumarasamy",
   aliases: ["yogesh kumar"],
   headline: "Senior Software Engineer at FULL Creative",

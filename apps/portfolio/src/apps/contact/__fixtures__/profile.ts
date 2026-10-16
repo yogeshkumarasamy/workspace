@@ -1,19 +1,27 @@
-import type { ContactData } from "../types";
+import type { Profile } from "../types";
 
-/**
- * Verified contact facts from PRD §4 only.
- * Source: LinkedIn PDF export and PR #18 content-inventory.md.
- * No invented facts. Placeholders/omissions preserved.
- * Private workspace repo is excluded.
- */
-export const verifiedContact: ContactData = {
+export const testProfile: Profile = {
   name: "Yogesh Kumarasamy",
+  aliases: ["yogesh kumar"],
   headline: "Senior Software Engineer at FULL Creative",
   location: "Chennai, Tamil Nadu, India",
   email: "yogeshkumarasamy@gmail.com",
+  about: null,
+  photo: null,
+  phone: null,
   links: {
     linkedin: "https://www.linkedin.com/in/yogeshkumarasamy",
     github: "https://github.com/yogeshkumarasamy",
     medium: "https://medium.com/@yogeshkumarasamy",
   },
+  skills: [
+    "Continuous Integration and Continuous Delivery (CI/CD)",
+    "CSS-in-JS",
+    "Vitest",
+  ],
+  experience: [],
+  projects: [],
+  writing: [],
+  education: [],
+  certifications: [],
 };

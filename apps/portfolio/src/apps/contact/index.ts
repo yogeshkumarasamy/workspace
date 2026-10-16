@@ -1,27 +1,20 @@
-import React from "react";
+import React, { lazy } from "react";
 import type { AppDefinition, AppProps } from "./types";
 
-/**
- * Lazy component for the Contact app window.
- */
-const LazyContactApp = React.lazy(
+const LazyContactApp = lazy(
   () => import("./ContactApp") as Promise<{ default: React.ComponentType<AppProps> }>,
 );
 
-/**
- * Contact AppDefinition contract matching PRD §13.1 & §13.2.
- */
-export const contactAppDefinition: AppDefinition = {
+export const contactApp: AppDefinition = {
   id: "contact",
   title: "Contact.lnk",
-  icon: "📬",
+  icon: "✉️",
   order: 5,
-  defaultSize: { w: 520, h: 360 },
+  defaultSize: { w: 460, h: 360 },
   component: LazyContactApp,
 };
 
-export default contactAppDefinition;
-
-export { LazyContactApp };
-export { verifiedContact } from "./__fixtures__/contact";
+export default contactApp;
+export { ContactApp } from "./ContactApp";
+export { ContactView } from "./ContactView";
 export * from "./types";

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 import type { TerminalContext, Profile, AppId, Theme } from "../types";

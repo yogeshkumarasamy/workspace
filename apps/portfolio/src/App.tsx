@@ -1,90 +1,107 @@
-import React, { useEffect, useState } from "react";
-import "./styles/index.css";
-import { profile } from "./content";
-import { BootScreen } from "./os/boot";
-import { WindowManagerProvider, useOS } from "./os/window-manager";
-import { Desktop } from "./os/desktop";
-import { ClassicView } from "./classic";
+import React, { useState, useEffect, useRef } from "react";
+import { profile } from "./content/profile";
 import { apps } from "./apps/registry";
-import { useRoute } from "./router";
-import { PrefsProvider, usePrefs } from "./router/prefs";
-import type { Route } from "./contracts/os";
+import {
+  useRoute,
+  navigate,
+  PrefsProvider,
+  usePrefs,
+  type Route,
+} from "./router";
+import { BootScreen } from "./os/boot";
+import {
+  WindowManagerProvider,
+  WindowLayer,
+  useOS as useWindowOS,
+} from "./os/window-manager";
+import { Desktop } from "./os/desktop";
+import {
+  OSContext as DesktopOSContext,
+  PrefsContext as DesktopPrefsContext,
+} from "./os/desktop/context";
+import { ClassicView } from "./classic";
 
-function AppRouteSync({ route }: { route: Route }): null {
-  const os = useOS();
+const RouteWindowOpener: React.FC<{ route: Route }> = ({ route }) => {
+  const os = useWindowOS();
+  const openedRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (route.view === "app") {
-      os.open(route.appId);
+      const alreadyOpen = os.windows.some((w) => w.appId === route.appId);
+      if (!alreadyOpen || openedRef.current !== route.appId) {
+        os.open(route.appId);
+        openedRef.current = route.appId;
+      }
     }
   }, [route, os]);
 
   return null;
-}
+};
 
-export function AppContent(): React.ReactElement {
-  const route = useRoute();
+const MobileBanner: React.FC = () => {
+  return (
+    <header role="banner" className="yk-mobile-banner">
+      <span>Prefer a simpler view? Switch to </span>
+      <a href="#/classic" className="yk-mobile-banner__link">
+        Classic view
+      </a>
+    </header>
+  );
+};
+
+const DesktopWorkspace: React.FC<{ route: Route }> = ({ route }) => {
+  const os = useWindowOS();
   const prefs = usePrefs();
 
-  const [bootDone, setBootDone] = useState<boolean>(() => {
-    if (prefs.reducedMotion) return true;
-    if (typeof window !== "undefined") {
-      try {
-        return sessionStorage.getItem("yk-boot-done") === "1";
-      } catch {
-        return true;
-      }
-    }
-    return true;
-  });
-
-  const handleBootDone = () => {
-    try {
-      sessionStorage.setItem("yk-boot-done", "1");
-    } catch {
-      // localStorage/sessionStorage failures handled safely
-    }
-    setBootDone(true);
-  };
-
-  // Classic view: plain semantic page, never shows boot screen
-  if (route.view === "classic") {
-    return (
-      <div className="yk-app-root">
-        <ClassicView profile={profile} />
-      </div>
-    );
-  }
-
-  // BIOS boot sequence: skippable, once per session, skipped on reduced motion
-  if (!bootDone) {
-    return (
-      <div className="yk-app-root">
-        <BootScreen onDone={handleBootDone} />
-      </div>
-    );
-  }
-
-  // Desktop OS environment
   return (
-    <div className="yk-app-root">
-      <a href="#/classic" className="yk-skip-link">
-        Skip to Classic view
-      </a>
-      <WindowManagerProvider>
-        <AppRouteSync route={route} />
-        <Desktop apps={apps} />
+    <DesktopOSContext.Provider value={os}>
+      <DesktopPrefsContext.Provider value={prefs}>
+        <RouteWindowOpener route={route} />
+        <MobileBanner />
+        <Desktop
+          apps={apps}
+          os={os}
+          prefs={prefs}
+          onNavigate={(target) => navigate(target)}
+        />
+        <WindowLayer apps={apps} />
+      </DesktopPrefsContext.Provider>
+    </DesktopOSContext.Provider>
+  );
+};
+
+const Shell: React.FC = () => {
+  const route = useRoute();
+  const prefs = usePrefs();
+  const [bootDone, setBootDone] = useState(false);
+
+  // Classic view route (#/classic) bypasses boot completely (PRD §6, §8)
+  if (route.view === "classic") {
+    return <ClassicView profile={profile} />;
+  }
+
+  return (
+    <div className={`yk-os-root ${prefs.crt ? "yk-crt" : ""}`}>
+      {!bootDone && (
+        <BootScreen
+          onDone={() => {
+            setBootDone(true);
+          }}
+        />
+      )}
+      <WindowManagerProvider apps={apps}>
+        <DesktopWorkspace route={route} />
       </WindowManagerProvider>
     </div>
   );
-}
+};
 
-export function App(): React.ReactElement {
+export const App: React.FC = () => {
   return (
     <PrefsProvider>
-      <AppContent />
+      <Shell />
     </PrefsProvider>
   );
-}
+};
 
 export default App;

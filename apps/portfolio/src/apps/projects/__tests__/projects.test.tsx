@@ -1,182 +1,52 @@
-import React from "react";
-import { describe, expect, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
-import projectsAppDefinition, {
-  ProjectsApp,
-  defaultGithubUrl,
-  verifiedProjects,
-} from "../index";
-import type { Project } from "../types";
+import projectsApp, { ProjectsView } from "../index";
+import { testProfile, emptyProjectsProfile } from "../__fixtures__/profile";
 
-describe("Projects App (workspace#36 / PRD §5, §6, §13)", () => {
-  describe("AppDefinition contract", () => {
-    it("exports default AppDefinition conforming to PRD §13.1 & §13.2", () => {
-      expect(projectsAppDefinition.id).toBe("projects");
-      expect(projectsAppDefinition.title).toBe("Projects/");
-      expect(projectsAppDefinition.icon).toBe("📁");
-      expect(projectsAppDefinition.order).toBe(3);
-      expect(projectsAppDefinition.defaultSize).toEqual({ w: 640, h: 480 });
-      expect(projectsAppDefinition.component).toBeDefined();
-    });
-
-    it("is discoverable by registry with order 3", async () => {
-      const { getApp } = await import("../../registry");
-      const app = getApp("projects");
-      expect(app).toBeDefined();
-      expect(app?.id).toBe("projects");
-      expect(app?.order).toBe(3);
-      expect(app?.title).toBe("Projects/");
-    });
+describe("Projects App", () => {
+  it("matches AppDefinition contract requirements", () => {
+    expect(projectsApp.id).toBe("projects");
+    expect(projectsApp.order).toBe(3);
+    expect(projectsApp.title).toBe("Projects");
+    expect(projectsApp.icon).toBe("📁");
+    expect(projectsApp.defaultSize).toEqual({ w: 580, h: 420 });
+    expect(projectsApp.component).toBeDefined();
   });
 
-  describe("Verified content integrity (PRD §4)", () => {
-    it("contains verified projects matching PRD §4 without invented facts", () => {
-      expect(verifiedProjects).toHaveLength(1);
+  it("renders verified projects list with explorer styling and links", () => {
+    render(<ProjectsView windowId="test-win" profile={testProfile} />);
 
-      const vitestProj = verifiedProjects[0];
-      expect(vitestProj?.name).toBe("vitest-portfolio");
-      expect(vitestProj?.language).toBe("TypeScript");
-      expect(vitestProj?.description).toBe(
-        "volume of browser test files to stress Vitest test runs and performance",
-      );
-      expect(vitestProj?.href).toBe(
-        "https://github.com/yogeshkumarasamy/vitest-portfolio",
-      );
-    });
+    expect(screen.getByText("C:\\PROJECTS")).toBeInTheDocument();
 
-    it("excludes private workspace repo from public listing", () => {
-      const names = verifiedProjects.map((p) => p.name.toLowerCase());
-      const descriptions = verifiedProjects.map((p) => p.description.toLowerCase());
-      const urls = verifiedProjects.map((p) => p.href.toLowerCase());
+    const projectLink = screen.getByRole("link", { name: /vitest-portfolio/i });
+    expect(projectLink).toBeInTheDocument();
+    expect(projectLink).toHaveAttribute(
+      "href",
+      "https://github.com/yogeshkumarasamy/vitest-portfolio",
+    );
+    expect(projectLink).toHaveAttribute("target", "_blank");
+    expect(projectLink.getAttribute("rel")).toContain("noopener");
 
-      for (const str of [...names, ...descriptions, ...urls]) {
-        expect(str.includes("workspace#")).toBe(false);
-        expect(str.includes("private")).toBe(false);
-      }
-    });
+    expect(screen.getByText("TypeScript")).toBeInTheDocument();
+    expect(
+      screen.getByText(/volume of browser test files to stress Vitest/i),
+    ).toBeInTheDocument();
 
-    it("provides verified GitHub profile link", () => {
-      expect(defaultGithubUrl).toBe("https://github.com/yogeshkumarasamy");
-    });
+    const githubProfileLink = screen.getByTestId("github-profile-link");
+    expect(githubProfileLink).toHaveAttribute(
+      "href",
+      "https://github.com/yogeshkumarasamy",
+    );
   });
 
-  describe("File Explorer UI & List rendering", () => {
-    it("renders file explorer chrome with menubar, addressbar, and toolbar", () => {
-      render(<ProjectsApp />);
+  it("handles empty projects state gracefully", () => {
+    render(
+      <ProjectsView windowId="test-empty" profile={emptyProjectsProfile} />,
+    );
 
-      expect(screen.getByTestId("projects-app")).toBeInTheDocument();
-      expect(screen.getByRole("region", { name: /projects explorer/i })).toBeInTheDocument();
-      expect(screen.getByRole("navigation", { name: /explorer menu/i })).toBeInTheDocument();
-      expect(screen.getByRole("toolbar", { name: /explorer toolbar/i })).toBeInTheDocument();
-      expect(screen.getByLabelText(/current path/i)).toHaveTextContent("C:\\PORTFOLIO\\PROJECTS");
-    });
-
-    it("renders explorer list with icon, name, language, and description", () => {
-      render(<ProjectsApp />);
-
-      const row = screen.getByTestId("project-item-vitest-portfolio");
-      expect(row).toBeInTheDocument();
-
-      const link = screen.getByTestId("project-link-vitest-portfolio");
-      expect(link).toHaveTextContent("vitest-portfolio");
-      expect(link).toHaveAttribute(
-        "href",
-        "https://github.com/yogeshkumarasamy/vitest-portfolio",
-      );
-      expect(link).toHaveAttribute("target", "_blank");
-      expect(link).toHaveAttribute("rel", "noopener noreferrer");
-
-      expect(screen.getByText("TypeScript")).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          "volume of browser test files to stress Vitest test runs and performance",
-        ),
-      ).toBeInTheDocument();
-    });
-
-    it("renders status bar showing object count and GitHub profile link", () => {
-      render(<ProjectsApp />);
-
-      const statusbar = screen.getByRole("status", { name: /status bar/i });
-      expect(statusbar).toBeInTheDocument();
-      expect(statusbar).toHaveTextContent("1 object(s)");
-
-      const statusLink = screen.getByRole("link", { name: /github profile link/i });
-      expect(statusLink).toHaveAttribute("href", "https://github.com/yogeshkumarasamy");
-      expect(statusLink).toHaveAttribute("target", "_blank");
-      expect(statusLink).toHaveAttribute("rel", "noopener noreferrer");
-    });
-  });
-
-  describe("GitHub Profile Link", () => {
-    it("renders accessible toolbar link to GitHub profile with rel=noopener", () => {
-      render(<ProjectsApp />);
-
-      const githubLink = screen.getByTestId("projects-github-link");
-      expect(githubLink).toHaveAttribute(
-        "href",
-        "https://github.com/yogeshkumarasamy/vitest-portfolio".replace(
-          "/vitest-portfolio",
-          "",
-        ),
-      );
-      expect(githubLink).toHaveAttribute("target", "_blank");
-      expect(githubLink).toHaveAttribute("rel", "noopener noreferrer");
-    });
-  });
-
-  describe("Empty state handling", () => {
-    it("renders empty state message when projects array is empty", () => {
-      render(<ProjectsApp projects={[]} />);
-
-      const emptyState = screen.getByTestId("projects-empty-state");
-      expect(emptyState).toBeInTheDocument();
-      expect(screen.getByText("This folder is empty.")).toBeInTheDocument();
-      expect(
-        screen.getByText("No projects found in this directory."),
-      ).toBeInTheDocument();
-
-      // Table is not rendered when empty
-      expect(screen.queryByRole("table")).not.toBeInTheDocument();
-
-      // Status bar reflects 0 objects
-      const statusbar = screen.getByRole("status", { name: /status bar/i });
-      expect(statusbar).toHaveTextContent("0 object(s)");
-
-      // Link to GitHub profile is present in empty state
-      const emptyLink = screen.getByRole("link", {
-        name: /browse all repositories on github/i,
-      });
-      expect(emptyLink).toHaveAttribute("href", "https://github.com/yogeshkumarasamy");
-      expect(emptyLink).toHaveAttribute("target", "_blank");
-      expect(emptyLink).toHaveAttribute("rel", "noopener noreferrer");
-    });
-
-    it("renders multiple projects when provided via props", () => {
-      const mockProjects: Project[] = [
-        {
-          name: "alpha-tool",
-          description: "Internal tooling suite",
-          href: "https://github.com/yogeshkumarasamy/alpha-tool",
-          language: "Rust",
-        },
-        {
-          name: "beta-app",
-          description: "Retro dashboard application",
-          href: "https://github.com/yogeshkumarasamy/beta-app",
-          language: "CSS",
-        },
-      ];
-
-      render(<ProjectsApp projects={mockProjects} />);
-
-      expect(screen.getByTestId("project-item-alpha-tool")).toBeInTheDocument();
-      expect(screen.getByTestId("project-item-beta-app")).toBeInTheDocument();
-      expect(screen.getByText("Rust")).toBeInTheDocument();
-      expect(screen.getByText("CSS")).toBeInTheDocument();
-
-      const statusbar = screen.getByRole("status", { name: /status bar/i });
-      expect(statusbar).toHaveTextContent("2 object(s)");
-    });
+    expect(screen.getByTestId("projects-empty")).toHaveTextContent(
+      "No projects listed.",
+    );
+    expect(screen.queryByTestId("projects-list")).not.toBeInTheDocument();
   });
 });

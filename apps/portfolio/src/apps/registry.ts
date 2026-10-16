@@ -1,27 +1,28 @@
 import type { AppDefinition } from "../contracts/apps";
 
-/**
- * Discovers and sorts all registered apps via Vite import.meta.glob.
- * Adding an app only requires creating its folder under src/apps/<id>/index.ts.
- * Returns empty array when no apps are present.
- */
-export function loadApps(): AppDefinition[] {
-  const modules = import.meta.glob<Record<string, unknown>>("./*/index.ts", {
-    eager: true,
-  });
-
-  return Object.values(modules)
-    .map((mod) =>
-      mod && typeof mod === "object" && "default" in mod
-        ? (mod.default as AppDefinition)
-        : null
-    )
-    .filter((app): app is AppDefinition => Boolean(app && app.id && app.title))
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+export interface AppEntryModule {
+  default: AppDefinition;
 }
 
-export const apps: AppDefinition[] = loadApps();
+export function sortAndFilterApps(modules: Record<string, unknown>): AppDefinition[] {
+  const result: AppDefinition[] = [];
+  for (const mod of Object.values(modules)) {
+    const candidate = (mod as { default?: AppDefinition })?.default;
+    if (candidate && candidate.id && typeof candidate.order === "number") {
+      result.push(candidate);
+    }
+  }
+  return result.sort((a, b) => a.order - b.order);
+}
+
+const discoveredModules = import.meta.glob<AppEntryModule>("./*/index.ts", {
+  eager: true,
+});
+
+export const apps: AppDefinition[] = sortAndFilterApps(discoveredModules);
 
 export function getApp(id: string): AppDefinition | undefined {
   return apps.find((app) => app.id === id);
 }
+
+export default apps;

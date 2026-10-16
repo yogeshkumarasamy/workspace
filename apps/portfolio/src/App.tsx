@@ -81,7 +81,7 @@ const Shell: React.FC = () => {
   }
 
   return (
-    <div className={`yk-os-root ${prefs.crt ? "yk-crt" : ""}`}>
+    <div className="yk-os-root">
       {!bootDone && (
         <BootScreen
           onDone={() => {
@@ -92,6 +92,9 @@ const Shell: React.FC = () => {
       <WindowManagerProvider apps={apps}>
         <DesktopWorkspace route={route} />
       </WindowManagerProvider>
+      {prefs.crt && (
+        <div className="yk-crt" aria-hidden="true" data-testid="yk-crt" />
+      )}
     </div>
   );
 };

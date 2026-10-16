@@ -1,0 +1,585 @@
+/* Desktop, Icons, Taskbar & Start Menu — YK-OS Retro Theme */
+
+:root {
+  --yk-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --yk-font-ui: "Pixelify Sans", "MS Sans Serif", Geneva, sans-serif;
+
+  --yk-desktop: #008080;
+  --yk-bg: #c0c0c0;
+  --yk-fg: #000000;
+  --yk-accent: #000080;
+  --yk-accent-fg: #ffffff;
+  --yk-muted: #555555;
+  --yk-bevel-light: #ffffff;
+  --yk-bevel-dark: #808080;
+  --yk-bevel-darkest: #000000;
+  --yk-focus: #ffff00;
+  --yk-danger: #800000;
+
+  --yk-taskbar-height: 38px;
+  --yk-z-desktop: 1;
+  --yk-z-taskbar: 1000;
+  --yk-z-start-menu: 1100;
+}
+
+[data-theme="green"] {
+  --yk-desktop: #001a00;
+  --yk-bg: #002b00;
+  --yk-fg: #33ff33;
+  --yk-accent: #005500;
+  --yk-accent-fg: #66ff66;
+  --yk-muted: #008800;
+  --yk-bevel-light: #22aa22;
+  --yk-bevel-dark: #004400;
+  --yk-bevel-darkest: #001100;
+  --yk-focus: #66ff66;
+}
+
+[data-theme="amber"] {
+  --yk-desktop: #1a0f00;
+  --yk-bg: #2b1800;
+  --yk-fg: #ffb000;
+  --yk-accent: #553300;
+  --yk-accent-fg: #ffcc00;
+  --yk-muted: #885500;
+  --yk-bevel-light: #aa7722;
+  --yk-bevel-dark: #442200;
+  --yk-bevel-darkest: #110800;
+  --yk-focus: #ffdd44;
+}
+
+[data-theme="light"] {
+  --yk-desktop: #3a6ea5;
+  --yk-bg: #d4d0c8;
+  --yk-fg: #111111;
+  --yk-accent: #0a246a;
+  --yk-accent-fg: #ffffff;
+  --yk-muted: #666666;
+  --yk-bevel-light: #ffffff;
+  --yk-bevel-dark: #808080;
+  --yk-bevel-darkest: #000000;
+  --yk-focus: #000080;
+}
+
+/* ==========================================================================
+   Desktop Container & Surface
+   ========================================================================== */
+.yk-desktop {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--yk-desktop);
+  background-image:
+    radial-gradient(var(--yk-muted, #555555) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(0, 0, 0, 0.08) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(0, 0, 0, 0.08) 25%, transparent 25%);
+  background-size: 24px 24px, 12px 12px, 12px 12px;
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--yk-font-mono);
+  color: var(--yk-fg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Skip link for a11y */
+.yk-desktop__skip-link {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  z-index: 9999;
+  background: var(--yk-accent);
+  color: var(--yk-accent-fg);
+  padding: 8px 16px;
+  font-weight: bold;
+  text-decoration: none;
+  border: 2px solid var(--yk-bevel-light);
+  min-height: 24px;
+}
+
+.yk-desktop__skip-link:focus {
+  top: 12px;
+  outline: 3px solid var(--yk-focus);
+}
+
+/* Main Surface */
+.yk-desktop__surface {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  padding: 16px;
+  box-sizing: border-box;
+  padding-bottom: calc(var(--yk-taskbar-height) + 16px);
+}
+
+/* ==========================================================================
+   Desktop Grid & Icons (Roving Tabindex)
+   ========================================================================== */
+.yk-desktop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 84px));
+  grid-auto-rows: 92px;
+  grid-auto-flow: dense;
+  gap: 16px;
+  align-items: start;
+  justify-content: start;
+}
+
+.yk-desktop-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 84px;
+  min-width: 24px;
+  min-height: 24px;
+  height: 88px;
+  padding: 6px 4px;
+  background: transparent;
+  border: 1px dotted transparent;
+  border-radius: 0;
+  cursor: pointer;
+  color: #ffffff;
+  text-shadow: 1px 1px 2px #000000;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.yk-desktop-icon:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px dotted rgba(255, 255, 255, 0.5);
+}
+
+.yk-desktop-icon:focus-visible,
+.yk-desktop-icon--selected {
+  outline: 1px dotted var(--yk-focus, #ffffff);
+  outline-offset: 1px;
+}
+
+.yk-desktop-icon--selected .yk-desktop-icon__label {
+  background-color: var(--yk-accent);
+  color: var(--yk-accent-fg);
+  text-shadow: none;
+}
+
+.yk-desktop-icon__graphic {
+  font-size: 34px;
+  line-height: 1;
+  display: block;
+  margin-bottom: 4px;
+  filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.6));
+}
+
+.yk-desktop-icon__label {
+  font-family: var(--yk-font-ui, var(--yk-font-mono));
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  padding: 2px 4px;
+  word-break: break-word;
+  max-width: 80px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* ==========================================================================
+   Taskbar (Toolbar role)
+   ========================================================================== */
+.yk-taskbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--yk-taskbar-height);
+  background: var(--yk-bg);
+  color: var(--yk-fg);
+  border-top: 2px solid var(--yk-bevel-light);
+  border-bottom: 1px solid var(--yk-bevel-darkest);
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+  gap: 6px;
+  z-index: var(--yk-z-taskbar);
+  box-sizing: border-box;
+}
+
+.yk-taskbar__start-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.yk-taskbar__start-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  min-height: 24px;
+  min-width: 68px;
+  padding: 0 10px;
+  background: var(--yk-bg);
+  color: var(--yk-fg);
+  font-family: var(--yk-font-ui, sans-serif);
+  font-size: 13px;
+  font-weight: bold;
+  border-top: 2px solid var(--yk-bevel-light);
+  border-left: 2px solid var(--yk-bevel-light);
+  border-right: 2px solid var(--yk-bevel-darkest);
+  border-bottom: 2px solid var(--yk-bevel-darkest);
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.yk-taskbar__start-btn:active,
+.yk-taskbar__start-btn--active {
+  border-top: 2px solid var(--yk-bevel-darkest);
+  border-left: 2px solid var(--yk-bevel-darkest);
+  border-right: 2px solid var(--yk-bevel-light);
+  border-bottom: 2px solid var(--yk-bevel-light);
+  padding: 1px 9px 0 11px;
+}
+
+.yk-taskbar__start-btn:focus-visible {
+  outline: 2px dotted var(--yk-focus, #000000);
+}
+
+.yk-taskbar__start-logo {
+  font-size: 15px;
+}
+
+/* Open Windows List in Taskbar */
+.yk-taskbar__windows {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+}
+
+.yk-taskbar__window-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  min-height: 24px;
+  min-width: 80px;
+  max-width: 170px;
+  padding: 0 8px;
+  background: var(--yk-bg);
+  color: var(--yk-fg);
+  font-family: var(--yk-font-mono);
+  font-size: 11px;
+  border-top: 2px solid var(--yk-bevel-light);
+  border-left: 2px solid var(--yk-bevel-light);
+  border-right: 2px solid var(--yk-bevel-darkest);
+  border-bottom: 2px solid var(--yk-bevel-darkest);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+}
+
+.yk-taskbar__window-btn--active {
+  background: #e6e6e6;
+  border-top: 2px solid var(--yk-bevel-darkest);
+  border-left: 2px solid var(--yk-bevel-darkest);
+  border-right: 2px solid var(--yk-bevel-light);
+  border-bottom: 2px solid var(--yk-bevel-light);
+  font-weight: bold;
+}
+
+.yk-taskbar__window-btn:focus-visible {
+  outline: 2px dotted var(--yk-focus, #000000);
+}
+
+.yk-taskbar__window-icon {
+  font-size: 14px;
+}
+
+.yk-taskbar__window-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* System Tray */
+.yk-taskbar__tray {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 6px;
+  border-top: 2px solid var(--yk-bevel-dark);
+  border-left: 2px solid var(--yk-bevel-dark);
+  border-right: 2px solid var(--yk-bevel-light);
+  border-bottom: 2px solid var(--yk-bevel-light);
+  background: var(--yk-bg);
+  box-sizing: border-box;
+}
+
+.yk-taskbar__tray-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  background: transparent;
+  color: var(--yk-fg);
+  border: 1px solid transparent;
+  font-family: var(--yk-font-mono);
+  font-size: 11px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.yk-taskbar__tray-btn:hover {
+  border: 1px solid var(--yk-bevel-dark);
+}
+
+.yk-taskbar__tray-btn:focus-visible {
+  outline: 1px dotted var(--yk-focus, #000000);
+}
+
+.yk-taskbar__tray-btn--active {
+  background: var(--yk-accent);
+  color: var(--yk-accent-fg);
+}
+
+.yk-taskbar__clock {
+  font-size: 11px;
+  font-family: var(--yk-font-mono);
+  padding: 0 4px;
+  min-height: 24px;
+  min-width: 24px;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   Start Menu
+   ========================================================================== */
+.yk-start-menu {
+  position: absolute;
+  bottom: calc(var(--yk-taskbar-height) - 4px);
+  left: 0;
+  width: 280px;
+  background: var(--yk-bg);
+  color: var(--yk-fg);
+  border-top: 2px solid var(--yk-bevel-light);
+  border-left: 2px solid var(--yk-bevel-light);
+  border-right: 2px solid var(--yk-bevel-darkest);
+  border-bottom: 2px solid var(--yk-bevel-darkest);
+  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.4);
+  display: flex;
+  z-index: var(--yk-z-start-menu);
+  box-sizing: border-box;
+}
+
+.yk-start-menu__sidebar {
+  width: 28px;
+  background: linear-gradient(to top, #000080, #1084d0);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12px;
+}
+
+.yk-start-menu__sidebar-title {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--yk-font-ui, sans-serif);
+  font-weight: bold;
+  font-size: 16px;
+  color: #ffffff;
+  letter-spacing: 2px;
+}
+
+.yk-start-menu__content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.yk-start-menu__header {
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.yk-start-menu__user-name {
+  font-family: var(--yk-font-ui, sans-serif);
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.yk-start-menu__user-role {
+  font-size: 10px;
+  color: var(--yk-muted);
+}
+
+.yk-start-menu__divider {
+  height: 2px;
+  border-top: 1px solid var(--yk-bevel-dark);
+  border-bottom: 1px solid var(--yk-bevel-light);
+  margin: 4px 0;
+}
+
+.yk-start-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.yk-start-menu__item-wrapper {
+  margin: 0;
+  padding: 0;
+}
+
+.yk-start-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  min-height: 24px;
+  min-width: 24px;
+  padding: 0 8px;
+  background: transparent;
+  border: none;
+  color: var(--yk-fg);
+  font-family: var(--yk-font-mono);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.yk-start-menu__item:hover,
+.yk-start-menu__item:focus-visible,
+.yk-start-menu__item--focused {
+  background: var(--yk-accent);
+  color: var(--yk-accent-fg);
+  outline: none;
+}
+
+.yk-start-menu__item-icon {
+  font-size: 18px;
+  width: 20px;
+  text-align: center;
+}
+
+.yk-start-menu__item-text {
+  flex: 1;
+}
+
+.yk-start-menu__item-badge {
+  font-size: 9px;
+  font-weight: bold;
+  background: #ffcc00;
+  color: #000000;
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* ==========================================================================
+   Mobile Bottom Dock Layout (< 768 px)
+   ========================================================================== */
+@media (max-width: 767px) {
+  :root {
+    --yk-taskbar-height: 48px;
+  }
+
+  .yk-desktop__surface {
+    padding: 10px;
+    padding-bottom: calc(var(--yk-taskbar-height) + 16px);
+  }
+
+  .yk-desktop-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    grid-auto-rows: 80px;
+    gap: 12px;
+  }
+
+  .yk-desktop-icon {
+    width: 100%;
+    height: 76px;
+    min-height: 36px;
+    min-width: 36px;
+  }
+
+  .yk-desktop-icon__graphic {
+    font-size: 28px;
+  }
+
+  .yk-desktop-icon__label {
+    font-size: 10px;
+  }
+
+  /* Dock layout on mobile */
+  .yk-taskbar {
+    height: var(--yk-taskbar-height);
+    padding: 2px 6px;
+    gap: 4px;
+  }
+
+  .yk-taskbar__start-btn {
+    height: 38px;
+    min-height: 32px;
+    min-width: 60px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  .yk-taskbar__window-btn {
+    height: 38px;
+    min-height: 32px;
+    min-width: 48px;
+    max-width: 120px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
+  .yk-taskbar__tray {
+    height: 38px;
+    padding: 0 4px;
+    gap: 2px;
+  }
+
+  .yk-taskbar__tray-btn {
+    height: 32px;
+    min-height: 28px;
+    min-width: 28px;
+    padding: 0 4px;
+    font-size: 10px;
+  }
+
+  .yk-taskbar__clock {
+    font-size: 10px;
+    min-height: 28px;
+  }
+
+  .yk-start-menu {
+    width: calc(100vw - 16px);
+    max-width: 320px;
+    bottom: var(--yk-taskbar-height);
+    left: 8px;
+  }
+
+  .yk-start-menu__item {
+    height: 38px;
+    min-height: 32px;
+  }
+}

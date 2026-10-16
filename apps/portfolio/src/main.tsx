@@ -1,14 +1,7 @@
 import { createRoot } from "react-dom/client";
-import "./style.css";
-import { Banner } from "@repo/ui";
+import { App } from "./App";
 
-const App = () => (
-  <div>
-    <Banner
-      text="Hello, I am Yogesh. Welcome to my site. We are upgrading the website"
-      speed={100}
-    />
-  </div>
-);
-
-createRoot(document.getElementById("app")!).render(<App />);
+const container = document.getElementById("app");
+if (container) {
+  createRoot(container).render(<App />);
+}

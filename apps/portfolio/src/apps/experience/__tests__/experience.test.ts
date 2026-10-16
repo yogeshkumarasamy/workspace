@@ -193,4 +193,47 @@ describe("Experience App", () => {
       expect(customRole.bullets[0]).toBe("Architected microfrontends");
     });
   });
+
+  describe("Edge cases and boundary conditions", () => {
+    it("handles empty roles list gracefully", () => {
+      const groups = groupRolesByCompany([]);
+      expect(groups.length).toBe(0);
+    });
+
+    it("handles invalid date strings in parseYearMonth and formatMonthYear", () => {
+      expect(parseYearMonth("2024-00")).toBe(null);
+      expect(parseYearMonth("2024-99")).toBe(null);
+      expect(parseYearMonth("not-a-date")).toBe(null);
+      expect(formatMonthYear("not-a-date")).toBe("not-a-date");
+    });
+
+    it("handles multi-role company where the first role is ongoing", () => {
+      const ongoingRoles: Role[] = [
+        {
+          company: "Ongoing Corp",
+          title: "Principal Engineer",
+          start: "2024-01",
+          end: null,
+          location: "Remote",
+          bullets: [],
+        },
+        {
+          company: "Ongoing Corp",
+          title: "Staff Engineer",
+          start: "2022-01",
+          end: "2023-12",
+          location: "Remote",
+          bullets: [],
+        },
+      ];
+
+      const fixedDate = new Date("2026-10-16");
+      const groups = groupRolesByCompany(ongoingRoles, fixedDate);
+      expect(groups.length).toBe(1);
+      expect(groups[0].start).toBe("2022-01");
+      expect(groups[0].end).toBe(null);
+      expect(groups[0].duration).toBe("4 yrs 10 mos");
+    });
+  });
 });
+

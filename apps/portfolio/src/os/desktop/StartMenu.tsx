@@ -36,17 +36,25 @@ export const StartMenu: React.FC<StartMenuProps> = ({
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   itemRefs.current = menuItems.map((_, i) => itemRefs.current[i] || null);
 
-  // Focus the active item when menu opens
+  // Focus the active window's item or first item when menu opens
   useEffect(() => {
     if (isOpen) {
-      setFocusedIndex(0);
+      const activeWindow = os.windows
+        .filter((w) => !w.minimized)
+        .sort((a, b) => b.z - a.z)[0];
+      const activeIndex = activeWindow
+        ? menuItems.findIndex((it) => it.appId === activeWindow.appId)
+        : -1;
+      const initialIndex = activeIndex !== -1 ? activeIndex : 0;
+
+      setFocusedIndex(initialIndex);
       const timer = setTimeout(() => {
-        itemRefs.current[0]?.focus();
+        itemRefs.current[initialIndex]?.focus();
       }, 20);
       return () => clearTimeout(timer);
     }
     return undefined;
-  }, [isOpen]);
+  }, [isOpen, os.windows, menuItems]);
 
   // Handle click outside to close
   useEffect(() => {
@@ -75,8 +83,6 @@ export const StartMenu: React.FC<StartMenuProps> = ({
   const handleSelect = useCallback(
     (item: DesktopItem) => {
       onClose();
-      // Restore focus to trigger button
-      triggerRef?.current?.focus();
 
       if (item.isClassic) {
         if (onNavigate) {
@@ -86,6 +92,8 @@ export const StartMenu: React.FC<StartMenuProps> = ({
         }
       } else if (item.appId) {
         os.open(item.appId);
+      } else {
+        triggerRef?.current?.focus();
       }
     },
     [onClose, triggerRef, onNavigate, os],
@@ -97,6 +105,15 @@ export const StartMenu: React.FC<StartMenuProps> = ({
       e.stopPropagation();
       onClose();
       triggerRef?.current?.focus();
+      return;
+    }
+
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      const currentItem = menuItems[focusedIndex];
+      if (currentItem) {
+        handleSelect(currentItem);
+      }
       return;
     }
 
@@ -173,6 +190,8 @@ export const StartMenu: React.FC<StartMenuProps> = ({
                   tabIndex={isFocused ? 0 : -1}
                   className={`yk-start-menu__item ${isFocused ? "yk-start-menu__item--focused" : ""}`}
                   onClick={() => handleSelect(item)}
+                  onMouseEnter={() => setFocusedIndex(index)}
+                  onFocus={() => setFocusedIndex(index)}
                   data-testid={`start-menu-item-${item.id}`}
                   data-id={item.id}
                 >

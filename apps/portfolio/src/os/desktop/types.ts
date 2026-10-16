@@ -38,6 +38,8 @@ export interface OSApi {
   close(id: string): void;
   focus(id: string): void;
   windows: WindowState[];
+  minimize?: (id: string) => void;
+  restore?: (id: string) => void;
 }
 
 export type Theme = "green" | "amber" | "light";

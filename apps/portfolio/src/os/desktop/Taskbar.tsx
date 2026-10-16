@@ -88,8 +88,13 @@ export const Taskbar: React.FC<TaskbarProps> = ({
   };
 
   const handleWindowClick = (window: WindowState) => {
-    // Focus or restore window
-    os.focus(window.id);
+    // If the window is currently active and not minimized, clicking it minimizes it
+    const isCurrentlyActive = window.id === activeWindowId && !window.minimized;
+    if (isCurrentlyActive && typeof os.minimize === "function") {
+      os.minimize(window.id);
+    } else {
+      os.focus(window.id);
+    }
   };
 
   // Find active window ID (highest z among non-minimized)

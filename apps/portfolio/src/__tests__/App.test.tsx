@@ -135,4 +135,77 @@ describe("App & Shell layout", () => {
 
     expect(startButton).toHaveAttribute("aria-expanded", "true");
   }, 30000);
+
+  it("highlights active open app in Start menu and brings it to focus when clicked", async () => {
+    window.sessionStorage.setItem("yk-booted", "1");
+    render(<App />);
+
+    // Open projects app from desktop icon
+    const projectsIcon = screen.getByTestId("desktop-icon-projects");
+    act(() => {
+      fireEvent.click(projectsIcon);
+    });
+    // On desktop, click selects; second click opens
+    act(() => {
+      fireEvent.click(projectsIcon);
+    });
+
+    const projectsDialog = await screen.findByRole("dialog", { name: /projects/i });
+    expect(projectsDialog).toBeInTheDocument();
+
+    // Now open the Start Menu
+    const startButton = screen.getByRole("button", { name: /start/i });
+    act(() => {
+      fireEvent.click(startButton);
+    });
+
+    const startMenu = await screen.findByTestId("start-menu");
+    expect(startMenu).toBeInTheDocument();
+
+    // The active app (projects) should be the focused/selected item in the Start menu
+    const projectsItem = screen.getByTestId("start-menu-item-projects");
+    expect(projectsItem.classList.contains("yk-start-menu__item--focused")).toBe(true);
+
+    // Clicking the active selected item should keep it open, focus it, and close Start menu
+    act(() => {
+      fireEvent.click(projectsItem);
+    });
+
+    expect(screen.queryByTestId("start-menu")).not.toBeInTheDocument();
+    expect(projectsDialog).toBeInTheDocument();
+  }, 30000);
+
+  it("toggles minimize and restore when clicking active taskbar window button", async () => {
+    window.sessionStorage.setItem("yk-booted", "1");
+    render(<App />);
+
+    // Open about app
+    const aboutIcon = screen.getByTestId("desktop-icon-about");
+    act(() => {
+      fireEvent.click(aboutIcon);
+    });
+    act(() => {
+      fireEvent.click(aboutIcon);
+    });
+
+    const aboutDialog = await screen.findByRole("dialog", { name: /about/i });
+    expect(aboutDialog).toBeInTheDocument();
+    expect(aboutDialog).not.toHaveAttribute("hidden");
+
+    // Taskbar window button should be active
+    const taskbarBtn = await screen.findByTestId("taskbar-window-win-about");
+    expect(taskbarBtn.classList.contains("yk-taskbar__window-btn--active")).toBe(true);
+
+    // Clicking active taskbar button minimizes the window
+    act(() => {
+      fireEvent.click(taskbarBtn);
+    });
+    expect(aboutDialog).toHaveAttribute("hidden");
+
+    // Clicking minimized taskbar button restores it
+    act(() => {
+      fireEvent.click(taskbarBtn);
+    });
+    expect(aboutDialog).not.toHaveAttribute("hidden");
+  }, 30000);
 });

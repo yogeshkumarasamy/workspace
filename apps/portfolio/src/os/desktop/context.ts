@@ -27,6 +27,16 @@ export function useOS(): OSApi {
         window.dispatchEvent(new CustomEvent("yk-os-focus", { detail: { id } }));
       }
     },
+    minimize: (id: string) => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("yk-os-minimize", { detail: { id } }));
+      }
+    },
+    restore: (id: string) => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("yk-os-restore", { detail: { id } }));
+      }
+    },
     windows: [],
   };
 }
@@ -152,6 +162,19 @@ export function createMockOS(options: MockOSOptions = {}): OSApi {
     },
     focus: (id: string) => {
       options.onFocus?.(id);
+      const target = windows.find((w) => w.id === id);
+      if (target) {
+        target.minimized = false;
+        target.z = Math.max(...windows.map((w) => w.z), 0) + 1;
+      }
+    },
+    minimize: (id: string) => {
+      const target = windows.find((w) => w.id === id);
+      if (target) {
+        target.minimized = true;
+      }
+    },
+    restore: (id: string) => {
       const target = windows.find((w) => w.id === id);
       if (target) {
         target.minimized = false;

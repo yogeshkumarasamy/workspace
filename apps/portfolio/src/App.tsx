@@ -41,9 +41,9 @@ const RouteWindowOpener: React.FC<{ route: Route }> = ({ route }) => {
 const MobileBanner: React.FC = () => {
   return (
     <header role="banner" className="yk-mobile-banner">
-      <span>Prefer a simpler view? Switch to </span>
+      <span className="yk-mobile-banner__text">Prefer a simpler view?</span>
       <a href="#/classic" className="yk-mobile-banner__link">
-        Classic view
+        Switch to Classic view
       </a>
     </header>
   );
@@ -57,11 +57,11 @@ const DesktopWorkspace: React.FC<{ route: Route }> = ({ route }) => {
     <DesktopOSContext.Provider value={os}>
       <DesktopPrefsContext.Provider value={prefs}>
         <RouteWindowOpener route={route} />
-        <MobileBanner />
         <Desktop
           apps={apps}
           os={os}
           prefs={prefs}
+          banner={<MobileBanner />}
           onNavigate={(target) => navigate(target)}
         >
           <WindowLayer apps={apps} />

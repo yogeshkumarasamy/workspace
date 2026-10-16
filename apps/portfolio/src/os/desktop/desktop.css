@@ -503,7 +503,7 @@
   }
 
   .yk-desktop__surface {
-    padding: 10px;
+    padding: 16px 12px;
     padding-bottom: calc(var(--yk-taskbar-height) + 16px);
   }
 

@@ -38,6 +38,8 @@ export interface OSApi {
   close(id: string): void;
   focus(id: string): void;
   windows: WindowState[];
+  minimize?: (id: string) => void;
+  restore?: (id: string) => void;
 }
 
 export type Theme = "green" | "amber" | "light";
@@ -70,4 +72,6 @@ export interface DesktopProps {
   onNavigate?: (path: string) => void;
   initialSelectedId?: string;
   defaultTheme?: Theme;
+  banner?: React.ReactNode;
+  children?: React.ReactNode;
 }

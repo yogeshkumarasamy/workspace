@@ -139,7 +139,13 @@ export function ClassicView({ profile }: { profile: Profile }) {
       </a>
       <header>
         <nav className="yk-classic__desktop" aria-label="Desktop">
-          <a href="#/">Back to desktop</a>
+          <a
+            href="#/"
+            className="yk-classic__desktop-link"
+            aria-label="Back to desktop"
+          >
+            <span aria-hidden="true">💻 </span>Switch to Desktop view
+          </a>
         </nav>
         {photo ? (
           <img className="yk-classic__photo" src={photo} alt="" />

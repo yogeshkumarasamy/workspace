@@ -128,11 +128,40 @@
 }
 
 .yk-classic__toc a,
-.yk-classic__links a,
-.yk-classic__desktop a {
+.yk-classic__links a {
   display: inline-block;
   min-height: 1.5rem;
   padding: 0.15rem 0;
+}
+
+.yk-classic__desktop {
+  margin: 0 0 1.25rem;
+}
+
+.yk-classic__desktop-link,
+.yk-classic__desktop a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--yk-classic-accent, #083e8a);
+  color: #ffffff !important;
+  font-weight: bold;
+  font-size: 0.95rem;
+  border-radius: 4px;
+  text-decoration: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  min-height: 2rem;
+}
+
+.yk-classic__desktop-link:hover,
+.yk-classic__desktop-link:focus-visible,
+.yk-classic__desktop a:hover,
+.yk-classic__desktop a:focus-visible {
+  filter: brightness(1.15);
+  text-decoration: underline;
+  outline: 2px solid var(--yk-classic-focus, #083e8a);
+  outline-offset: 2px;
 }
 
 .yk-classic section {

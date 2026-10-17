@@ -68,6 +68,19 @@ export const Window: React.FC<WindowProps> = ({
     };
   }, []);
 
+  // Move focus into window when it becomes the active/focused window
+  const isTopFocused = os.focusedWindowId === state.id && !state.minimized;
+  useEffect(() => {
+    if (isTopFocused) {
+      if (
+        windowRef.current &&
+        !windowRef.current.contains(document.activeElement)
+      ) {
+        titlebarRef.current?.focus();
+      }
+    }
+  }, [isTopFocused]);
+
   const handleClose = useCallback(() => {
     if (propClose) {
       propClose(state.id);

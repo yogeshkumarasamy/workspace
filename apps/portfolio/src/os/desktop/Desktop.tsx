@@ -11,6 +11,8 @@ export const Desktop: React.FC<DesktopProps> = ({
   prefs: propPrefs,
   onNavigate,
   initialSelectedId,
+  banner,
+  children,
 }) => {
   // Use hooks from context if props are not explicitly provided
   const contextOs = useOS();
@@ -40,6 +42,8 @@ export const Desktop: React.FC<DesktopProps> = ({
         Skip to Classic view
       </a>
 
+      {banner}
+
       {/* Main desktop surface with icon grid */}
       <main className="yk-desktop__surface" aria-label="Desktop Surface">
         <DesktopGrid
@@ -50,13 +54,10 @@ export const Desktop: React.FC<DesktopProps> = ({
         />
       </main>
 
+      {children}
+
       {/* Taskbar & Start Menu */}
-      <Taskbar
-        apps={apps}
-        os={os}
-        prefs={prefs}
-        onNavigate={onNavigate}
-      />
+      <Taskbar apps={apps} os={os} prefs={prefs} onNavigate={onNavigate} />
     </div>
   );
 };

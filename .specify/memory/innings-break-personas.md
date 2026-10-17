@@ -2,9 +2,10 @@
 
 > **Scope**: Innings Break Ecosystem Exclusively (`apps/innings-break-*`, `specs/innings-break/**`)  
 > **Source of Truth**: [.specify/memory/innings-break.md](file:///.specify/memory/innings-break.md)  
+> **Decision History**: [.specify/memory/innings-break-changelog.md](file:///.specify/memory/innings-break-changelog.md)  
 > **Exempt Domains**: Portfolio (`apps/portfolio`, `specs/portfolio/**`)
 
-This document directly reflects the decided ecosystem components and personas from the primary memory file ([innings-break.md](file:///.specify/memory/innings-break.md)). No other roles or app names exist.
+This document directly reflects the decided ecosystem components from the primary memory file ([innings-break.md](file:///.specify/memory/innings-break.md)) and is the canonical definition of the decided personas (the memory file points here rather than duplicating them). No other roles or app names exist.
 
 ---
 
@@ -32,7 +33,7 @@ As established in [innings-break.md](file:///.specify/memory/innings-break.md) S
 
 ## 2. Decided Personas
 
-As established in [innings-break.md](file:///.specify/memory/innings-break.md) Section 5:
+As decided in the [decision log](file:///.specify/memory/innings-break-changelog.md) (canonical here; referenced from [innings-break.md](file:///.specify/memory/innings-break.md) Section 5):
 
 ### 2.1 Team Manager
 * **App Access**: Full access to **Innings Break** (`apps/innings-break`).

@@ -151,10 +151,25 @@ test("the gate cli fails a breaking spec unless breaking-ack is set", () => {
     migrations,
     "--repo-root",
     repoRoot,
+    "--changed-file",
+    "packages/innings-break-contract/src/schemas.ts",
   ];
   assert.equal(main(shared, { envLabels: "" }), 1);
   assert.equal(
     main([...shared, "--label", "breaking-ack"], { envLabels: "" }),
+    0,
+  );
+  assert.equal(
+    main(
+      [
+        ...shared,
+        "--changed-file",
+        "apps/innings-break/src/contract.ts",
+        "--changed-file",
+        "apps/innings-break-console/src/contract.ts",
+      ],
+      { envLabels: "" },
+    ),
     0,
   );
 });

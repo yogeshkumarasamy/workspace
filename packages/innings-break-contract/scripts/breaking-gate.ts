@@ -181,9 +181,14 @@ export function decideGate(input: {
       `Destructive migrations require label breaking-ack (${input.migrationViolations.length} statement(s))`,
     );
   }
-  const summary =
-    reasons.join("\n") ||
-    (breaking ? "Breaking change acknowledged" : "No breaking contract change");
+  let summary = "No breaking contract change";
+  if (reasons.length > 0) summary = reasons.join("\n");
+  else if (breaking && ack)
+    summary = "Breaking change acknowledged with breaking-ack";
+  else if (breaking && uisUpdated) {
+    summary =
+      "Breaking OpenAPI change waived because every affected app changed";
+  }
   return {
     ok: openApiWaived && migrationsWaived,
     breaking,

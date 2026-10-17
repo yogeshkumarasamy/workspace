@@ -1,0 +1,7 @@
+{
+  "name": "@apps/innings-break-console-api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Scaffold only. Wrangler config for ib-console-api. Pending approval of specs/innings-break/runtime.md. Do not deploy."
+}

@@ -1,0 +1,49 @@
+{
+  "portfolio": {
+    "package": "@apps/portfolio",
+    "kind": "static",
+    "dist": "apps/portfolio/dist",
+    "slug": "portfolio",
+    "routing": "hash"
+  },
+  "ib-console": {
+    "package": "@apps/innings-break-console",
+    "kind": "static",
+    "dist": "apps/innings-break-console/dist",
+    "slug": "ib-console",
+    "routing": "history",
+    "pwa": true,
+    "api": "ib-console-api"
+  },
+  "ib": {
+    "package": "@apps/innings-break",
+    "kind": "static",
+    "dist": "apps/innings-break/dist",
+    "slug": "ib",
+    "routing": "history",
+    "pwa": true,
+    "api": "ib-customer-api"
+  },
+  "yt-scheduler": {
+    "package": "@apps/yt-scheduler",
+    "kind": "static",
+    "dist": "apps/yt-scheduler/dist",
+    "slug": "yt-scheduler",
+    "routing": "history",
+    "pwa": true,
+    "api": "yt-scheduler-api"
+  },
+  "ib-console-api": {
+    "package": "@services/ib-console-api",
+    "kind": "cf-worker",
+    "d1": "ib",
+    "contract": "@contracts/innings-break",
+    "cron": "hub"
+  },
+  "ib-customer-api": {
+    "package": "@services/ib-customer-api",
+    "kind": "cf-worker",
+    "d1": "ib",
+    "contract": "@contracts/innings-break"
+  }
+}

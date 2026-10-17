@@ -1,4 +1,5 @@
 import type { Profile } from "../types";
+import { profile as sharedProfile } from "../../../content/profile";
 
 export const testProfile: Profile = {
   name: "Yogesh Kumarasamy",
@@ -14,21 +15,10 @@ export const testProfile: Profile = {
     github: "https://github.com/yogeshkumarasamy",
     medium: "https://medium.com/@yogeshkumarasamy",
   },
-  skills: [
-    "Continuous Integration and Continuous Delivery (CI/CD)",
-    "CSS-in-JS",
-    "Vitest",
-  ],
+  skills: sharedProfile.skills,
+  skillGroups: sharedProfile.skillGroups,
   experience: [],
-  projects: [
-    {
-      name: "vitest-portfolio",
-      description:
-        "volume of browser test files to stress Vitest test runs and performance",
-      href: "https://github.com/yogeshkumarasamy/vitest-portfolio",
-      language: "TypeScript",
-    },
-  ],
+  projects: sharedProfile.projects,
   writing: [],
   education: [],
   certifications: [],

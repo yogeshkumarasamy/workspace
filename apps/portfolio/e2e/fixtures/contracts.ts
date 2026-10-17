@@ -22,8 +22,9 @@ export interface Role {
 
 export interface Project {
   name: string;
-  description: string;
-  href: string;
+  company?: string;
+  description?: string;
+  href?: string;
   language?: string;
 }
 

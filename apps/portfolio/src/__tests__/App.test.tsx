@@ -175,6 +175,34 @@ describe("App & Shell layout", () => {
     expect(projectsDialog).toBeInTheDocument();
   }, 30000);
 
+  it("activates the desktop tab matching a classic view link instead of About.txt", async () => {
+    window.sessionStorage.setItem("yk-booted", "1");
+    window.location.hash = "#/classic";
+    render(<App />);
+
+    const projectsLink = screen.getByRole("link", { name: "Open Projects on desktop" });
+    expect(projectsLink).toHaveAttribute("href", "#/app/projects");
+
+    act(() => {
+      window.location.hash = projectsLink.getAttribute("href") ?? "";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    const projectsTab = await screen.findByTestId("taskbar-window-win-projects");
+    expect(projectsTab.classList.contains("yk-taskbar__window-btn--active")).toBe(true);
+    expect(screen.queryByTestId("taskbar-window-win-about")).not.toBeInTheDocument();
+
+    act(() => {
+      window.location.hash = "#experience";
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+
+    const experienceTab = await screen.findByTestId("taskbar-window-win-experience");
+    expect(experienceTab.classList.contains("yk-taskbar__window-btn--active")).toBe(true);
+    expect(projectsTab.classList.contains("yk-taskbar__window-btn--active")).toBe(false);
+    expect(screen.queryByTestId("taskbar-window-win-about")).not.toBeInTheDocument();
+  }, 30000);
+
   it("toggles minimize and restore when clicking active taskbar window button", async () => {
     window.sessionStorage.setItem("yk-booted", "1");
     render(<App />);

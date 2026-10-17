@@ -1,8 +1,17 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { Article, Education, Profile, Project, Role } from "./types";
+import { groupProjectsByCompany } from "../content/groupProjects";
 import { formatIsoDate, formatYearMonth, httpsHref } from "./format";
 import "./classic.css";
 import "./print.css";
+
+const DESKTOP_LINKS = [
+  ["about", "About"],
+  ["experience", "Experience"],
+  ["projects", "Projects"],
+  ["writing", "Writing"],
+  ["contact", "Contact"],
+] as const;
 
 const SECTIONS = [
   ["about", "About"],
@@ -77,15 +86,52 @@ function RoleItem({ role }: { role: Role }) {
   );
 }
 
+function ProjectName({ project }: { project: Project }) {
+  if (!project.href) return <span>{project.name}</span>;
+  return <ExternalLink href={project.href}>{project.name}</ExternalLink>;
+}
+
 function ProjectItem({ project }: { project: Project }) {
   return (
     <article>
       <h3>
-        <ExternalLink href={project.href}>{project.name}</ExternalLink>
+        <ProjectName project={project} />
       </h3>
-      <p>{project.description}</p>
+      {project.description ? <p>{project.description}</p> : null}
       {project.language ? <p>{project.language}</p> : null}
     </article>
+  );
+}
+
+function ProjectGroups({ projects }: { projects: Project[] }) {
+  const grouped = projects.some((project) => project.company);
+  if (!grouped) {
+    return (
+      <>
+        {projects.map((project) => (
+          <ProjectItem key={`${project.name}-${project.href ?? ""}`} project={project} />
+        ))}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {groupProjectsByCompany(projects).map((group) => (
+        <article key={group.company || group.projects[0]?.name}>
+          {group.company ? <h3>{group.company}</h3> : null}
+          <ul>
+            {group.projects.map((project) => (
+              <li key={project.name}>
+                <ProjectName project={project} />
+                {project.description ? <p>{project.description}</p> : null}
+                {project.language ? <p>{project.language}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </article>
+      ))}
+    </>
   );
 }
 
@@ -132,6 +178,17 @@ export function ClassicView({ profile }: { profile: Profile }) {
       ? ([...SECTIONS, ["certifications", "Certifications"]] as const)
       : SECTIONS;
 
+  useEffect(() => {
+    const scrollToSection = () => {
+      const match = window.location.hash.match(/^#\/classic\/([A-Za-z0-9_-]+)$/);
+      if (!match) return;
+      document.getElementById(match[1])?.scrollIntoView();
+    };
+    scrollToSection();
+    window.addEventListener("hashchange", scrollToSection);
+    return () => window.removeEventListener("hashchange", scrollToSection);
+  }, []);
+
   return (
     <div className="yk-classic">
       <a className="yk-classic__skip" href="#classic-content">
@@ -146,6 +203,13 @@ export function ClassicView({ profile }: { profile: Profile }) {
           >
             <span aria-hidden="true">💻 </span>Switch to Desktop view
           </a>
+          <ul className="yk-classic__desktop-apps">
+            {DESKTOP_LINKS.map(([id, label]) => (
+              <li key={id}>
+                <a href={`#/app/${id}`}>Open {label} on desktop</a>
+              </li>
+            ))}
+          </ul>
         </nav>
         {photo ? (
           <img className="yk-classic__photo" src={photo} alt="" />
@@ -164,7 +228,7 @@ export function ClassicView({ profile }: { profile: Profile }) {
           <ul>
             {contents.map(([id, label]) => (
               <li key={id}>
-                <a href={`#${id}`}>{label}</a>
+                <a href={`#/classic/${id}`}>{label}</a>
               </li>
             ))}
           </ul>
@@ -188,9 +252,7 @@ export function ClassicView({ profile }: { profile: Profile }) {
           ) : null}
         </Section>
         <Section id="projects" title="Projects">
-          {profile.projects.map((project) => (
-            <ProjectItem key={project.href} project={project} />
-          ))}
+          <ProjectGroups projects={profile.projects} />
         </Section>
         <Section id="writing" title="Writing">
           {profile.writing.map((article) => (
@@ -205,6 +267,16 @@ export function ClassicView({ profile }: { profile: Profile }) {
               ))}
             </ul>
           ) : null}
+          {profile.skillGroups?.map((group) => (
+            <div key={group.label}>
+              <h3>{group.label}</h3>
+              <ul>
+                {group.skills.map((skill) => (
+                  <li key={`${group.label}-${skill}`}>{skill}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </Section>
         <Section id="education" title="Education">
           {profile.education.map((item) => (

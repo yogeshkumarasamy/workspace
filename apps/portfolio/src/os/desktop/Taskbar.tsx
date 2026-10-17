@@ -11,6 +11,27 @@ export interface TaskbarProps {
 
 export const THEME_CYCLE: Theme[] = ["green", "amber", "light"];
 
+function isCompactTaskbar(): boolean {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
+    return false;
+  }
+  return window.matchMedia("(max-width: 767px)").matches;
+}
+
+function formatClock(date: Date, compact: boolean): string {
+  try {
+    return new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      ...(compact ? {} : { second: "2-digit" }),
+      hour12: true,
+    }).format(date);
+  } catch {
+    return date.toLocaleTimeString();
+  }
+}
+
 export const Taskbar: React.FC<TaskbarProps> = ({
   apps,
   os,
@@ -19,21 +40,12 @@ export const Taskbar: React.FC<TaskbarProps> = ({
 }) => {
   const [isStartOpen, setIsStartOpen] = useState<boolean>(false);
   const startButtonRef = useRef<HTMLButtonElement>(null);
+  const [compact, setCompact] = useState<boolean>(isCompactTaskbar);
 
-  // Time in Asia/Kolkata timezone
-  const [timeString, setTimeString] = useState<string>(() => {
-    try {
-      return new Intl.DateTimeFormat("en-IN", {
-        timeZone: "Asia/Kolkata",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
-      }).format(new Date());
-    } catch {
-      return new Date().toLocaleTimeString();
-    }
-  });
+  // Time in Asia/Kolkata timezone. Mobile drops seconds so the clock stays narrow.
+  const [timeString, setTimeString] = useState<string>(() =>
+    formatClock(new Date(), isCompactTaskbar()),
+  );
 
   const [dateTooltip, setDateTooltip] = useState<string>(() => {
     try {
@@ -48,18 +60,19 @@ export const Taskbar: React.FC<TaskbarProps> = ({
   });
 
   useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const onChange = () => setCompact(media.matches);
+    onChange();
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
     const updateClock = () => {
       const now = new Date();
+      setTimeString(formatClock(now, compact));
       try {
-        setTimeString(
-          new Intl.DateTimeFormat("en-IN", {
-            timeZone: "Asia/Kolkata",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: true,
-          }).format(now),
-        );
         setDateTooltip(
           new Intl.DateTimeFormat("en-IN", {
             timeZone: "Asia/Kolkata",
@@ -68,14 +81,14 @@ export const Taskbar: React.FC<TaskbarProps> = ({
           }).format(now),
         );
       } catch {
-        setTimeString(now.toLocaleTimeString());
         setDateTooltip(now.toLocaleString());
       }
     };
 
+    updateClock();
     const timer = setInterval(updateClock, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [compact]);
 
   const handleCycleTheme = () => {
     const currentIndex = THEME_CYCLE.indexOf(prefs.theme);

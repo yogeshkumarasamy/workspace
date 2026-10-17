@@ -1,6 +1,6 @@
 import React from "react";
-import type { AboutAppProps, Profile } from "./types";
-import { verifiedProfile } from "./__fixtures__/profile";
+import type { AboutAppProps, AppProps, Profile } from "./types";
+import { profile as sharedProfile } from "../../content/profile";
 import "./about.css";
 
 /**
@@ -14,7 +14,7 @@ export const AboutView: React.FC<AboutAppProps> = ({
   profile: inputProfile,
   isDev: isDevProp,
 }) => {
-  const profile: Profile = inputProfile ?? verifiedProfile;
+  const profile: Profile = inputProfile ?? sharedProfile;
   const isDev = isDevProp ?? Boolean(import.meta.env?.DEV);
 
   const showAbout = Boolean(profile.about && profile.about.trim().length > 0);
@@ -114,6 +114,18 @@ export const AboutView: React.FC<AboutAppProps> = ({
                   </li>
                 ))}
               </ul>
+              {profile.skillGroups?.map((group) => (
+                <div key={group.label} className="yk-about-skill-group">
+                  <h3 className="yk-about-skill-group-label">{group.label}</h3>
+                  <ul className="yk-about-skills" aria-label={group.label}>
+                    {group.skills.map((skill) => (
+                      <li key={`${group.label}-${skill}`} className="yk-about-skill-item">
+                        {skill}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </section>
           )}
 
@@ -169,4 +181,9 @@ export const AboutView: React.FC<AboutAppProps> = ({
   );
 };
 
-export default AboutView;
+/** Desktop window. Skills come from the shared content profile, not a fixture copy. */
+export const AboutApp: React.FC<AppProps> = () => {
+  return <AboutView profile={sharedProfile} />;
+};
+
+export default AboutApp;

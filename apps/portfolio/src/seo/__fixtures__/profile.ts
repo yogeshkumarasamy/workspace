@@ -19,9 +19,14 @@ export const verifiedProfileFixture: Profile = {
     medium: "https://medium.com/@yogeshkumarasamy",
   },
   skills: [
-    "Continuous Integration and Continuous Delivery (CI/CD)",
-    "CSS-in-JS",
+    "HTML5",
+    "CSS3",
+    "JavaScript",
+    "React.js",
+    "TypeScript",
     "Vitest",
+    "Node.js",
+    "CI/CD",
   ],
   experience: [
     {
@@ -97,15 +102,7 @@ export const verifiedProfileFixture: Profile = {
       bullets: [],
     },
   ],
-  projects: [
-    {
-      name: "vitest-portfolio",
-      summary:
-        "volume of browser test files to stress Vitest test runs and performance",
-      url: "https://github.com/yogeshkumarasamy/vitest-portfolio",
-      tags: ["TypeScript"],
-    },
-  ],
+  projects: [],
   writing: [
     {
       title: "How SSH Makes Managing Multiple Git Accounts Easy and Secure",

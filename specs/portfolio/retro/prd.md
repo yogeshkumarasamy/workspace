@@ -41,7 +41,7 @@ Source: LinkedIn PDF export (`/workspace/linkedin-profile/resume-or-export.txt`)
 - **Headline**: Senior Software Engineer at FULL Creative · **Location**: Chennai, Tamil Nadu, India
 - **Email**: yogeshkumarasamy@gmail.com
 - **Links**: LinkedIn https://www.linkedin.com/in/yogeshkumarasamy · Medium https://medium.com/@yogeshkumarasamy · GitHub https://github.com/yogeshkumarasamy · FULL Creative https://full.io/
-- **Top skills**: Continuous Integration and Continuous Delivery (CI/CD), CSS-in-JS, Vitest
+- **Top skills**: HTML5, CSS3, JavaScript, ES6, React.js, Redux, Webpack, Vite, Vitest, Playwright, Node.js, Express, Mongoose, GCP, CI/CD, Caching and remote task caching in CI, Docker, Design system (EDS), shadcn, TypeScript, ESLint, Prettier, pnpm. Groups: Monorepos (Moonrepo, Turborepo), Design tools (Figma), Agentic tools (Claude, Grok, Antigravity).
 
 **Experience** (order as on LinkedIn, overlaps kept, `bullets: []` until Owner supplies)
 
@@ -58,7 +58,7 @@ Source: LinkedIn PDF export (`/workspace/linkedin-profile/resume-or-export.txt`)
 | The Design Factory                 | Front end web developer                | 2012-10 – 2014-04 | _(null)_                   |
 
 **Education**: RVS College of Engineering and Technology — B.Tech., Information Technology (2008–2012).  
-**Projects**: `vitest-portfolio` (TypeScript) — "volume of browser test files to stress Vitest test runs and performance" — https://github.com/yogeshkumarasamy/vitest-portfolio  
+**Projects** (company groups; descriptions not supplied): Full Creative — Booking page https://anywhere.setmore.com/kevin-payne, BaseApp https://go.setmore.com/, ChatSupport https://chatsupport.co/; Trimble — Kuebix; BI WORLDWIDE — Daymaker, Goodman, Recognition TV, Ecards UI, Delivery customizations; Accenture — AusNet, CMHC, Volvo; Pearson English — Dashboard, Digital Classroom.
 **Writing**: "How SSH Makes Managing Multiple Git Accounts Easy and Secure" — FULL Creative blog on Medium, 2025-04-17 — https://medium.com/full-creative-blog/how-ssh-makes-managing-multiple-git-accounts-easy-and-secure-1e9f43c8b071
 
 **TODO placeholders (Owner)** — render as clearly marked placeholders in dev, hidden in prod: About/bio (`about: null`), role achievements (`bullets: []`), profile photo (`photo: null`), certifications (`[]`), phone (`null`). The private `workspace` repo must **not** be listed publicly.

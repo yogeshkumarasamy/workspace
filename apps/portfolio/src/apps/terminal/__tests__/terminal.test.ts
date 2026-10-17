@@ -233,16 +233,25 @@ describe("Terminal App (workspace#32 / PRD §6 & §13)", () => {
       assert.match(text, /2012-10/);
     });
 
-    it("projects: outputs vitest-portfolio and excludes private workspace repo", () => {
+    it("projects: outputs company groups and excludes vitest-portfolio", () => {
       const { ctx } = createMockContext();
       const projCmd = commands.find((c: { name: string }) => c.name === "projects")!;
       const result = projCmd.run([], ctx);
       const text = Array.isArray(result) ? result.join("\n") : result;
 
-      assert.match(text, /vitest-portfolio/);
-      assert.match(text, /TypeScript/);
-      assert.match(text, /https:\/\/github\.com\/yogeshkumarasamy\/vitest-portfolio/);
-      assert.doesNotMatch(text, /private/);
+      assert.match(text, /Full Creative/);
+      assert.match(text, /Booking page/);
+      assert.match(text, /https:\/\/anywhere\.setmore\.com\/kevin-payne/);
+      assert.match(text, /BaseApp/);
+      assert.match(text, /https:\/\/go\.setmore\.com\//);
+      assert.match(text, /ChatSupport/);
+      assert.match(text, /https:\/\/chatsupport\.co\//);
+      assert.match(text, /Trimble/);
+      assert.match(text, /Kuebix/);
+      assert.match(text, /BI WORLDWIDE/);
+      assert.match(text, /Pearson English/);
+      assert.match(text, /Digital Classroom/);
+      assert.doesNotMatch(text, /vitest-portfolio/);
       assert.doesNotMatch(text, /workspace#/);
     });
 
@@ -275,9 +284,16 @@ describe("Terminal App (workspace#32 / PRD §6 & §13)", () => {
       const result = skillsCmd.run([], ctx);
       const text = Array.isArray(result) ? result.join("\n") : result;
 
-      assert.match(text, /Continuous Integration and Continuous Delivery \(CI\/CD\)/);
-      assert.match(text, /CSS-in-JS/);
-      assert.match(text, /Vitest/);
+      assert.match(text, /HTML5/);
+      assert.match(text, /React\.js/);
+      assert.match(text, /pnpm/);
+      assert.match(text, /Monorepos:/);
+      assert.match(text, /Turborepo/);
+      assert.match(text, /Design tools:/);
+      assert.match(text, /Figma/);
+      assert.match(text, /Agentic tools:/);
+      assert.match(text, /Antigravity/);
+      assert.doesNotMatch(text, /CSS-in-JS/);
     });
 
     it("open: opens application window or shows usage/error", () => {

@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import projectsApp, { ProjectsView } from "../index";
-import { testProfile, emptyProjectsProfile } from "../__fixtures__/profile";
+import { profile } from "../../../content/profile";
+import { emptyProjectsProfile } from "../__fixtures__/profile";
 
 describe("Projects App", () => {
   it("matches AppDefinition contract requirements", () => {
@@ -13,24 +14,36 @@ describe("Projects App", () => {
     expect(projectsApp.component).toBeDefined();
   });
 
-  it("renders verified projects list with explorer styling and links", () => {
-    render(<ProjectsView windowId="test-win" profile={testProfile} />);
+  it("renders company projects from the shared profile, with links only where a URL exists", () => {
+    render(<ProjectsView windowId="test-win" profile={profile} />);
 
     expect(screen.getByText("C:\\PROJECTS")).toBeInTheDocument();
+    expect(screen.queryByText(/vitest-portfolio/i)).not.toBeInTheDocument();
 
-    const projectLink = screen.getByRole("link", { name: /vitest-portfolio/i });
-    expect(projectLink).toBeInTheDocument();
-    expect(projectLink).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Full Creative" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Trimble" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "BI WORLDWIDE" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Accenture" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pearson English" })).toBeInTheDocument();
+
+    const booking = screen.getByRole("link", { name: /Booking page/i });
+    expect(booking).toHaveAttribute("href", "https://anywhere.setmore.com/kevin-payne");
+    expect(booking).toHaveAttribute("target", "_blank");
+    expect(booking.getAttribute("rel")).toContain("noopener");
+
+    expect(screen.getByRole("link", { name: /BaseApp/i })).toHaveAttribute(
       "href",
-      "https://github.com/yogeshkumarasamy/vitest-portfolio",
+      "https://go.setmore.com/",
     );
-    expect(projectLink).toHaveAttribute("target", "_blank");
-    expect(projectLink.getAttribute("rel")).toContain("noopener");
+    expect(screen.getByRole("link", { name: /ChatSupport/i })).toHaveAttribute(
+      "href",
+      "https://chatsupport.co/",
+    );
 
-    expect(screen.getByText("TypeScript")).toBeInTheDocument();
-    expect(
-      screen.getByText(/volume of browser test files to stress Vitest/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Kuebix")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Kuebix/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Daymaker")).toBeInTheDocument();
+    expect(screen.getByText("Digital Classroom")).toBeInTheDocument();
 
     const githubProfileLink = screen.getByTestId("github-profile-link");
     expect(githubProfileLink).toHaveAttribute(

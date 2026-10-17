@@ -25,7 +25,10 @@
       "outputs": []
     },
     "contract:check": {
-      "inputs": ["src/**", "openapi.json", "migrations/**"]
+      "inputs": ["src/**", "scripts/**", "test/**", "openapi.json", "migrations/**"]
+    },
+    "contract:breaking": {
+      "cache": false
     },
     "dev": {
       "cache": false,

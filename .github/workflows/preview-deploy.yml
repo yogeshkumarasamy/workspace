@@ -6,13 +6,18 @@ on:
       - main
     types: [opened, synchronize, reopened]
 
-permissions:
-  contents: read
-  pull-requests: write
+# Same group as cleanup-preview.yml so closing the PR cancels an in-flight preview.
+concurrency:
+  group: preview-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 jobs:
   preview-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: ⛔ Skip if PR is closed or merged
@@ -25,15 +30,13 @@ jobs:
       - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ secrets.NODE_VERSION || '18' }}
+          node-version: "20"
 
       - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
+        uses: pnpm/action-setup@v4
 
       - name: 📦 Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: 🛠️ Build Vite app
         run: pnpm --filter @apps/portfolio... build

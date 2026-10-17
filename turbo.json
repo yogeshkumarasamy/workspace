@@ -1,12 +1,32 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalDependencies": [".nvmrc"],
+  "futureFlags": {
+    "affectedUsingTaskInputs": true
+  },
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*",
+        "!**/*.md",
+        "!**/*.test.*",
+        "!e2e/**"
+      ],
       "outputs": ["dist/**"]
     },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
     "lint": {},
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
+    "contract:check": {
+      "inputs": ["src/**", "openapi.json", "migrations/**"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

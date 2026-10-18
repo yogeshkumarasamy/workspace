@@ -26,6 +26,8 @@ Node 20 and TypeScript (ESM). **Hono** HTTP on `@hono/node-server`, **Postgres**
 ## Static hosting (Y1, option A)
 The API stays on the Node server for local dev. Hostinger serves only the screens. Vite `base` is `APP_BASE` (default `/yt-scheduler/`; previews use `/preview/yt-scheduler/pr-<N>/`, the same `/preview/` prefix the portfolio preview is served at). The static build is `apps/yt-scheduler/dist`. The Node compile output is `dist-server/` so it is not uploaded with the UI. `<base href="%BASE_URL%">` makes `document.baseURI` the app base on deep links.
 
+The new-job dialog snapshots its fields when it opens. A later channel refetch (the screen polls every 15 seconds) must not clear them. Pasting a Drive share URL (`/file/d/<id>/view` or `?id=<id>`) stores that file id and leaves the other fields alone.
+
 Before the first render the client fetches `app-config.json` with `cache: "no-store"`. If `apiBaseUrl` is set, that Workers URL is the API base (an origin with no path is treated as `<origin>/api/`, matching the current routes) and every `fetch` sends `x-api-key`. If it is absent, the base is `new URL("api/", document.baseURI)`. OAuth navigations go to `<worker-origin>/oauth/start` when `apiBaseUrl` is set, otherwise `oauth/start` under the page base. The Node server mounts the same API and OAuth handlers at `/yt-scheduler/` so local `pnpm dev:web` and `pnpm start` keep working.
 
 `deploy/targets.json` registers the UI as `yt-scheduler` and the Worker as `yt-scheduler-api` (`d1: "yt"`, `workerNames.production` = `yt-scheduler-api-prod`). Deploy writes `app-config.json` and a flat `.htaccess` into the dist. Mock environments may include `apiKey` so the page can sign in. Production does not.

@@ -14,9 +14,6 @@ jobs:
   preview-deploy:
     runs-on: ubuntu-latest
 
-    env:
-      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-
     steps:
       - name: ⛔ Skip if PR is closed or merged
         if: ${{ github.event.pull_request.merged == true || github.event.pull_request.state == 'closed' }}
@@ -41,11 +38,15 @@ jobs:
       - name: 🛠️ Build Vite app
         run: pnpm --filter @apps/portfolio... build
 
-      - name: 🧼 Sanitize branch name for path
-        id: sanitize
+      - name: 🧼 Preview folder from PR number
+        id: slug
+        env:
+          # Passed via env so the value is never interpolated into the script.
+          PR: ${{ github.event.pull_request.number }}
         run: |
-          # '#' would be a URL fragment in the preview link and a bad FTP path segment.
-          echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ #' '___')" >> "$GITHUB_OUTPUT"
+          # pr-<N> is unique per PR. Digits only, so a branch name cannot collide or inject a path.
+          case "$PR" in (''|*[!0-9]*) echo "::error::bad PR number"; exit 1;; esac
+          echo "dir=pr-${PR}" >> "$GITHUB_OUTPUT"
 
       # Hostinger drops the FTP data socket (ECONNRESET) on the first MKD of a new
       # preview folder. ftp-deploy swallows that error as "first publish" and then
@@ -59,7 +60,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
 
       - name: ⏳ Wait before FTP retry
         if: steps.ftp1.outcome == 'failure'
@@ -75,7 +76,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
 
       - name: ⏳ Wait before second FTP retry
         if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
@@ -89,11 +90,11 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/${{ steps.sanitize.outputs.safe_name }}/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
 
       - name: 💬 Comment preview URL on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
           message: |
             🚀 Preview ready:  
-            [${{ secrets.PREVIEW_DOMAIN }}/${{ steps.sanitize.outputs.safe_name }}/](${{ secrets.PREVIEW_DOMAIN }}/${{ steps.sanitize.outputs.safe_name }}/)
+            [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)

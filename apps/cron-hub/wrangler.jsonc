@@ -1,0 +1,73 @@
+{
+  // SCAFFOLD — pending approval of specs/innings-break/runtime.md (issue #83).
+  // Do not deploy. A deploy registers `* * * * *` and the scaffold scheduled() throws.
+  // One cron per environment (dev, staging, production). Preview sets crons to [].
+  // yt-scheduler is intentionally not a service binding until option A is chosen (issue #88).
+  "name": "cron-hub",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-17",
+  "workers_dev": true,
+  "env": {
+    "dev": {
+      "name": "cron-hub-dev",
+      "vars": {
+        "ENVIRONMENT": "dev"
+      },
+      "services": [
+        {
+          "binding": "IB_CONSOLE_API",
+          "service": "ib-console-api-dev"
+        }
+      ],
+      "triggers": {
+        "crons": ["* * * * *"]
+      }
+    },
+    "staging": {
+      "name": "cron-hub-staging",
+      "vars": {
+        "ENVIRONMENT": "staging"
+      },
+      "services": [
+        {
+          "binding": "IB_CONSOLE_API",
+          "service": "ib-console-api-staging"
+        }
+      ],
+      "triggers": {
+        "crons": ["* * * * *"]
+      }
+    },
+    "production": {
+      "name": "cron-hub-prod",
+      "vars": {
+        "ENVIRONMENT": "production"
+      },
+      "services": [
+        {
+          "binding": "IB_CONSOLE_API",
+          "service": "ib-console-api-prod"
+        }
+      ],
+      "triggers": {
+        "crons": ["* * * * *"]
+      }
+    },
+    "preview": {
+      "name": "cron-hub-preview",
+      "vars": {
+        "ENVIRONMENT": "preview"
+      },
+      "services": [
+        {
+          "binding": "IB_CONSOLE_API",
+          "service": "ib-console-api-preview"
+        }
+      ],
+      // Empty array clears crons on deploy. Omitting `triggers` would leave one in place.
+      "triggers": {
+        "crons": []
+      }
+    }
+  }
+}

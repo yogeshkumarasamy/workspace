@@ -1,0 +1,259 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Innings Break",
+    "version": "0.1.0",
+    "description": "Shared contract for the Innings Break customer API and console API. Both apps import these schemas."
+  },
+  "tags": [
+    {
+      "name": "platform",
+      "description": "Probes"
+    },
+    {
+      "name": "customer",
+      "description": "Team Manager routes"
+    },
+    {
+      "name": "console",
+      "description": "Business Owner and Operations Manager routes"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "service": {
+            "type": "string",
+            "enum": [
+              "ib-console-api",
+              "ib-customer-api"
+            ],
+            "description": "Which Innings Break Worker produced this response"
+          },
+          "sha": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Git sha of the build the Worker is serving"
+          }
+        },
+        "required": [
+          "ok",
+          "service",
+          "sha"
+        ]
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "Confirmed",
+              "Accepted",
+              "Preparing",
+              "InTransit",
+              "Delivered",
+              "Completed",
+              "Cancelled"
+            ],
+            "description": "Status shared by the Team Manager app and the console. InTransit is the dispatched state."
+          },
+          "matchDate": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "Match date as YYYY-MM-DD"
+          },
+          "slot": {
+            "type": "string",
+            "enum": [
+              "06:30",
+              "10:30",
+              "14:30"
+            ],
+            "description": "Daytime match slot: 6:30 AM, 10:30 AM, or 2:30 PM"
+          },
+          "groundLabel": {
+            "type": "string",
+            "minLength": 1
+          },
+          "totalMinor": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Amount paid, in paise"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "INR"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "description": "Optimistic concurrency version"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "matchDate",
+          "slot",
+          "groundLabel",
+          "totalMinor",
+          "currency",
+          "version"
+        ]
+      },
+      "ErrorBody": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "tags": [
+          "platform"
+        ],
+        "summary": "Build probe used by deploy smoke tests and by every signed-in persona",
+        "responses": {
+          "200": {
+            "description": "This Worker is serving the build identified by sha",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-authorized-personas": [
+          "Team Manager",
+          "Business Owner",
+          "Operations Manager"
+        ]
+      }
+    },
+    "/customer/v1/orders/{orderId}": {
+      "get": {
+        "operationId": "getCustomerOrder",
+        "tags": [
+          "customer"
+        ],
+        "summary": "Read one team order",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "orderId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The order placed for the team",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "x-authorized-personas": [
+          "Team Manager"
+        ]
+      }
+    },
+    "/console/v1/orders/{orderId}": {
+      "get": {
+        "operationId": "getConsoleOrder",
+        "tags": [
+          "console"
+        ],
+        "summary": "Read one kitchen order",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "orderId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The order as seen by console staff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Order"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such order",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "x-authorized-personas": [
+          "Business Owner",
+          "Operations Manager"
+        ]
+      }
+    }
+  }
+}

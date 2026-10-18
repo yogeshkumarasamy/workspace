@@ -1,0 +1,160 @@
+.yk-experience {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: var(--yk-space-4, 1rem);
+  overflow-y: auto;
+  font-family: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--yk-fg, #33ff33);
+  background: var(--yk-window-bg, #0c100c);
+}
+
+.yk-experience *,
+.yk-experience *::before,
+.yk-experience *::after {
+  box-sizing: inherit;
+}
+
+.yk-experience__header {
+  margin-bottom: var(--yk-space-4, 1rem);
+  padding-bottom: var(--yk-space-2, 0.5rem);
+  border-bottom: 2px solid var(--yk-bevel-dark, #1f3b1f);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.yk-experience__heading {
+  margin: 0;
+  font-family: var(--yk-font-ui, "Pixelify Sans", system-ui, sans-serif);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--yk-accent, #66ff66);
+  letter-spacing: 0.05em;
+}
+
+.yk-experience__count {
+  font-size: 0.85rem;
+  color: var(--yk-muted, #7ea67e);
+}
+
+.yk-experience__companies {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-4, 1.25rem);
+}
+
+.yk-experience__company-item {
+  margin: 0;
+  padding: 0;
+}
+
+.yk-experience__company {
+  padding: var(--yk-space-3, 0.75rem);
+  background: var(--yk-bg, rgba(0, 20, 0, 0.4));
+  border: 1px solid var(--yk-bevel-light, #234d23);
+  box-shadow: 2px 2px 0 var(--yk-bevel-dark, #0a170a);
+}
+
+.yk-experience__company-header {
+  margin-bottom: 0.5rem;
+}
+
+.yk-experience__company-name {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--yk-fg, #33ff33);
+}
+
+.yk-experience__company-link {
+  color: var(--yk-accent, #66ff66);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.yk-experience__company-link:hover {
+  filter: brightness(1.2);
+}
+
+.yk-experience__company-link:focus-visible {
+  outline: 2px solid var(--yk-focus, #ffff33);
+  outline-offset: 2px;
+}
+
+.yk-experience__company-summary {
+  font-size: 0.85rem;
+  color: var(--yk-muted, #7ea67e);
+}
+
+.yk-experience__roles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.yk-experience__role-item {
+  position: relative;
+  margin: 0;
+  padding-left: 1rem;
+  border-left: 2px solid var(--yk-accent, #33ff33);
+}
+
+.yk-experience__role-title {
+  margin: 0 0 0.2rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--yk-fg, #e6ffe6);
+}
+
+.yk-experience__role-meta {
+  font-size: 0.85rem;
+  color: var(--yk-muted, #7ea67e);
+  margin-bottom: 0.35rem;
+}
+
+.yk-experience__dates time {
+  color: var(--yk-fg, #33ff33);
+}
+
+.yk-experience__duration {
+  color: var(--yk-accent, #66ff66);
+  font-weight: 600;
+}
+
+.yk-experience__location {
+  color: var(--yk-muted, #7ea67e);
+}
+
+.yk-experience__bullets {
+  margin: 0.35rem 0 0 0;
+  padding-left: 1.25rem;
+  list-style-type: square;
+}
+
+.yk-experience__bullet-item {
+  margin-bottom: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--yk-fg, #ccffcc);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yk-experience,
+  .yk-experience *,
+  .yk-experience *::before,
+  .yk-experience *::after {
+    animation: none;
+    transition: none;
+    scroll-behavior: auto;
+  }
+}

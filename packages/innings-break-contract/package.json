@@ -1,0 +1,33 @@
+{
+  "name": "@contracts/innings-break",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shared Zod schemas, route types, and OpenAPI document for the Innings Break APIs and apps.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./openapi.json": "./openapi.json"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
+    "generate": "tsx scripts/generate-openapi.ts",
+    "contract:check": "tsx scripts/contract-check.ts",
+    "contract:breaking": "tsx scripts/breaking-gate.ts",
+    "lint:migrations": "tsx scripts/lint-migrations.ts",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.3.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.15.3",
+    "eslint": "^8.57.0",
+    "tsx": "^4.20.3",
+    "typescript": "5.5.4"
+  }
+}

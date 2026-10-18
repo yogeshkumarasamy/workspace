@@ -1,0 +1,267 @@
+/*
+ * Notepad-style monospace window for About.txt.
+ * Uses S02 tokens with robust retro fallbacks.
+ */
+
+.yk-about-app {
+  --yk-about-bg: var(--yk-window-bg, var(--yk-bg, #ffffff));
+  --yk-about-fg: var(--yk-fg, #111111);
+  --yk-about-muted: var(--yk-muted, #555555);
+  --yk-about-accent: var(--yk-accent, #000080);
+  --yk-about-focus: var(--yk-focus, #000080);
+  --yk-about-bevel-light: var(--yk-bevel-light, #ffffff);
+  --yk-about-bevel-dark: var(--yk-bevel-dark, #808080);
+  --yk-about-font-mono: var(--yk-font-mono, "IBM Plex Mono", ui-monospace, "Courier New", monospace);
+  --yk-about-font-ui: var(--yk-font-ui, "Pixelify Sans", system-ui, sans-serif);
+
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  background-color: var(--yk-about-bg);
+  color: var(--yk-about-fg);
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  user-select: text;
+  overflow: hidden;
+}
+
+.yk-about-app *,
+.yk-about-app *::before,
+.yk-about-app *::after {
+  box-sizing: border-box;
+}
+
+/* Retro Notepad Menu Bar */
+.yk-about-menubar {
+  display: flex;
+  align-items: center;
+  gap: var(--yk-space-3, 12px);
+  padding: 2px var(--yk-space-2, 8px);
+  background-color: var(--yk-bg, #c0c0c0);
+  color: var(--yk-fg, #000000);
+  border-bottom: 1px solid var(--yk-about-bevel-dark);
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+.yk-about-menu-item {
+  padding: 1px var(--yk-space-1, 4px);
+  cursor: default;
+}
+
+.yk-about-menu-item u {
+  text-decoration: underline;
+}
+
+/* Scrollable text document content */
+.yk-about-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--yk-space-4, 16px);
+  background-color: var(--yk-about-bg);
+  color: var(--yk-about-fg);
+}
+
+.yk-about-doc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-3, 12px);
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+/* Header & Banner */
+.yk-about-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-1, 4px);
+}
+
+.yk-about-file-banner {
+  font-size: 0.75rem;
+  color: var(--yk-about-muted);
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.yk-about-name {
+  font-family: var(--yk-about-font-mono);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--yk-about-fg);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.yk-about-aliases {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--yk-about-muted);
+}
+
+.yk-about-headline {
+  margin: var(--yk-space-1, 4px) 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--yk-about-fg);
+}
+
+.yk-about-location {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--yk-about-muted);
+}
+
+/* ASCII / Text Divider */
+.yk-about-divider {
+  border: 0;
+  border-top: 1px dashed var(--yk-about-bevel-dark);
+  margin: var(--yk-space-2, 8px) 0;
+  width: 100%;
+}
+
+/* Content Sections */
+.yk-about-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-2, 8px);
+}
+
+.yk-about-section-heading {
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--yk-about-accent);
+}
+
+.yk-about-section-heading::before {
+  content: "[ ";
+  color: var(--yk-about-muted);
+}
+
+.yk-about-section-heading::after {
+  content: " ]";
+  color: var(--yk-about-muted);
+}
+
+.yk-about-bio-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+.yk-about-placeholder {
+  margin: 0;
+  color: var(--yk-about-muted);
+  font-style: italic;
+  background-color: rgba(128, 128, 128, 0.08);
+  padding: var(--yk-space-2, 8px);
+  border-left: 2px solid var(--yk-about-bevel-dark);
+}
+
+/* Skills list */
+.yk-about-skills {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-1, 4px);
+}
+
+.yk-about-skill-item {
+  position: relative;
+  padding-left: var(--yk-space-3, 12px);
+  line-height: 1.5;
+}
+
+.yk-about-skill-item::before {
+  content: ">";
+  position: absolute;
+  left: 0;
+  color: var(--yk-about-accent);
+  font-weight: bold;
+}
+
+.yk-about-skill-group {
+  margin-top: var(--yk-space-3, 12px);
+}
+
+.yk-about-skill-group-label {
+  margin: 0 0 var(--yk-space-1, 4px);
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.95rem;
+  color: var(--yk-about-fg);
+}
+
+/* Education entries */
+.yk-about-education-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--yk-space-3, 12px);
+}
+
+.yk-about-edu-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--yk-space-2, 8px);
+  border: 1px dotted var(--yk-about-bevel-dark);
+  background-color: rgba(128, 128, 128, 0.04);
+}
+
+.yk-about-edu-institution {
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.yk-about-edu-credential {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--yk-about-fg);
+}
+
+.yk-about-edu-dates {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--yk-about-muted);
+}
+
+/* Notepad Status Bar */
+.yk-about-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px var(--yk-space-2, 8px);
+  background-color: var(--yk-bg, #c0c0c0);
+  color: var(--yk-fg, #000000);
+  border-top: 1px solid var(--yk-about-bevel-dark);
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.75rem;
+  user-select: none;
+}
+
+.yk-about-status-group {
+  display: flex;
+  align-items: center;
+  gap: var(--yk-space-2, 8px);
+}
+
+.yk-about-status-cell {
+  padding: 1px var(--yk-space-2, 8px);
+  border: 1px solid var(--yk-about-bevel-dark);
+  border-right-color: var(--yk-about-bevel-light);
+  border-bottom-color: var(--yk-about-bevel-light);
+  background-color: var(--yk-window-bg, #ffffff);
+}

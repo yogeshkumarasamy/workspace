@@ -1,0 +1,68 @@
+name: CI
+
+# Pull-request checks only. This workflow must never reference secrets.
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# Same shape as preview-pr-<N> in T01: a new push cancels the in-flight run.
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # A shallow clone makes Turborepo treat every package as affected.
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint, typecheck, test, and build affected packages
+        env:
+          # checkout leaves HEAD detached, so the branch name `main` is not a
+          # local ref. Turbo 2.11 then assumes every file changed. The base SHA
+          # is the first parent of the merge commit fetch-depth: 0 already has.
+          TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+        run: pnpm turbo run lint typecheck test build --affected
+
+      - name: Upload affected dists and plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          # plan.json arrives with the T07 planner. Spec-only PRs have no dist.
+          # An empty upload must not fail ci-gate.
+          if-no-files-found: ignore
+          path: |
+            apps/*/dist
+            plan.json
+
+  ci-gate:
+    needs: [ci]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Require the ci job to succeed
+        env:
+          CI_RESULT: ${{ needs.ci.result }}
+        run: test "$CI_RESULT" = "success"

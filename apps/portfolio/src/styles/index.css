@@ -1,0 +1,468 @@
+/**
+ * Portfolio Retro Design Tokens & Themes
+ * Ticket: workspace#28 (S02)
+ *
+ * Implements PRD §7 design tokens, §6 retro UX, and §13 contracts:
+ * - 3 themes: green (default phosphor), amber, light (beige 90s desktop)
+ * - Self-hosted fonts: IBM Plex Mono & Pixelify Sans
+ * - Retro 3D utilities: .yk-bevel-out, .yk-bevel-in, .yk-btn, .yk-titlebar
+ * - CRT overlay: .yk-crt with scanlines, vignette, and optional flicker
+ * - Accessibility: WCAG 2.2 AA (text >= 4.5:1, focus >= 3:1), prefers-reduced-motion, prefers-contrast: more
+ */
+
+/* ==========================================================================
+   1. Self-hosted Typography (PRD §7, §9)
+   ========================================================================== */
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Pixelify Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/pixelify-sans-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212,
+    U+2215, U+FEFF, U+FFFD;
+}
+
+/* ==========================================================================
+   2. Shared Design Tokens (PRD §7)
+   ========================================================================== */
+
+:root {
+  /* Fonts */
+  --yk-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --yk-font-ui: "Pixelify Sans", system-ui, sans-serif;
+
+  /* Spacing (4px scale) */
+  --yk-space-1: 4px;
+  --yk-space-2: 8px;
+  --yk-space-3: 12px;
+  --yk-space-4: 16px;
+  --yk-space-5: 20px;
+  --yk-space-6: 24px;
+
+  /* Border radius */
+  --yk-radius: 0;
+
+  /* Elevation / Window shadow */
+  --yk-shadow-window: 2px 2px 0 rgba(0, 0, 0, 0.8);
+
+  /* Z-index layering */
+  --yk-z-desktop: 1;
+  --yk-z-window: 10;
+  --yk-z-taskbar: 100;
+  --yk-z-overlay: 1000;
+  --yk-z-boot: 10000;
+}
+
+/* ==========================================================================
+   3. Theme Definitions (PRD §6, §7: green, amber, light)
+   ========================================================================== */
+
+/* Theme: Green Phosphor (Default) */
+:root,
+[data-theme="green"] {
+  --yk-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --yk-font-ui: "Pixelify Sans", system-ui, sans-serif;
+
+  --yk-bg: #081008;
+  --yk-fg: #33ff33;
+  --yk-accent: #66ff66;
+  --yk-muted: #82e076;
+  --yk-desktop: #040804;
+  --yk-window-bg: #0c180c;
+  --yk-titlebar-bg: #144214;
+  --yk-titlebar-fg: #ebffeb;
+  --yk-bevel-light: #246e24;
+  --yk-bevel-dark: #040a04;
+  --yk-focus: #33ff33;
+  --yk-danger: #ff5555;
+
+  --yk-space-1: 4px;
+  --yk-space-2: 8px;
+  --yk-space-3: 12px;
+  --yk-space-4: 16px;
+  --yk-space-5: 20px;
+  --yk-space-6: 24px;
+  --yk-radius: 0;
+  --yk-shadow-window: 2px 2px 0 rgba(0, 0, 0, 0.8);
+  --yk-z-desktop: 1;
+  --yk-z-window: 10;
+  --yk-z-taskbar: 100;
+  --yk-z-overlay: 1000;
+  --yk-z-boot: 10000;
+}
+
+/* Theme: Amber Phosphor */
+[data-theme="amber"] {
+  --yk-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --yk-font-ui: "Pixelify Sans", system-ui, sans-serif;
+
+  --yk-bg: #120a02;
+  --yk-fg: #ffb000;
+  --yk-accent: #ffd04d;
+  --yk-muted: #dfa144;
+  --yk-desktop: #0a0501;
+  --yk-window-bg: #180e03;
+  --yk-titlebar-bg: #4a2800;
+  --yk-titlebar-fg: #fff2dc;
+  --yk-bevel-light: #7e4600;
+  --yk-bevel-dark: #090400;
+  --yk-focus: #ffb000;
+  --yk-danger: #ff5544;
+
+  --yk-space-1: 4px;
+  --yk-space-2: 8px;
+  --yk-space-3: 12px;
+  --yk-space-4: 16px;
+  --yk-space-5: 20px;
+  --yk-space-6: 24px;
+  --yk-radius: 0;
+  --yk-shadow-window: 2px 2px 0 rgba(0, 0, 0, 0.8);
+  --yk-z-desktop: 1;
+  --yk-z-window: 10;
+  --yk-z-taskbar: 100;
+  --yk-z-overlay: 1000;
+  --yk-z-boot: 10000;
+}
+
+/* Theme: Light (Beige 90s Desktop) */
+[data-theme="light"] {
+  --yk-font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --yk-font-ui: "Pixelify Sans", system-ui, sans-serif;
+
+  --yk-bg: #ffffff;
+  --yk-fg: #111111;
+  --yk-accent: #000080;
+  --yk-muted: #3d3d3d;
+  --yk-desktop: #008080;
+  --yk-window-bg: #c0c0c0;
+  --yk-titlebar-bg: #000080;
+  --yk-titlebar-fg: #ffffff;
+  --yk-bevel-light: #ffffff;
+  --yk-bevel-dark: #808080;
+  --yk-focus: #000080;
+  --yk-danger: #8b0000;
+
+  --yk-space-1: 4px;
+  --yk-space-2: 8px;
+  --yk-space-3: 12px;
+  --yk-space-4: 16px;
+  --yk-space-5: 20px;
+  --yk-space-6: 24px;
+  --yk-radius: 0;
+  --yk-shadow-window: 2px 2px 0 rgba(0, 0, 0, 0.5);
+  --yk-z-desktop: 1;
+  --yk-z-window: 10;
+  --yk-z-taskbar: 100;
+  --yk-z-overlay: 1000;
+  --yk-z-boot: 10000;
+}
+
+/* ==========================================================================
+   4. Base Retro Desktop Styling
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--yk-font-mono);
+  background-color: var(--yk-desktop);
+  color: var(--yk-fg);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   5. Utility Classes (PRD §13 Contracts)
+   ========================================================================== */
+
+/* Raised 3D Bevel */
+.yk-bevel-out {
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: var(--yk-bevel-light);
+  border-left-color: var(--yk-bevel-light);
+  border-right-color: var(--yk-bevel-dark);
+  border-bottom-color: var(--yk-bevel-dark);
+  border-radius: var(--yk-radius);
+  box-sizing: border-box;
+}
+
+/* Sunken 3D Bevel */
+.yk-bevel-in {
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: var(--yk-bevel-dark);
+  border-left-color: var(--yk-bevel-dark);
+  border-right-color: var(--yk-bevel-light);
+  border-bottom-color: var(--yk-bevel-light);
+  border-radius: var(--yk-radius);
+  box-sizing: border-box;
+}
+
+/* Retro Pushbutton */
+.yk-btn {
+  font-family: var(--yk-font-mono);
+  font-size: 13px;
+  background-color: var(--yk-window-bg);
+  color: var(--yk-fg);
+  border-style: solid;
+  border-width: 2px;
+  border-top-color: var(--yk-bevel-light);
+  border-left-color: var(--yk-bevel-light);
+  border-right-color: var(--yk-bevel-dark);
+  border-bottom-color: var(--yk-bevel-dark);
+  border-radius: var(--yk-radius);
+  padding: var(--yk-space-1) var(--yk-space-2);
+  min-height: 24px;
+  min-width: 24px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.yk-btn:active:not(:disabled),
+.yk-btn[aria-pressed="true"] {
+  border-top-color: var(--yk-bevel-dark);
+  border-left-color: var(--yk-bevel-dark);
+  border-right-color: var(--yk-bevel-light);
+  border-bottom-color: var(--yk-bevel-light);
+  padding-top: calc(var(--yk-space-1) + 1px);
+  padding-left: calc(var(--yk-space-2) + 1px);
+  padding-bottom: calc(var(--yk-space-1) - 1px);
+  padding-right: calc(var(--yk-space-2) - 1px);
+}
+
+.yk-btn:focus-visible {
+  outline: 2px dotted var(--yk-focus);
+  outline-offset: -4px;
+}
+
+.yk-btn:disabled,
+.yk-btn[aria-disabled="true"] {
+  color: var(--yk-muted);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Retro Window Titlebar */
+.yk-titlebar {
+  font-family: var(--yk-font-ui);
+  font-size: 14px;
+  font-weight: 700;
+  background-color: var(--yk-titlebar-bg);
+  color: var(--yk-titlebar-fg);
+  padding: 2px var(--yk-space-2);
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  box-sizing: border-box;
+  letter-spacing: 0.5px;
+}
+
+/* ==========================================================================
+   6. CRT Effect Overlay (.yk-crt)
+   PRD §6: scanlines + vignette, flicker off by default, data-crt toggle
+   ========================================================================== */
+
+.yk-crt {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: var(--yk-z-overlay);
+  overflow: hidden;
+}
+
+/* Scanlines pattern */
+.yk-crt::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+  background-size: 100% 4px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Vignette curvature shading */
+.yk-crt::after {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background: radial-gradient(
+    circle at center,
+    transparent 65%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Flicker animation keyframes (off by default) */
+@keyframes yk-crt-flicker {
+  0% {
+    opacity: 0.98;
+  }
+  50% {
+    opacity: 1;
+  }
+  55% {
+    opacity: 0.95;
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.98;
+  }
+}
+
+/* Flicker is opt-in via .yk-crt--flicker or [data-flicker="on"] */
+.yk-crt--flicker,
+[data-flicker="on"] .yk-crt,
+.yk-crt[data-flicker="on"] {
+  animation: yk-crt-flicker 0.15s infinite;
+}
+
+/* Toggle CRT effect via data-crt="off" */
+html[data-crt="off"] .yk-crt,
+body[data-crt="off"] .yk-crt,
+[data-crt="off"] .yk-crt,
+.yk-crt[data-crt="off"] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   7. Accessibility: Reduced Motion & High Contrast (WCAG 2.2 AA)
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .yk-crt,
+  .yk-crt--flicker,
+  [data-flicker="on"] .yk-crt,
+  .yk-crt[data-flicker="on"] {
+    animation: none !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  /* CRT scanlines and vignette disabled for maximum contrast */
+  .yk-crt {
+    display: none !important;
+  }
+
+  .yk-btn:focus-visible {
+    outline: 3px solid var(--yk-focus);
+    outline-offset: 2px;
+  }
+
+  .yk-bevel-out,
+  .yk-bevel-in {
+    border-width: 2px;
+  }
+}
+
+/* ==========================================================================
+   Mobile Banner (PRD §6)
+   ========================================================================== */
+
+.yk-mobile-banner {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .yk-mobile-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #000000;
+    color: #ffffff;
+    font-size: 13px;
+    font-family: var(--yk-font-mono, monospace);
+    z-index: var(--yk-z-taskbar, 100);
+    position: relative;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+    border-bottom: 2px solid var(--yk-accent, #66ff66);
+    flex-shrink: 0;
+  }
+
+  .yk-mobile-banner__text {
+    font-weight: 500;
+  }
+
+  .yk-mobile-banner__link {
+    background: var(--yk-accent, #66ff66);
+    color: var(--yk-accent-fg, #000000);
+    padding: 4px 10px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-weight: bold;
+    font-size: 12px;
+    min-height: 28px;
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    white-space: nowrap;
+  }
+
+  .yk-mobile-banner__link:hover,
+  .yk-mobile-banner__link:focus-visible {
+    filter: brightness(1.2);
+    outline: 2px dotted #ffffff;
+    outline-offset: 1px;
+  }
+}

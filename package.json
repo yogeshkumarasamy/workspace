@@ -5,12 +5,17 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "contract:check": "turbo run contract:check",
+    "contract:breaking": "turbo run contract:breaking",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check:ib-wrangler": "node scripts/check-ib-wrangler.mjs"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
     "prettier": "^3.2.5",
-    "turbo": "^2.5.4"
+    "turbo": "^2.11.9"
   },
   "packageManager": "pnpm@8.15.6",
   "name": "with-vite-react"

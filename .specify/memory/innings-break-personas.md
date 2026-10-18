@@ -2,9 +2,10 @@
 
 > **Scope**: Innings Break Ecosystem Exclusively (`apps/innings-break-*`, `specs/innings-break/**`)  
 > **Source of Truth**: [.specify/memory/innings-break.md](file:///.specify/memory/innings-break.md)  
+> **Decision History**: [.specify/memory/innings-break-changelog.md](file:///.specify/memory/innings-break-changelog.md)  
 > **Exempt Domains**: Portfolio (`apps/portfolio`, `specs/portfolio/**`)
 
-This document directly reflects the decided ecosystem components and personas from the primary memory file ([innings-break.md](file:///.specify/memory/innings-break.md)). No other roles or app names exist.
+This document directly reflects the decided ecosystem components from the primary memory file ([innings-break.md](file:///.specify/memory/innings-break.md)) and is the canonical definition of the decided personas (the memory file points here rather than duplicating them). No other roles or app names exist. The cron hub is shared infrastructure, not an application and not a persona.
 
 ---
 
@@ -24,15 +25,35 @@ As established in [innings-break.md](file:///.specify/memory/innings-break.md) S
    * **Format**: Responsive Web & PWA (desktop & mobile)
    * **Purpose**: Decoupled location management (independent Areas, Venues, and nested Pitch Facilities), in-house kitchen menu/recipe configuration, console staff management, order queue & fulfillment, and 3rd-party delivery dispatch coordination.
 
-3. **Innings Break API**
-   * **Directory**: `apps/innings-break-api`
-   * **Primary User**: Backend service layer (Node.js + Express REST APIs) supporting both Innings Break and Innings Break Console.
+3. **Innings Break Customer API** *(runtime pending approval — [runtime spec](file:///specs/innings-break/runtime.md))*
+   * **Directory**: `apps/innings-break-customer-api`
+   * **Cloudflare Worker**: `ib-customer-api-dev`, `ib-customer-api-staging`, `ib-customer-api-prod`
+   * **Authorized Persona**: `Team Manager`
+   * **Runtime**: Hono on Cloudflare Workers. Not Node.js and not Express.
+   * **Data**: D1 `ib-<env>`, the same database as the Console API.
+   * **Sessions**: WebCrypto (`crypto.subtle`). Node.js `crypto` is not used.
+   * **Purpose**: Customer app API, including ground search, spatial resolution, and delivery geofencing.
+
+4. **Innings Break Console API** *(runtime pending approval — [runtime spec](file:///specs/innings-break/runtime.md))*
+   * **Directory**: `apps/innings-break-console-api`
+   * **Cloudflare Worker**: `ib-console-api-dev`, `ib-console-api-staging`, `ib-console-api-prod`
+   * **Authorized Personas**: `Business Owner`, `Operations Manager`
+   * **Runtime**: Hono on Cloudflare Workers. Not Node.js and not Express.
+   * **Data**: D1 `ib-<env>`, shared with the Customer API. Both Workers read and write that one database.
+   * **Sessions**: WebCrypto (`crypto.subtle`). Node.js `crypto` is not used.
+   * **Purpose**: Console API for grounds, kitchen hubs, menu, calendar, fulfillment, dispatch, support, and credits.
+
+5. **Cron hub** (infrastructure — not a persona application)
+   * **Directory**: `apps/cron-hub`
+   * **Cloudflare Worker**: `cron-hub-dev`, `cron-hub-staging`, `cron-hub-prod`
+   * **Authorized Persona**: none. Team Manager, Business Owner, and Operations Manager do not sign in here.
+   * **Purpose**: One `* * * * *` trigger per environment. Calls the Console API scheduled handler over a service binding. Preview has no cron. See the [runtime spec](file:///specs/innings-break/runtime.md).
 
 ---
 
 ## 2. Decided Personas
 
-As established in [innings-break.md](file:///.specify/memory/innings-break.md) Section 5:
+As decided in the [decision log](file:///.specify/memory/innings-break-changelog.md) (canonical here; referenced from [innings-break.md](file:///.specify/memory/innings-break.md) Section 5):
 
 ### 2.1 Team Manager
 * **App Access**: Full access to **Innings Break** (`apps/innings-break`).
@@ -58,7 +79,7 @@ As established in [innings-break.md](file:///.specify/memory/innings-break.md) S
 * **App Access**: Full access to **Innings Break Console** (`apps/innings-break-console`) via pre-configured/whitelisted mobile number.
 * **Role**: The sole entrepreneur running the entire operation (1 single Business Owner in MVP).
 * **Responsibilities**:
-  * Manages the decoupled directory of Areas, Venues, and Pitch Facilities (spatial resolution handled by backend API services; zero manual mapping in the Console).
+  * Manages the decoupled directory of Areas, Venues, and Pitch Facilities (spatial resolution handled by the Customer API; zero manual mapping in the Console).
   * Manages the in-house kitchen (100% prepared in-house; no external food vendors).
   * Configures menu items, recipes, and team packs.
   * Deploys and manages **Operations Managers** via the Team Members section (pre-whitelists mobile numbers and generates onboarding invite links).

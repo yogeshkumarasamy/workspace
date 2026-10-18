@@ -5,7 +5,7 @@ import {
   type WorkflowStepConfig,
 } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
-import { FREE_PLAN } from "./budget";
+import { FREE_PLAN, maxChunkStepsPerInstance } from "./budget";
 import type { Env } from "./env";
 import { sinkUrl, sourceUrl, type UploadPlan } from "./protocol";
 import { queryStatus, transferChunk, type ChunkFetcher } from "./transfer";
@@ -89,7 +89,11 @@ export class UploadWorkflow extends WorkflowEntrypoint<Env, UploadPlan> {
     used += 1;
     let offset = status.received;
     let chunks = 0;
+    const chunkRoom = maxChunkStepsPerInstance();
     while (offset < plan.totalSize) {
+      if (chunks >= chunkRoom) {
+        return { complete: false, received: offset, chunks, reason: "subrequest-budget" };
+      }
       if (used >= FREE_PLAN.workflowStepsPerInstanceBudget) {
         return { complete: false, received: offset, chunks, reason: "instance-step-budget" };
       }

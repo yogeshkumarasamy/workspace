@@ -1,32 +1,80 @@
-name: Cleanup Preview on PR Close
+name: Cleanup Preview
 
+# Pull request close removes portfolio/pr-<N> and nothing else.
+# Legacy branch-named folders stay until someone reviews the list from
+# Actions → Cleanup Preview → Run workflow, then runs it again with
+# confirm set to delete-legacy. That dispatch is the only purge; do not
+# treat a green close as having removed the old slug folders.
 on:
   pull_request:
     branches:
       - main
     types: [closed]
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: >-
+          Leave empty to list preview folders in the job summary. Type
+          delete-legacy to delete legacy slug folders and pr-<N> folders
+          whose PR is not open. Folders for open PRs are kept.
+        required: false
+        default: ""
+        type: string
 
 jobs:
   cleanup-preview:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-
-    env:
-      BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
-
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Same group as preview-deploy.yml (#95) so a close cancels an in-flight upload.
+    # Job-level, not workflow-level: workflow_dispatch has no pull_request number.
+    concurrency:
+      group: preview-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     steps:
-      - name: 🧼 Sanitize branch name
-        id: sanitize
-        run: |
-          # Keep in sync with preview-deploy.yml so close deletes the folder we published.
-          echo "safe_name=$(echo '${{ env.BRANCH_NAME }}' | tr '/ #' '___')" >> "$GITHUB_OUTPUT"
+      - name: Checkout cleanup script
+        uses: actions/checkout@v4
 
-      - name: 🧹 Delete preview folder via FTP using lftp
-        run: |
-          sudo apt-get update && sudo apt-get install -y lftp
-          lftp -u "${{ secrets.FTP_USERNAME }},${{ secrets.FTP_PASSWORD }}" "${{ secrets.FTP_HOST }}" <<EOF
-          set ssl:verify-certificate no
-          set ftp:list-options -a
-          cd "${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}"
-          rm -r "${{ steps.sanitize.outputs.safe_name }}"
-          bye
-          EOF
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Delete portfolio/pr-<N>
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash .github/scripts/preview-cleanup.sh delete-pr
+
+  # Listing is the default. Deletion runs only when confirm is delete-legacy,
+  # after the list has been reviewed in a previous job summary. FTP rm -r of
+  # every preview since 2026-05 can outlive the 15 minute deploy timeout.
+  purge-legacy-previews:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: read
+    concurrency:
+      group: preview-cleanup-legacy
+      cancel-in-progress: false
+    steps:
+      - name: Checkout cleanup script
+        uses: actions/checkout@v4
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: List or delete legacy preview folders
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/preview-cleanup.sh purge

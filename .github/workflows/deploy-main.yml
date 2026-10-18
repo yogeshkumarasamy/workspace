@@ -8,6 +8,14 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    # Never cancel an FTP upload that is already running.
+    # GitHub drops any older pending run and keeps only the newest one.
+    concurrency:
+      group: deploy-dev-portfolio
+      cancel-in-progress: false
 
     steps:
       - name: ⬇️ Checkout code
@@ -16,15 +24,13 @@ jobs:
       - name: 🟢 Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ secrets.NODE_VERSION || '18' }}
+          node-version: "20"
 
       - name: 📦 Install dependencies with pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8 # or your pnpm version
+        uses: pnpm/action-setup@v4
 
       - name: 📦 Install project dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: 🛠️ Build Vite app
         run: pnpm --filter @apps/portfolio... build

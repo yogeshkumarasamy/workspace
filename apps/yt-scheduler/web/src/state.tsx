@@ -12,9 +12,28 @@ interface Ctx {
 const C = createContext<Ctx>(null as unknown as Ctx);
 export const useApp = () => useContext(C);
 
+function getStored(key: string): string {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) return window.localStorage.getItem(key) ?? "";
+    if (typeof localStorage !== "undefined" && localStorage) return localStorage.getItem(key) ?? "";
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+function setStored(key: string, val: string): void {
+  try {
+    if (typeof window !== "undefined" && window.localStorage) { window.localStorage.setItem(key, val); return; }
+    if (typeof localStorage !== "undefined" && localStorage) { localStorage.setItem(key, val); }
+  } catch {
+    // ignore
+  }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [channels, setChannels] = useState<Channel[]>([]);
-  const [channelId, setChannelIdS] = useState(localStorage.getItem("ytch") ?? "");
+  const [channelId, setChannelIdS] = useState(getStored("ytch"));
   const [jobs, setJobs] = useState<Job[]>([]);
   const [quota, setQuota] = useState<Quota | null>(null);
   const [audited, setAudited] = useState(true);
@@ -22,7 +41,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [driveScope, setDriveScope] = useState("file");
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([]);
 
-  const setChannelId = (id: string) => { localStorage.setItem("ytch", id); setChannelIdS(id); };
+  const setChannelId = (id: string) => { setStored("ytch", id); setChannelIdS(id); };
   const refresh = useCallback(async () => {
     const [chs, js, q, cfg] = await Promise.all([
       api<Channel[]>("/channels"), api<Job[]>(`/jobs?limit=1000${channelId ? `&channel=${channelId}` : ""}`), api<Quota>("/quota"), api<{ audited: boolean; youtubeMode?: string; driveScope?: string }>("/config"),

@@ -30,6 +30,8 @@ workspace/
 
 Innings Break services stay under `apps/` (see AGENTS.md). The runtime decision is pending approval in [specs/innings-break/runtime.md](file:///specs/innings-break/runtime.md). The console API, customer API, and cron hub directories are Wrangler scaffolding: no handlers and no deploy. Shared D1 migrations live in [packages/innings-break-contract/migrations](file:///packages/innings-break-contract/migrations) and are applied once per environment. `pnpm check:ib-wrangler` still refuses a `migrations_dir` on the Wrangler files.
 
+The overall CI/CD target architecture, deploy safety engine, and environment matrix are specified in [specs/ci/plan.md](file:///specs/ci/plan.md).
+
 ---
 
 ## Tooling & Execution Conventions

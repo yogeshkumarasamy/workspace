@@ -1,6 +1,15 @@
 import { isQuotaError } from "../../yt-scheduler/src/backoff.ts";
 import { COST, JOB_COST, canAfford, nextQuotaReset, quotaDay } from "../../yt-scheduler/src/quota.ts";
 import type { Channel, Job } from "../../yt-scheduler/src/types.ts";
+import {
+  InstanceBudget,
+  addSpend,
+  chunkStepCost,
+  finishStepCost,
+  handoffStepCost,
+  isSubrequestLimitError,
+  type SubrequestSpend,
+} from "./budget.ts";
 import type { UploadProgress } from "./d1-store.ts";
 import { driveFileMeta, driveMediaUrl, openResumableUpload, refreshAccessToken } from "./google.ts";
 import { MOCK_MEDIA_BYTES, videoResource } from "./publish.ts";
@@ -54,6 +63,12 @@ export interface UploadEnv {
   store: UploadStore;
   media: MockMedia;
   fetcher?: ChunkFetcher;
+  /** Mock file length. Omitted uses MOCK_MEDIA_BYTES. */
+  mockMediaBytes?: number;
+  /** Ledger for this Workflow instance. A new instance passes a fresh one. */
+  budget?: InstanceBudget;
+  /** Create the next Workflow instance for this job. The job stays uploading. */
+  continueUpload?: (jobId: string) => Promise<void>;
 }
 
 export interface MiniStep {
@@ -67,6 +82,8 @@ export interface PreparedUpload {
   total: number;
   offset: number;
   chunkBytes: number;
+  /** Subrequests this prepare step spent. Applied by the caller so a replay sees the same total. */
+  spent: SubrequestSpend;
 }
 
 const STEP = { retries: { limit: 3, delay: "5 seconds", backoff: "exponential" }, timeout: "15 minutes" };
@@ -80,68 +97,144 @@ export function immediateStep(): MiniStep {
 }
 
 export async function runScheduledUpload(step: MiniStep, env: UploadEnv, jobId: string): Promise<void> {
+  const budget = env.budget ?? new InstanceBudget();
   try {
     let prepared = await step.do("prepare", STEP, () => prepareUpload(env, jobId));
+    budget.spend(prepared.spent);
     if (prepared.done) return;
     if (prepared.waitUntil && new Date(prepared.waitUntil).getTime() > env.now().getTime()) {
       await step.sleepUntil("due", new Date(prepared.waitUntil));
       prepared = await step.do("prepare-after-wait", STEP, () => prepareUpload(env, jobId));
+      budget.spend(prepared.spent);
       if (prepared.done) return;
     }
     let offset = prepared.offset;
+    let stepIndex = 0;
+    // A cold live isolate refreshes the access token once. Prepare already did that when it opened the session.
+    let liveTokenReserved = prepared.spent.external > 0;
+    // One backwards adopt is a confirmed cursor, not a failed transfer. A second stall fails the step.
+    let adoptedLowerCursor = false;
     while (offset < prepared.total) {
+      const extraExternal = env.youtubeMode === "live" && !liveTokenReserved ? 1 : 0;
+      const chunk = chunkStepCost(extraExternal);
+      if (!budget.fits(addSpend(chunk, handoffStepCost()))) {
+        await pauseForNextInstance(step, env, budget, jobId, offset, stepIndex);
+        return;
+      }
+      if (extraExternal) liveTokenReserved = true;
+      budget.spend(chunk);
       const endInclusive = Math.min(offset + prepared.chunkBytes, prepared.total) - 1;
-      const outcome = await step.do(`chunk-${offset}`, STEP, () => transferJobChunk(env, jobId, offset, endInclusive));
-      if (outcome.received <= offset) throw new Error(`chunk at ${offset} did not advance (received ${outcome.received})`);
-      offset = outcome.received;
+      const requested = offset;
+      const outcome = await step.do(`chunk-${stepIndex}-at-${requested}`, STEP, () => transferJobChunk(env, jobId, requested, endInclusive));
+      stepIndex += 1;
+      if (outcome.received > requested) {
+        adoptedLowerCursor = false;
+        offset = outcome.received;
+      } else if (!adoptedLowerCursor && outcome.received >= 0 && outcome.received < requested) {
+        adoptedLowerCursor = true;
+        offset = outcome.received;
+      } else {
+        throw new Error(`chunk at ${requested} did not advance (received ${outcome.received})`);
+      }
     }
+    const finish = finishStepCost(env.youtubeMode);
+    if (!budget.fits(finish)) {
+      await pauseForNextInstance(step, env, budget, jobId, offset, stepIndex);
+      return;
+    }
+    budget.spend(finish);
     await step.do("finish", STEP, () => finishUpload(env, jobId));
   } catch (error) {
+    if (isSubrequestLimitError(error)) {
+      await handoffAfterLimit(step, env, budget, jobId);
+      return;
+    }
     await markFailed(env, jobId, error);
     throw error;
   }
 }
 
-export async function prepareUpload(env: UploadEnv, jobId: string): Promise<PreparedUpload> {
-  const now = env.now();
-  const job = await env.store.getJob(jobId);
-  if (!job) return { done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes };
-  if (["cancelled", "published", "scheduled", "failed"].includes(job.status)) {
-    return { done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes };
+async function pauseForNextInstance(step: MiniStep, env: UploadEnv, budget: InstanceBudget, jobId: string, offset: number | null, stepIndex: number): Promise<void> {
+  const cost = handoffStepCost();
+  if (budget.fits(cost)) budget.spend(cost);
+  const at = offset === null ? "saved" : String(offset);
+  await step.do(`continue-${stepIndex}-at-${at}`, STEP, () => persistAndContinue(env, jobId, offset));
+}
+
+async function handoffAfterLimit(step: MiniStep, env: UploadEnv, budget: InstanceBudget, jobId: string): Promise<void> {
+  let offset: number | null = null;
+  try {
+    const progress = await env.store.uploadProgress(jobId);
+    offset = progress ? progress.offset : null;
+  } catch (error) {
+    if (!isSubrequestLimitError(error)) throw error;
+    offset = null;
   }
-  const channel = await env.store.getChannel(job.channelId);
+  try {
+    await pauseForNextInstance(step, env, budget, jobId, offset, -1);
+  } catch (error) {
+    if (!isSubrequestLimitError(error)) throw error;
+  }
+}
+
+async function persistAndContinue(env: UploadEnv, jobId: string, offset: number | null): Promise<void> {
+  if (offset !== null) await env.store.saveUpload(jobId, { offset });
+  const job = await env.store.getJob(jobId);
+  if (!job || ["published", "scheduled", "cancelled", "failed"].includes(job.status)) return;
+  const confirmed = offset ?? (await env.store.uploadProgress(jobId))?.offset ?? 0;
+  await env.store.updateJob(jobId, {
+    status: "uploading",
+    lastError: null,
+    log: [...job.log, { at: env.now().toISOString(), msg: `upload paused at byte ${confirmed}; next Workflow instance continues the same session` }],
+  });
+  if (env.continueUpload) await env.continueUpload(jobId);
+}
+
+export async function prepareUpload(env: UploadEnv, jobId: string): Promise<PreparedUpload> {
+  const spent: SubrequestSpend = { external: 0, internal: 0 };
+  const store = meterStore(env.store, spent);
+  const media = meterMedia(env.media, spent);
+  const local: UploadEnv = { ...env, store, media };
+  const now = env.now();
+  const ready = (partial: Omit<PreparedUpload, "spent">): PreparedUpload => ({ ...partial, spent });
+  const job = await store.getJob(jobId);
+  if (!job) return ready({ done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes });
+  if (["cancelled", "published", "scheduled", "failed"].includes(job.status)) {
+    return ready({ done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes });
+  }
+  const channel = await store.getChannel(job.channelId);
   if (!channel) {
-    await env.store.updateJob(job.id, { status: "failed", lastError: "channel no longer connected" });
-    return { done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes };
+    await store.updateJob(job.id, { status: "failed", lastError: "channel no longer connected" });
+    return ready({ done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes });
   }
   const day = quotaDay(now);
-  const used = await env.store.quotaUsed(day);
+  const used = await store.quotaUsed(day);
   if (!canAfford(used.total, env.dailyQuota)) {
     const reset = nextQuotaReset(now);
-    await env.store.updateJob(job.id, { status: "queued", runAt: reset, lastError: `deferred: quota ${used.total}/${env.dailyQuota}` });
-    return { done: false, waitUntil: reset.toISOString(), total: 0, offset: 0, chunkBytes: env.chunkBytes };
+    await store.updateJob(job.id, { status: "queued", runAt: reset, lastError: `deferred: quota ${used.total}/${env.dailyQuota}` });
+    return ready({ done: false, waitUntil: reset.toISOString(), total: 0, offset: 0, chunkBytes: env.chunkBytes });
   }
   if (job.status === "queued" && job.runAt.getTime() > now.getTime()) {
-    return { done: false, waitUntil: job.runAt.toISOString(), total: 0, offset: 0, chunkBytes: env.chunkBytes };
+    return ready({ done: false, waitUntil: job.runAt.toISOString(), total: 0, offset: 0, chunkBytes: env.chunkBytes });
   }
   if (job.status === "queued") {
-    const claimed = await env.store.claimJob(job.id, now);
-    if (!claimed) return { done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes };
+    const claimed = await store.claimJob(job.id, now);
+    if (!claimed) return ready({ done: true, waitUntil: null, total: 0, offset: 0, chunkBytes: env.chunkBytes });
   }
 
-  const progress = (await env.store.uploadProgress(job.id)) ?? { sessionUri: null, offset: 0, total: null, chunkBytes: null, workflowId: null };
+  const progress = (await store.uploadProgress(job.id)) ?? { sessionUri: null, offset: 0, total: null, chunkBytes: null, workflowId: null };
   const chunkBytes = progress.chunkBytes ?? env.chunkBytes;
   let total = progress.total;
   let sessionUri = progress.sessionUri;
   if (!total || !sessionUri) {
-    const opened = await openSession(env, job, channel, now);
+    const opened = await openSession(local, job, channel, now, spent);
     total = opened.total;
     sessionUri = opened.sessionUri;
-    await env.store.addQuota(channel.id, day, COST.videosInsert);
-    await env.store.saveUpload(job.id, { sessionUri, total, offset: 0, chunkBytes });
-    await env.store.updateJob(job.id, { log: [...job.log, { at: now.toISOString(), msg: `upload session opened (${total} bytes, ${chunkBytes} byte chunks)` }] });
+    await store.addQuota(channel.id, day, COST.videosInsert);
+    await store.saveUpload(job.id, { sessionUri, total, offset: 0, chunkBytes });
+    await store.updateJob(job.id, { log: [...job.log, { at: now.toISOString(), msg: `upload session opened (${total} bytes, ${chunkBytes} byte chunks)` }] });
   }
-  return { done: false, waitUntil: null, total, offset: progress.sessionUri ? progress.offset : 0, chunkBytes };
+  return ready({ done: false, waitUntil: null, total, offset: progress.sessionUri ? progress.offset : 0, chunkBytes });
 }
 
 export async function transferJobChunk(env: UploadEnv, jobId: string, offset: number, endInclusive: number): Promise<{ received: number; videoId: string | null }> {
@@ -160,7 +253,10 @@ export async function transferJobChunk(env: UploadEnv, jobId: string, offset: nu
     await env.store.saveUpload(jobId, { offset: status.received, videoId: status.videoId });
     return { received: status.complete ? progress.total : status.received, videoId: status.videoId };
   }
-  if (status.received !== offset) return { received: status.received, videoId: status.videoId };
+  if (status.received !== offset) {
+    await env.store.saveUpload(jobId, { offset: status.received, videoId: status.videoId });
+    return { received: status.received, videoId: status.videoId };
+  }
   const result = await transferChunk({
     fetcher,
     sourceUrl: sourceUrl(env, job),
@@ -231,15 +327,20 @@ export async function finishUpload(env: UploadEnv, jobId: string): Promise<void>
   });
 }
 
-async function openSession(env: UploadEnv, job: Job, channel: Channel, now: Date): Promise<{ total: number; sessionUri: string }> {
+async function openSession(env: UploadEnv, job: Job, channel: Channel, now: Date, spent: SubrequestSpend): Promise<{ total: number; sessionUri: string }> {
   if (env.youtubeMode === "mock") {
-    const total = MOCK_MEDIA_BYTES;
+    const total = env.mockMediaBytes ?? MOCK_MEDIA_BYTES;
     await env.media.save(job.id, { total, received: 0, videoId: null });
     return { total, sessionUri: `mock://upload/${job.id}` };
   }
-  const token = await accessToken(env, channel);
-  const total = await liveSize(token, job);
-  const mime = job.video.kind === "drive" ? (await driveFileMeta(token, job.video.fileId)).mimeType : "video/mp4";
+  const token = await accessToken(env, channel, spent);
+  const total = await liveSize(token, job, spent);
+  let mime = "video/mp4";
+  if (job.video.kind === "drive") {
+    spent.external += 1;
+    mime = (await driveFileMeta(token, job.video.fileId)).mimeType;
+  }
+  spent.external += 1;
   const sessionUri = await openResumableUpload({
     accessToken: token,
     resource: videoResource(job.metadata, job.publishAt, now),
@@ -249,11 +350,16 @@ async function openSession(env: UploadEnv, job: Job, channel: Channel, now: Date
   return { total, sessionUri };
 }
 
-async function liveSize(token: string, job: Job): Promise<number> {
-  if (job.video.kind === "drive") return (await driveFileMeta(token, job.video.fileId)).size;
+async function liveSize(token: string, job: Job, spent: SubrequestSpend): Promise<number> {
+  if (job.video.kind === "drive") {
+    spent.external += 1;
+    return (await driveFileMeta(token, job.video.fileId)).size;
+  }
+  spent.external += 1;
   const head = await fetch(job.video.url, { method: "HEAD" });
   const length = Number(head.headers.get("content-length") ?? "0");
   if (head.ok && length > 0) return length;
+  spent.external += 1;
   const probe = await fetch(job.video.url, { headers: { Range: "bytes=0-0" } });
   await probe.body?.cancel();
   const match = /\/(\d+)$/.exec(probe.headers.get("content-range") ?? "");
@@ -288,7 +394,10 @@ export function mockFetcher(media: MockMedia): ChunkFetcher {
     async fetch(url, init) {
       const parsed = new URL(url);
       const id = decodeURIComponent(parsed.pathname.replace(/^\//, ""));
-      if (parsed.hostname === "source") return mockSource(init?.headers, MOCK_MEDIA_BYTES);
+      if (parsed.hostname === "source") {
+        const row = await media.get(id);
+        return mockSource(init?.headers, row?.total ?? MOCK_MEDIA_BYTES);
+      }
       if (parsed.hostname === "upload") return mockSink(media, id, init);
       throw new Error(`unknown mock url ${url}`);
     },
@@ -372,12 +481,13 @@ async function discard(body: ReadableStream | null) {
   }
 }
 
-async function accessToken(env: UploadEnv, channel: Channel): Promise<string> {
+async function accessToken(env: UploadEnv, channel: Channel, spent?: SubrequestSpend): Promise<string> {
   if (!env.google) throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when YOUTUBE_MODE=live");
   const hit = tokens.get(channel.id);
   if (hit && hit.exp > Date.now() + 30_000) return hit.token;
   const { decrypt } = await import("./crypto.ts");
   const refreshToken = await decrypt(channel.refreshTokenEnc, env.encryptionKey);
+  if (spent) spent.external += 1;
   const token = await refreshAccessToken({ refreshToken, clientId: env.google.clientId, clientSecret: env.google.clientSecret });
   tokens.set(channel.id, { token: token.accessToken, exp: Date.now() + token.expiresIn * 1000 });
   return token.accessToken;
@@ -449,6 +559,36 @@ export async function updateLiveSchedule(token: string, videoId: string, meta: J
     body: JSON.stringify({ id: videoId, status: videoResource(meta, publishAt, now).status }),
   });
   if (!response.ok) throw new Error(`videos.update ${response.status}: ${(await response.text()).slice(0, 200)}`);
+}
+
+function meterStore(store: UploadStore, spent: SubrequestSpend): UploadStore {
+  const hit = <T>(fn: () => Promise<T>): Promise<T> => {
+    spent.internal += 1;
+    return fn();
+  };
+  return {
+    getJob: (id) => hit(() => store.getJob(id)),
+    updateJob: (id, patch) => hit(() => store.updateJob(id, patch)),
+    getChannel: (id) => hit(() => store.getChannel(id)),
+    addQuota: (id, day, units) => hit(() => store.addQuota(id, day, units)),
+    quotaUsed: (day) => hit(() => store.quotaUsed(day)),
+    uploadProgress: (id) => hit(() => store.uploadProgress(id)),
+    saveUpload: (id, patch) => hit(() => store.saveUpload(id, patch)),
+    claimJob: (id, now) => hit(() => store.claimJob(id, now)),
+  };
+}
+
+function meterMedia(media: MockMedia, spent: SubrequestSpend): MockMedia {
+  return {
+    get: (id) => {
+      spent.internal += 1;
+      return media.get(id);
+    },
+    save: (id, row) => {
+      spent.internal += 1;
+      return media.save(id, row);
+    },
+  };
 }
 
 async function markFailed(env: UploadEnv, jobId: string, error: unknown) {

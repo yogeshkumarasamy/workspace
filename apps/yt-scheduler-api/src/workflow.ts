@@ -3,12 +3,19 @@ import type { Env } from "./env.ts";
 import { D1Store } from "./d1-store.ts";
 import { parseChunkBytes } from "./publish.ts";
 import { ensureSchema } from "./schema.ts";
-import { D1MockMedia, runScheduledUpload, type MiniStep, type UploadEnv } from "./upload.ts";
+import { D1MockMedia, runScheduledUpload, type MiniStep, type UploadEnv, type UploadStore } from "./upload.ts";
 
 export type UploadParams = { jobId: string };
 
+export async function startContinuation(env: Env, store: UploadStore, jobId: string): Promise<void> {
+  const id = `upload-${jobId}-${Date.now()}`;
+  await env.UPLOAD.create({ id, params: { jobId } });
+  await store.saveUpload(jobId, { workflowId: id });
+}
+
 export async function uploadEnv(env: Env): Promise<UploadEnv> {
   await ensureSchema(env.DB);
+  const store = new D1Store(env.DB);
   const live = env.YOUTUBE_MODE === "live";
   return {
     youtubeMode: live ? "live" : "mock",
@@ -17,8 +24,9 @@ export async function uploadEnv(env: Env): Promise<UploadEnv> {
     encryptionKey: env.ENCRYPTION_KEY,
     google: env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET ? { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } : null,
     now: () => new Date(),
-    store: new D1Store(env.DB),
+    store,
     media: new D1MockMedia(env.DB),
+    continueUpload: (jobId) => startContinuation(env, store, jobId),
   };
 }
 

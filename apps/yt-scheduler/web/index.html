@@ -6,15 +6,34 @@
     <title>YT Scheduler</title>
     <base href="%BASE_URL%" />
     <meta name="theme-color" content="#e11d48" />
-    <meta name="description" content="Schedule and manage YouTube uploads" />
+    <meta name="description" content="YT Scheduler is Yogesh Kumarasamy's personal tool. It uploads chosen Google Drive videos to his own YouTube channel and schedules publishing." />
     <link rel="icon" type="image/png" sizes="32x32" href="%BASE_URL%icons/favicon-32.png" />
     <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="YT Sched" />
+    <style>
+      body { margin: 0; background: #0a0a0c; color: #fafafa; font-family: Inter, system-ui, sans-serif; line-height: 1.6; }
+      #about { max-width: 40rem; margin: 0 auto; padding: 4rem 1.25rem; }
+      #about h1 { font-size: 1.75rem; line-height: 1.25; margin: 0 0 0.75rem; }
+      #about p { margin: 0.75rem 0; }
+      #about a { color: #fb7185; }
+      #about nav { display: flex; gap: 1rem; }
+      #about .eyebrow { color: #a1a1aa; font-size: 0.875rem; }
+    </style>
   </head>
   <body class="min-h-screen bg-background text-foreground antialiased">
+    <main id="about">
+      <p class="eyebrow">Personal tool · Yogesh Kumarasamy</p>
+      <h1>📅 YT Scheduler</h1>
+      <p>YT Scheduler uploads videos the owner chooses from Google Drive to their own YouTube channel and schedules when those videos publish. It is a single-owner tool. It does not show ads.</p>
+      <nav>
+        <a href="%BASE_URL%privacy">Privacy</a>
+        <a href="%BASE_URL%terms">Terms</a>
+      </nav>
+      <p>Contact: __CONTACT__</p>
+    </main>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

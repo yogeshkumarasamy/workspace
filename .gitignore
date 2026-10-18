@@ -4,6 +4,7 @@ node_modules
 *.log
 dist
 dist-ssr
+plan.json
 *.local
 .env
 .cache

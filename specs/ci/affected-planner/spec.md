@@ -43,7 +43,7 @@ Base selection:
 
 ## Decision matrix (previews on dev)
 
-Previews are served from `dev.yogeshkumarasamy.in` at `/previews/<slug>/pr-<N>/`. Push deploys use `/<slug>/` on that environment's host and do **not** auto-rebuild a paired UI: the UI artifact is configured at deploy time.
+Previews are served from `dev.yogeshkumarasamy.in` at `/preview/<slug>/pr-<N>/` (the path `PREVIEW_DOMAIN` already prints for portfolio). Push deploys use `/<slug>/` on that environment's host and do **not** auto-rebuild a paired UI: the UI artifact is configured at deploy time.
 
 | # | Situation | UI | API | UI `apiBaseUrl` |
 |---|---|---|---|---|
@@ -69,7 +69,7 @@ Push plans do not add `paired-api` or `shared-d1` rows. They still record each t
   "kind": "static",
   "env": "preview",
   "base": "<sha>",
-  "path": "/previews/ib-console/pr-42/",
+  "path": "/preview/ib-console/pr-42/",
   "apiBaseUrl": "https://ib-console-api-pr-42.acct.workers.dev",
   "reason": "paired-api",
   "host": "dev.yogeshkumarasamy.in",

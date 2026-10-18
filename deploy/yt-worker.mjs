@@ -81,8 +81,8 @@ export function publicUrls(env, pr) {
     const number = assertPr(pr);
     return {
       corsOrigin: SITES.dev,
-      appPublicUrl: `${SITES.dev}/previews/yt-scheduler/pr-${number}/`,
-      pageBase: `/previews/yt-scheduler/pr-${number}/`,
+      appPublicUrl: `${SITES.dev}/preview/yt-scheduler/pr-${number}/`,
+      pageBase: `/preview/yt-scheduler/pr-${number}/`,
     };
   }
   const site = SITES[env];

@@ -59,9 +59,9 @@ export function assertEnv(env) {
 
 export function assertBase(base) {
   const slug = SLUGS.join("|");
-  const re = new RegExp(`^/(?:${slug}|previews/(?:${slug})/pr-[1-9][0-9]*)/$`);
+  const re = new RegExp(`^/(?:${slug}|previews?/(?:${slug})/pr-[1-9][0-9]*)/$`);
   if (typeof base !== "string" || !re.test(base)) {
-    throw new Error(`base must be /<slug>/ or /previews/<slug>/pr-<N>/, received ${base}`);
+    throw new Error(`base must be /<slug>/ or /preview/<slug>/pr-<N>/, received ${base}`);
   }
   return base;
 }

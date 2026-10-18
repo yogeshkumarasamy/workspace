@@ -7,7 +7,7 @@ import { apiUrl, loadAppConfig, resolveApiBase, resolveOauthStart, routerBasenam
 
 const BASE = "/yt-scheduler/";
 const PAGE = "https://dev.yogeshkumarasamy.in/yt-scheduler/";
-const PREVIEW = "https://dev.yogeshkumarasamy.in/previews/yt-scheduler/pr-23/";
+const PREVIEW = "https://dev.yogeshkumarasamy.in/preview/yt-scheduler/pr-23/";
 
 describe("static base URLs", () => {
   it("allows asset URLs under the configured base and rejects domain-root ones", () => {
@@ -23,7 +23,7 @@ describe("static base URLs", () => {
   });
 
   it("accepts a preview base and fails the check when the manifest is still rooted at /", () => {
-    const preview = "/previews/yt-scheduler/pr-23/";
+    const preview = "/preview/yt-scheduler/pr-23/";
     const html = `<link href="${preview}assets/a.js">`;
     expect(urlsOutsideBase(html, preview)).toEqual([]);
     const dir = mkdtempSync(join(tmpdir(), "yt-dist-"));
@@ -38,7 +38,7 @@ describe("static base URLs", () => {
 describe("API base", () => {
   it("falls back to api/ under the document base", () => {
     expect(resolveApiBase(null, PAGE)).toBe("https://dev.yogeshkumarasamy.in/yt-scheduler/api/");
-    expect(resolveApiBase({}, PREVIEW)).toBe("https://dev.yogeshkumarasamy.in/previews/yt-scheduler/pr-23/api/");
+    expect(resolveApiBase({}, PREVIEW)).toBe("https://dev.yogeshkumarasamy.in/preview/yt-scheduler/pr-23/api/");
     expect(resolveApiBase({ apiBaseUrl: "  " }, PAGE)).toBe("https://dev.yogeshkumarasamy.in/yt-scheduler/api/");
   });
 
@@ -78,7 +78,7 @@ describe("API base", () => {
 
   it("strips the trailing slash for the history basename", () => {
     expect(routerBasename("/yt-scheduler/")).toBe("/yt-scheduler");
-    expect(routerBasename("/previews/yt-scheduler/pr-9/")).toBe("/previews/yt-scheduler/pr-9");
+    expect(routerBasename("/preview/yt-scheduler/pr-9/")).toBe("/preview/yt-scheduler/pr-9");
     expect(routerBasename("/")).toBe("/");
   });
 });

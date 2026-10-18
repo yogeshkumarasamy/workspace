@@ -14,6 +14,7 @@ import {
   namesFor,
   parseChunkBytes,
   parseCreatedDatabaseId,
+  publicUrls,
   renderWrangler,
   resolveWorkerSecrets,
   workerOrigin,
@@ -81,7 +82,7 @@ test("generated wrangler config has the real database id, empty crons, and no cp
     workflow: "yt-scheduler-upload-pr-3",
     youtubeMode: "mock",
     corsOrigin: "https://dev.yogeshkumarasamy.in",
-    appPublicUrl: "https://dev.yogeshkumarasamy.in/previews/yt-scheduler/pr-3/",
+    appPublicUrl: "https://dev.yogeshkumarasamy.in/preview/yt-scheduler/pr-3/",
     chunkBytes: 32 * 1024 * 1024,
     gitSha: "abc",
   });
@@ -164,9 +165,16 @@ test("delete-preview treats 404 as success and removes the worker, D1, and workf
   assert.equal(calls.some((call) => call.url.endsWith("/workflows/yt-scheduler-upload-pr-4")), true);
 });
 
+test("preview public path matches the served /preview/ prefix", () => {
+  const urls = publicUrls("preview", 121);
+  assert.equal(urls.pageBase, "/preview/yt-scheduler/pr-121/");
+  assert.equal(urls.appPublicUrl, "https://dev.yogeshkumarasamy.in/preview/yt-scheduler/pr-121/");
+  assert.equal(publicUrls("dev").pageBase, "/yt-scheduler/");
+});
+
 test("flat htaccess rewrites the preview base and app-config stays out of production secrets", () => {
-  const preview = spaHtaccess("/previews/yt-scheduler/pr-8/");
-  assert.match(preview, /RewriteBase \/previews\/yt-scheduler\/pr-8\//);
+  const preview = spaHtaccess("/preview/yt-scheduler/pr-8/");
+  assert.match(preview, /RewriteBase \/preview\/yt-scheduler\/pr-8\//);
   assert.match(preview, /RewriteRule \^ index\.html/);
   assert.equal(preview.includes("releases/"), false);
   const dir = mkdtempSync(path.join(tmpdir(), "yt-dist-"));

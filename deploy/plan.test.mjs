@@ -85,7 +85,7 @@ test("row 1: a UI-only change previews that UI against the dev API", () => {
   assert.equal(ui.env, "preview");
   assert.equal(ui.kind, "static");
   assert.equal(ui.host, "dev.yogeshkumarasamy.in");
-  assert.equal(ui.path, "/previews/ib-console/pr-42/");
+  assert.equal(ui.path, "/preview/ib-console/pr-42/");
   assert.equal(ui.apiBaseUrl, "https://ib-console-api-dev.acct.workers.dev");
   assert.equal(ui.freshDb, false);
   assert.equal(ui.d1, null);
@@ -97,7 +97,7 @@ test("row 1: a UI-only change previews that UI against the dev API", () => {
   });
   assert.deepEqual(names(yt), ["yt-scheduler"]);
   assert.equal(entry(yt, "yt-scheduler").apiBaseUrl, "https://yt-scheduler-api-dev.acct.workers.dev");
-  assert.equal(entry(yt, "yt-scheduler").path, "/previews/yt-scheduler/pr-42/");
+  assert.equal(entry(yt, "yt-scheduler").path, "/preview/yt-scheduler/pr-42/");
 });
 
 test("row 1 from changed files only, with no turbo output", () => {
@@ -106,7 +106,7 @@ test("row 1 from changed files only, with no turbo output", () => {
   });
   assert.deepEqual(names(report), ["portfolio"]);
   const ui = entry(report, "portfolio");
-  assert.equal(ui.path, "/previews/portfolio/pr-42/");
+  assert.equal(ui.path, "/preview/portfolio/pr-42/");
   assert.equal(ui.apiBaseUrl, null);
   assert.equal(ui.reason, "affected");
 });
@@ -128,7 +128,7 @@ test("row 2: API code only deploys the API and auto-rebuilds the paired UI again
   assert.equal(api.d1, "ib-pr-42");
   assert.equal(ui.reason, "paired-api");
   assert.equal(ui.apiBaseUrl, "https://ib-console-api-pr-42.acct.workers.dev");
-  assert.equal(ui.path, "/previews/ib-console/pr-42/");
+  assert.equal(ui.path, "/preview/ib-console/pr-42/");
   assert.deepEqual(report.test, ["@apps/innings-break-console-api"]);
   assert.deepEqual(report.build, [
     "@apps/innings-break-console-api",
@@ -504,7 +504,7 @@ test("yt-scheduler API change previews the worker and rebuilds the UI against th
   assert.equal(api.freshDb, false);
   assert.equal(ui.reason, "paired-api");
   assert.equal(ui.apiBaseUrl, "https://yt-scheduler-api-pr-42.acct.workers.dev");
-  assert.equal(ui.path, "/previews/yt-scheduler/pr-42/");
+  assert.equal(ui.path, "/preview/yt-scheduler/pr-42/");
 });
 
 test("a yt-scheduler migration plans a fresh preview database", () => {
@@ -623,7 +623,7 @@ test("the CLI dry-run writes plan.json and prints a strategy matrix", () => {
   const plan = JSON.parse(readFileSync(out, "utf8"));
   assert.deepEqual(report.matrix, { include: plan });
   assert.equal(plan[0].target, "portfolio");
-  assert.equal(plan[0].path, "/previews/portfolio/pr-42/");
+  assert.equal(plan[0].path, "/preview/portfolio/pr-42/");
   assert.equal(report.build[0], "@apps/portfolio");
 });
 

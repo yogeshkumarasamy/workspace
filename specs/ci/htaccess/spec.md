@@ -27,7 +27,7 @@ Hostinger Single serves `dev.yogeshkumarasamy.in`, `staging.yogeshkumarasamy.in`
 | [robots.dev.txt](file:///workspace/deploy/htaccess/robots.dev.txt) | `robots.txt` on `dev.yogeshkumarasamy.in` |
 | [robots.staging.txt](file:///workspace/deploy/htaccess/robots.staging.txt) | `robots.txt` on `staging.yogeshkumarasamy.in` |
 
-[deploy/htaccess.mjs](file:///workspace/deploy/htaccess.mjs) reads those files. Slugs are `portfolio`, `ib-console`, `ib`, and `yt-scheduler`. A base is `/<slug>/` or `/previews/<slug>/pr-<N>/` with a trailing slash and a positive PR number.
+[deploy/htaccess.mjs](file:///workspace/deploy/htaccess.mjs) reads those files. Slugs are `portfolio`, `ib-console`, `ib`, and `yt-scheduler`. A base is `/<slug>/` or `/preview/<slug>/pr-<N>/` with a trailing slash and a positive PR number. `/previews/...` is still accepted.
 
 ## What CI substitutes
 

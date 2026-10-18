@@ -450,7 +450,7 @@ function materialize(targets, selected, schema, ctx) {
       path:
         target.kind === "static"
           ? ctx.preview
-            ? `/previews/${target.slug}/pr-${ctx.prNumber}/`
+            ? `/preview/${target.slug}/pr-${ctx.prNumber}/`
             : `/${target.slug}/`
           : workerName(name, ctx, targets),
       apiBaseUrl,

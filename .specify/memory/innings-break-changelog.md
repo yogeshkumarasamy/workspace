@@ -1,6 +1,6 @@
 # Innings Break Decision Log (Changelog)
 
-> **Purpose**: Append-only log of product discussions and decisions for the Innings Break ecosystem, moved verbatim from the former §6 "Brain Dump & Evolution Notes" of [innings-break.md](file:///.specify/memory/innings-break.md).  
+> **Purpose**: Append-only log of product discussions and decisions for the Innings Break ecosystem, moved verbatim from the former §6 "Brain Dump & Evolution Notes" of [innings-break.md](file:///.specify/memory/innings-break.md). Sessions 1–26 are that original log. Session 27 onward are new entries.  
 > **How to use**: Never edit or reorder past sessions. Add each new session **at the bottom** as `### Session N — YYYY-MM-DD: Title`. When a decision settles, reflect it in the stable [overview](file:///.specify/memory/innings-break.md), the [personas](file:///.specify/memory/innings-break-personas.md), or the relevant feature file under the [Console PRD](file:///specs/innings-break/console/prd.md) / [Customer PRD](file:///specs/innings-break/customer/prd.md). Later sessions supersede earlier ones where they conflict.
 
 ---
@@ -194,3 +194,13 @@
 * **Prominent UI Header Role Status & Instant Revocation**:
   - UI displays header pill: `👑 Delegated Manager (Week of 26 Sep) • Primary Manager: Yogesh Kumar`.
   - Primary Manager can revoke delegation access with 1 tap at any time from the Team Members section or Calendar.
+
+### Session 27 — 2026-10-17: Backend runtime — Workers, shared D1, cron hub
+* **Status**: Direction approved for T17 (issue #83). The spec text in [innings-break.md](file:///.specify/memory/innings-break.md) §3 and the [runtime spec](file:///specs/innings-break/runtime.md) is pending review. This session does not authorize API handlers, migrations, or deploys.
+* **Supersedes** the Session 1 runtime: one Node.js + Express app at `apps/innings-break-api`. That directory is not created.
+* **Two API Workers**, Hono on Cloudflare Workers, directories under `apps/` per AGENTS.md:
+  - `ib-customer-api-<env>` at `apps/innings-break-customer-api` — authorized persona `Team Manager`.
+  - `ib-console-api-<env>` at `apps/innings-break-console-api` — authorized personas `Business Owner` and `Operations Manager`.
+* **One D1 database per environment**, shared by both Workers: `ib-dev`, `ib-staging`, `ib-prod`. A preview uses its own `ib-pr-<N>` and never the environment database.
+* **Cron hub** at `apps/cron-hub`: one `cron-hub-<env>` Worker per environment, each with a single `* * * * *` trigger (3 triggers; Workers Free cap is 5). It calls the console API over a service binding. Hourly auto-complete runs when the UTC minute is 0. The Sunday upcoming-week lock runs at 14:00 IST (Sunday 08:30 UTC), because IST is UTC+5:30 and that instant is not minute 0. No cron on either API Worker or on preview. A yt-scheduler binding is not added; option A is still open (issue #88).
+* **Sessions**: WebCrypto (`crypto.getRandomValues`, `crypto.subtle`). Node.js `crypto` is not used. Console sessions and customer sessions stay separate.

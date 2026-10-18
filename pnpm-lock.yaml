@@ -18,6 +18,12 @@ importers:
         specifier: ^2.11.9
         version: 2.11.9
 
+  apps/cron-hub: {}
+
+  apps/innings-break-console-api: {}
+
+  apps/innings-break-customer-api: {}
+
   apps/portfolio:
     dependencies:
       '@repo/ui':

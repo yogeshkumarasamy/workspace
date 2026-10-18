@@ -1,0 +1,81 @@
+{
+  // SCAFFOLD — pending approval of specs/innings-break/runtime.md (issue #83).
+  // Do not deploy. Always pass --env. A bare `wrangler deploy` is not an environment.
+  // database_id values are placeholders. Paste the same id the console API uses.
+  // No migrations_dir: migrations are applied once per environment by a later ticket.
+  "name": "ib-customer-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-17",
+  "workers_dev": true,
+  "env": {
+    "dev": {
+      "name": "ib-customer-api-dev",
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "CORS_ORIGIN": "https://dev.yogeshkumarasamy.in"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ib-dev",
+          "database_id": "REPLACE_WITH_ib-dev_DATABASE_ID"
+        }
+      ],
+      "triggers": {
+        "crons": []
+      }
+    },
+    "staging": {
+      "name": "ib-customer-api-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "CORS_ORIGIN": "https://staging.yogeshkumarasamy.in"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ib-staging",
+          "database_id": "REPLACE_WITH_ib-staging_DATABASE_ID"
+        }
+      ],
+      "triggers": {
+        "crons": []
+      }
+    },
+    "production": {
+      "name": "ib-customer-api-prod",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "CORS_ORIGIN": "https://yogeshkumarasamy.in"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ib-prod",
+          "database_id": "REPLACE_WITH_ib-prod_DATABASE_ID"
+        }
+      ],
+      "triggers": {
+        "crons": []
+      }
+    },
+    "preview": {
+      "name": "ib-customer-api-preview",
+      "vars": {
+        "ENVIRONMENT": "preview",
+        "CORS_ORIGIN": "https://dev.yogeshkumarasamy.in"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "ib-pr-UNSET",
+          "database_id": "REPLACE_WITH_ib-pr-N_DATABASE_ID"
+        }
+      ],
+      // Empty array clears crons on deploy. Omitting `triggers` would leave one in place.
+      "triggers": {
+        "crons": []
+      }
+    }
+  }
+}

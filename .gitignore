@@ -7,6 +7,8 @@ dist-ssr
 plan.json
 *.local
 .env
+.dev.vars
+.wrangler
 .cache
 server/dist
 public/dist

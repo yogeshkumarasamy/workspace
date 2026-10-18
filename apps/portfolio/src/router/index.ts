@@ -5,6 +5,18 @@ import type { AppId } from "../contracts/apps";
 export type { Route };
 
 /**
+ * Directory the hash router is mounted at. Hash routes stay in the fragment
+ * (`#/classic`); this is the pathname before the hash. Vite `base` is the
+ * same path with a trailing slash (`/portfolio/` or a preview path).
+ */
+export function routerBasename(baseUrl = "/portfolio/"): string {
+  if (!baseUrl || baseUrl === "/" || baseUrl === "./") return "/";
+  return baseUrl.replace(/\/$/, "");
+}
+
+export const basename = routerBasename(import.meta.env.BASE_URL || "/portfolio/");
+
+/**
  * Classic sections that have a desktop window. Bare hashes such as `#projects`
  * used to fall through to the desktop route, which always selected About.txt.
  */

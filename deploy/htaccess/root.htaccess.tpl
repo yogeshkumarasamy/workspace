@@ -17,9 +17,9 @@ RewriteRule (^|/)\.(git|svn|env|ftp-deploy-sync-state\.json) - [R=404,L,NC]
 RewriteCond %{HTTP_HOST} ^yogeshkumarasamy\.in$ [NC]
 RewriteRule ^(dev|staging)(/|$) - [R=404,L]
 
-# Previews exist only on dev: 404 everywhere else
+# Previews exist only on dev. The live prefix is /preview/; /previews/ is still refused.
 RewriteCond %{HTTP_HOST} !^dev\.yogeshkumarasamy\.in$ [NC]
-RewriteRule ^previews(/|$) - [R=404,L]
+RewriteRule ^previews?(/|$) - [R=404,L]
 
 # Root → portfolio (302 until verified, then 301 on prod). The browser keeps #hash routes.
 RewriteRule ^$ /portfolio/ [R=302,L]

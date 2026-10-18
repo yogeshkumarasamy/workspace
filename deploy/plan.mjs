@@ -447,6 +447,8 @@ function materialize(targets, selected, schema, ctx) {
       kind: target.kind,
       env: ctx.env,
       base: meta.base,
+      // T13: a static app is /<slug>/ on dev, staging, and production.
+      // Previews stay /preview/<slug>/pr-<N>/ on the dev host. Never the docroot.
       path:
         target.kind === "static"
           ? ctx.preview

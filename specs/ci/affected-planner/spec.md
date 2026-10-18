@@ -43,7 +43,9 @@ Base selection:
 
 ## Decision matrix (previews on dev)
 
-Previews are served from `dev.yogeshkumarasamy.in` at `/preview/<slug>/pr-<N>/` (the path `PREVIEW_DOMAIN` already prints for portfolio). Push deploys use `/<slug>/` on that environment's host and do **not** auto-rebuild a paired UI: the UI artifact is configured at deploy time.
+Previews are served from `dev.yogeshkumarasamy.in` at `/preview/<slug>/pr-<N>/` (the path `PREVIEW_DOMAIN` already prints for portfolio). Push deploys use `/<slug>/` on that environment's host, including portfolio at `/portfolio/`, and do **not** auto-rebuild a paired UI: the UI artifact is configured at deploy time.
+
+Each static upload's FTP `server-dir` is that site path under the host docroot (or under the `/preview` directory for a preview). Portfolio is not the docroot. The docroot `index.html`, `.htaccess`, and `robots.txt` are infrastructure files and are not part of either app's upload.
 
 | # | Situation | UI | API | UI `apiBaseUrl` |
 |---|---|---|---|---|

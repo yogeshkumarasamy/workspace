@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { parseHash, routeToHash, navigate } from "../index";
+import { parseHash, routeToHash, navigate, routerBasename } from "../index";
 
 describe("Router", () => {
   beforeEach(() => {
@@ -49,6 +49,14 @@ describe("Router", () => {
       expect(routeToHash({ view: "desktop" })).toBe("#/");
       expect(routeToHash({ view: "classic" })).toBe("#/classic");
       expect(routeToHash({ view: "app", appId: "contact" })).toBe("#/app/contact");
+    });
+  });
+
+  describe("routerBasename", () => {
+    it("uses the app folder on every host and the preview folder on dev", () => {
+      expect(routerBasename("/portfolio/")).toBe("/portfolio");
+      expect(routerBasename("/preview/portfolio/pr-12/")).toBe("/preview/portfolio/pr-12");
+      expect(routerBasename("/")).toBe("/");
     });
   });
 

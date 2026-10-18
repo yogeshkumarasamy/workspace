@@ -22,7 +22,7 @@ describe("personJsonLd", () => {
     expect(sameAs).toContain("https://medium.com/@yogeshkumarasamy");
 
     expect(jsonLd.email).toBe("mailto:yogeshkumarasamy@gmail.com");
-    expect(jsonLd.url).toBe("https://yogeshkumarasamy.in");
+    expect(jsonLd.url).toBe("https://yogeshkumarasamy.in/portfolio/");
 
     const aliases = jsonLd.alternateName as string[];
     expect(aliases).toContain("yogesh kumar");

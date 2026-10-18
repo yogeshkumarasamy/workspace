@@ -1,6 +1,6 @@
 name: Deploy Vite App to Hostinger
 
-# release/staging runs this file from the branch tip. It builds @apps/portfolio into FTP_TARGET_DIR_STAGING (#66).
+# release/staging runs this file from the branch tip. It publishes /portfolio/ and /yt-scheduler/ into FTP_TARGET_DIR_STAGING.
 
 on:
   push:
@@ -13,6 +13,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  publish-host-root:
+    needs: deploy-yt-scheduler
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Write host root
+        run: >-
+          node deploy/host-root.mjs --env staging --out host-root
+          --api-origins https://yt-scheduler-api-staging.coderdevelopment.workers.dev
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Upload host root
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          FTP_ROOT: ${{ secrets.FTP_TARGET_DIR_STAGING }}
+          LOCAL_DIR: host-root
+        run: bash .github/scripts/ftp-put-files.sh
+
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -35,12 +68,26 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🛠️ Build Vite app
+        env:
+          APP_BASE: /portfolio/
         run: pnpm --filter @apps/portfolio... build
 
       # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
       # so the hostname does not match. protocol ftps keeps encryption.
       # security loose is this action's only switch that skips the name check.
+      - name: Prepare portfolio FTP folders
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-root: ${{ secrets.FTP_TARGET_DIR_STAGING }}
+          rel-dir: portfolio
+          local-dir: apps/portfolio/dist
+
       - name: 📤 Deploy via FTP
+        id: ftp1
+        continue-on-error: true
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
@@ -48,8 +95,45 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}
+          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/portfolio/
+
+      - name: Wait before FTP retry
+        if: steps.ftp1.outcome == 'failure'
+        run: sleep 20
+
+      - name: 📤 Deploy via FTP (retry)
+        id: ftp2
+        if: steps.ftp1.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
+          dangerous-clean-slate: false
+          local-dir: apps/portfolio/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/portfolio/
+
+      - name: Wait before second FTP retry
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        run: sleep 20
+
+      - name: 📤 Deploy via FTP (retry 2)
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
+          dangerous-clean-slate: false
+          local-dir: apps/portfolio/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/portfolio/
 
   deploy-yt-scheduler:
     needs: build-and-deploy
@@ -91,6 +175,16 @@ jobs:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env staging
 
+      - name: Prepare yt-scheduler FTP folders
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-root: ${{ secrets.FTP_TARGET_DIR_STAGING }}
+          rel-dir: yt-scheduler
+          local-dir: apps/yt-scheduler/dist
+
       - name: Upload yt-scheduler to Hostinger
         id: ftp1
         continue-on-error: true
@@ -101,6 +195,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/yt-scheduler/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/yt-scheduler/
 
@@ -119,6 +214,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/yt-scheduler/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/yt-scheduler/
 
@@ -135,6 +231,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/yt-scheduler/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/yt-scheduler/
 

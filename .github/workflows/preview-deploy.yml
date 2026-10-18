@@ -39,6 +39,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🛠️ Build Vite app
+        env:
+          APP_BASE: /preview/portfolio/pr-${{ github.event.pull_request.number }}/
         run: pnpm --filter @apps/portfolio... build
 
       - name: 🧼 Preview folder from PR number
@@ -51,15 +53,25 @@ jobs:
           case "$PR" in (''|*[!0-9]*) echo "::error::bad PR number"; exit 1;; esac
           echo "dir=pr-${PR}" >> "$GITHUB_OUTPUT"
 
-      # Hostinger drops the FTP data socket (ECONNRESET) on the first MKD of a new
-      # preview folder. ftp-deploy swallows that error as "first publish" and then
-      # fails instantly because the client is already closed. A fresh connection retries.
-      # Each retry starts only after the previous step's outcome is failure, so
-      # this job does not open three FTP sessions at once.
+      # Hostinger drops the FTP data socket (ECONNRESET) or stalls the control
+      # socket when FTP-Deploy-Action MKDs a new folder. prepare-ftp-dirs waits
+      # and creates the folders with lftp. Each retry starts only after the
+      # previous step's outcome is failure, so this job does not open three
+      # FTP sessions at once. server-dir is this PR's portfolio folder only.
       #
       # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
       # so the hostname does not match. protocol ftps keeps encryption.
       # security loose is this action's only switch that skips the name check.
+      - name: Prepare portfolio preview folders
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-root: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
+          rel-dir: portfolio/${{ steps.slug.outputs.dir }}
+          local-dir: apps/portfolio/dist
+
       - name: 📤 Upload preview to Hostinger
         id: ftp1
         continue-on-error: true
@@ -70,6 +82,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
 
@@ -88,6 +101,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
 
@@ -104,6 +118,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
 
@@ -168,28 +183,17 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env preview --pr "$PR_NUMBER"
 
-      # This job already waits for the portfolio FTP job, so the two apps do
-      # not share a connection. Hostinger still drops the data socket when
-      # FTP-Deploy-Action MKDs a new folder (assets/ on a first publish). The
-      # action, version, host, protocol, security, and server-dir style match
-      # the portfolio step above: no port, timeout, or passive override.
-      # lftp creates the folders first; the action then only stores files.
-      - name: Pause before yt-scheduler FTP
-        run: sleep 30
-
-      - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
-
-      - name: Create yt-scheduler preview folders
-        env:
-          FTP_HOST: ${{ secrets.FTP_HOST }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
-          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
-          PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
-          REL_DIR: yt-scheduler/${{ steps.slug.outputs.dir }}
-          LOCAL_DIR: apps/yt-scheduler/dist
-          FTP_TLS_CHECK_HOSTNAME: "no"
-        run: bash .github/scripts/preview-mkdir.sh
+      # Same prepare step as dev, staging, and production: wait, then lftp
+      # mkdir, then FTP-Deploy-Action only stores files into this PR folder.
+      - name: Prepare yt-scheduler preview folders
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-root: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
+          rel-dir: yt-scheduler/${{ steps.slug.outputs.dir }}
+          local-dir: apps/yt-scheduler/dist
 
       - name: Upload yt-scheduler preview
         id: ftp1
@@ -201,6 +205,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/yt-scheduler/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/yt-scheduler/${{ steps.slug.outputs.dir }}/
 
@@ -219,6 +224,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/yt-scheduler/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/yt-scheduler/${{ steps.slug.outputs.dir }}/
 
@@ -235,6 +241,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           protocol: ftps
           security: loose
+          dangerous-clean-slate: false
           local-dir: apps/yt-scheduler/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/yt-scheduler/${{ steps.slug.outputs.dir }}/
 

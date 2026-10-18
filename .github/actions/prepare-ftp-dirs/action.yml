@@ -1,0 +1,59 @@
+name: Prepare FTP directories
+description: >-
+  Wait, then create the remote folders for one app upload so
+  FTP-Deploy-Action only stores files. Hostinger resets the data socket or
+  stalls the control socket when that action creates a new folder.
+
+inputs:
+  server:
+    description: FTP host (IP or hostname)
+    required: true
+  username:
+    description: FTP username
+    required: true
+  password:
+    description: FTP password
+    required: true
+  server-root:
+    description: Parent directory. Host docroot, or the /preview directory for a preview.
+    required: true
+  rel-dir:
+    description: App folder under the parent, <slug> or <slug>/pr-<N>
+    required: true
+  local-dir:
+    description: Built dist directory whose subfolders are created remotely
+    required: true
+  pause-seconds:
+    description: Seconds to wait before opening FTP
+    required: false
+    default: "30"
+
+runs:
+  using: composite
+  steps:
+    - name: Pause before FTP
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        case "${{ inputs.pause-seconds }}" in
+          ''|*[!0-9]*) echo "::error::pause-seconds must be a number"; exit 1 ;;
+        esac
+        sleep "${{ inputs.pause-seconds }}"
+
+    - name: Install lftp
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: sudo apt-get update && sudo apt-get install -y lftp
+
+    - name: Create remote app directories
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        FTP_HOST: ${{ inputs.server }}
+        FTP_USERNAME: ${{ inputs.username }}
+        FTP_PASSWORD: ${{ inputs.password }}
+        FTP_ROOT: ${{ inputs.server-root }}
+        REL_DIR: ${{ inputs.rel-dir }}
+        LOCAL_DIR: ${{ inputs.local-dir }}
+        FTP_TLS_CHECK_HOSTNAME: "no"
+      run: bash .github/scripts/preview-mkdir.sh

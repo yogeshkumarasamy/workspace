@@ -416,6 +416,38 @@ test("push base is the last successful deployment, so a failed deploy is retried
   assert.equal(names(report).includes("ib"), false);
 });
 
+test("T13 serves each app from its own folder on dev, staging, and production", () => {
+  const hosts = [
+    ["main", "dev", "dev.yogeshkumarasamy.in"],
+    ["release/staging", "staging", "staging.yogeshkumarasamy.in"],
+    ["release/production", "production", "yogeshkumarasamy.in"],
+  ];
+  for (const [ref, env, host] of hosts) {
+    const report = createReport({
+      targets,
+      event: "push",
+      ref,
+      workersSubdomain: "coderdevelopment",
+      forceAll: true,
+    });
+    assert.equal(report.env, env, ref);
+    assert.equal(entry(report, "portfolio").path, "/portfolio/", ref);
+    assert.equal(entry(report, "portfolio").host, host, ref);
+    assert.equal(entry(report, "yt-scheduler").path, "/yt-scheduler/", ref);
+    assert.equal(entry(report, "yt-scheduler").host, host, ref);
+    assert.equal(entry(report, "portfolio").path === "/", false);
+  }
+  const previewReport = preview({
+    affected: [
+      { name: "@apps/portfolio", reason: "FileChanged" },
+      { name: "@apps/yt-scheduler", reason: "FileChanged" },
+    ],
+  });
+  assert.equal(entry(previewReport, "portfolio").path, "/preview/portfolio/pr-42/");
+  assert.equal(entry(previewReport, "yt-scheduler").path, "/preview/yt-scheduler/pr-42/");
+  assert.equal(entry(previewReport, "portfolio").host, "dev.yogeshkumarasamy.in");
+});
+
 test("GitHub deployment lookup skips a newer failure and returns the last success", async () => {
   const calls = [];
   const fetchImpl = async (url) => {

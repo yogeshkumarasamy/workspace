@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --clearScreen false",
-    "build": "vite build",
+    "build": "vite build && node ../../deploy/portfolio-static.mjs --dist dist",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",

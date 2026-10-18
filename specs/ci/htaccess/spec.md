@@ -22,7 +22,7 @@ Hostinger Single serves `dev.yogeshkumarasamy.in`, `staging.yogeshkumarasamy.in`
 | [root.htaccess.tpl](file:///workspace/deploy/htaccess/root.htaccess.tpl) | `<docroot>/.htaccess` on each host |
 | [router.htaccess.tpl](file:///workspace/deploy/htaccess/router.htaccess.tpl) | `<slug>/.htaccess`, replaced on every switch |
 | [release.htaccess.tpl](file:///workspace/deploy/htaccess/release.htaccess.tpl) | `<slug>/releases/<sha>/.htaccess`, immutable inside the release |
-| [previews.htaccess.tpl](file:///workspace/deploy/htaccess/previews.htaccess.tpl) | `previews/.htaccess` on the dev host only |
+| [previews.htaccess.tpl](file:///workspace/deploy/htaccess/previews.htaccess.tpl) | `preview/.htaccess` on the dev host (`previews/.htaccess` is still accepted) |
 | [robots.production.txt](file:///workspace/deploy/htaccess/robots.production.txt) | `robots.txt` on `yogeshkumarasamy.in` |
 | [robots.dev.txt](file:///workspace/deploy/htaccess/robots.dev.txt) | `robots.txt` on `dev.yogeshkumarasamy.in` |
 | [robots.staging.txt](file:///workspace/deploy/htaccess/robots.staging.txt) | `robots.txt` on `staging.yogeshkumarasamy.in` |
@@ -45,7 +45,7 @@ Host differences inside the one root template:
 
 - `X-Robots-Tag: noindex, nofollow` is kept for dev and staging and omitted for production.
 - `/dev/` and `/staging/` return 404 only when the host is `yogeshkumarasamy.in`, so the nested subdomain folders cannot leak through the apex.
-- `/previews` returns 404 unless the host is `dev.yogeshkumarasamy.in`.
+- `/preview` and `/previews` return 404 unless the host is `dev.yogeshkumarasamy.in`. The live prefix is `/preview/`.
 - `www.yogeshkumarasamy.in` redirects to the apex. The same rule is a no-op on the other hosts.
 - HTTP redirects to HTTPS with 301 unless `X-Forwarded-Proto` is already `https`.
 - `/` redirects to `/portfolio/` with 302. The `Location` has no fragment, so the browser keeps a `#hash` route across the redirect.
@@ -55,7 +55,7 @@ A sha is 7–40 hex characters. The previous sha must differ from the release sh
 
 ## robots.txt
 
-Production allows `/` and publishes `Sitemap: https://yogeshkumarasamy.in/portfolio/sitemap.xml`. Dev and staging are `Disallow: /`. Previews add `X-Robots-Tag: noindex, nofollow, noarchive` and `Cache-Control: no-store` from `previews/.htaccess`, including on a 404 for `/previews/` and `/previews/<app>/`.
+Production allows `/` and publishes `Sitemap: https://yogeshkumarasamy.in/portfolio/sitemap.xml`. Dev and staging are `Disallow: /`. The portfolio app does not ship `robots.txt`; the host file is uploaded with the docroot `index.html` and `.htaccess`. Previews add `X-Robots-Tag: noindex, nofollow, noarchive` and `Cache-Control: no-store` from `preview/.htaccess` (the same template still applies at `previews/.htaccess`), including on a 404 for `/preview/` and `/preview/<app>/`.
 
 ## Request behaviour the rules encode
 

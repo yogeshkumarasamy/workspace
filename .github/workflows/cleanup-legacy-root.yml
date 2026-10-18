@@ -1,0 +1,73 @@
+name: Remove legacy root portfolio files
+
+# Opt-in. Nothing here runs on push or pull_request.
+# Deletes only the pre-T13 files that used to live on the docroot
+# (assets/, fonts/, favicon.svg, og.png, sitemap.xml, and the old
+# FTP-Deploy-Action state file). It does not delete portfolio/,
+# yt-scheduler/, preview/, or the host index.html, .htaccess, and robots.txt.
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: Host docroot to clean
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - production
+      confirm:
+        description: Type delete-legacy-root to delete the allowlisted root files
+        required: true
+        type: string
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout cleanup script
+        uses: actions/checkout@v4
+
+      - name: Require the confirmation phrase
+        if: inputs.confirm != 'delete-legacy-root'
+        run: echo "::error::confirm must be delete-legacy-root" && exit 1
+
+      - name: Install lftp
+        if: inputs.confirm == 'delete-legacy-root'
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Delete legacy dev files
+        if: inputs.host == 'dev' && inputs.confirm == 'delete-legacy-root'
+        env:
+          CONFIRM: delete-legacy-root
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          FTP_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV }}
+        run: bash .github/scripts/cleanup-legacy-root.sh
+
+      - name: Delete legacy staging files
+        if: inputs.host == 'staging' && inputs.confirm == 'delete-legacy-root'
+        env:
+          CONFIRM: delete-legacy-root
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          FTP_ROOT: ${{ secrets.FTP_TARGET_DIR_STAGING }}
+        run: bash .github/scripts/cleanup-legacy-root.sh
+
+      - name: Delete legacy production files
+        if: inputs.host == 'production' && inputs.confirm == 'delete-legacy-root'
+        env:
+          CONFIRM: delete-legacy-root
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          FTP_ROOT: ${{ secrets.FTP_TARGET_DIR }}
+        run: bash .github/scripts/cleanup-legacy-root.sh

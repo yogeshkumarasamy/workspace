@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# Create one preview's directories before FTP-Deploy-Action uploads.
+# Create one app folder's directories before FTP-Deploy-Action uploads.
 #
-# The portfolio and yt-scheduler preview steps use the same action
-# (SamKirkland/FTP-Deploy-Action v4.3.5), host, FTPS, and server-dir style.
-# Hostinger resets the FTPS data socket when that action MKDs a folder that
-# does not exist yet (ECONNRESET inside Client.ensureDir, while creating
-# assets/). A fresh connection does not help when the folder was never
-# created. lftp issues MKD on the control connection and retries. The action
-# then only stores files, which is the upload that already succeeds for
-# portfolio.
+# Hostinger drops the FTPS data socket (ECONNRESET) or stalls the control
+# socket when FTP-Deploy-Action MKDs a folder that does not exist yet
+# (assets/ on a first publish). lftp issues MKD on the control connection
+# and retries. The action then only stores files.
+#
+# Called from .github/actions/prepare-ftp-dirs for every yt-scheduler upload
+# (preview, dev, staging, production) and for the portfolio folder upload.
 #
 # DRY_RUN=1 prints the remote directories and does not connect.
-# Required: PREVIEW_ROOT, REL_DIR, LOCAL_DIR.
+# Required: REL_DIR, LOCAL_DIR, and PREVIEW_ROOT or FTP_ROOT (the parent).
+# REL_DIR is <slug> or <slug>/pr-<N>. The parent is the host docroot for a
+# release and the /preview directory for a preview.
 # Also required unless DRY_RUN=1: FTP_HOST, FTP_USERNAME, FTP_PASSWORD.
 set -euo pipefail
+
+if [[ -z "${PREVIEW_ROOT:-}" && -n "${FTP_ROOT:-}" ]]; then
+  PREVIEW_ROOT="$FTP_ROOT"
+fi
 
 normalize_ftp_target() {
   local raw="$1"

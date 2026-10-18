@@ -172,6 +172,98 @@ test("preview public path matches the served /preview/ prefix", () => {
   assert.equal(publicUrls("dev").pageBase, "/yt-scheduler/");
 });
 
+test("production static config needs only the public client id and optional picker key", () => {
+  assert.throws(
+    () => buildAppConfig({ env: "production", processEnv: { GOOGLE_PICKER_API_KEY: "picker-only" } }),
+    (error) => {
+      assert.match(error.message, /GOOGLE_CLIENT_ID/);
+      assert.equal(/YT_API_KEY|YT_ENCRYPTION_KEY|GOOGLE_CLIENT_SECRET/.test(error.message), false);
+      return true;
+    },
+  );
+
+  const dir = mkdtempSync(path.join(tmpdir(), "yt-dist-public-"));
+  try {
+    const written = writeStaticConfig({
+      dist: dir,
+      env: "production",
+      processEnv: {
+        GOOGLE_CLIENT_ID: "123-abc.apps.googleusercontent.com",
+        GOOGLE_PICKER_API_KEY: "picker-key",
+      },
+    });
+    const raw = readFileSync(path.join(dir, "app-config.json"), "utf8");
+    const file = JSON.parse(raw);
+    assert.equal(file.googleClientId, "123-abc.apps.googleusercontent.com");
+    assert.equal(file.pickerApiKey, "picker-key");
+    assert.equal(file.youtubeMode, "live");
+    assert.equal(file.apiBaseUrl, written.config.apiBaseUrl);
+    assert.match(file.apiBaseUrl, /yt-scheduler-api-prod/);
+    assert.equal(file.apiKey, undefined);
+    assert.equal(file.driveScope, "file");
+    for (const marker of ["apiKey", "YT_API_KEY", "YT_ENCRYPTION_KEY", "GOOGLE_CLIENT_SECRET"]) {
+      assert.equal(raw.includes(marker), false, marker);
+    }
+
+    writeStaticConfig({
+      dist: dir,
+      env: "production",
+      processEnv: {
+        GOOGLE_CLIENT_ID: "123-abc.apps.googleusercontent.com",
+        YT_API_KEY: "prod-key",
+        YT_ENCRYPTION_KEY: MOCK_ENCRYPTION_KEY,
+        GOOGLE_CLIENT_SECRET: "super-secret",
+      },
+    });
+    const ignored = readFileSync(path.join(dir, "app-config.json"), "utf8");
+    const ignoredFile = JSON.parse(ignored);
+    assert.equal(ignoredFile.pickerApiKey, undefined);
+    assert.equal(ignoredFile.apiKey, undefined);
+    for (const marker of ["prod-key", "super-secret", MOCK_ENCRYPTION_KEY, "apiKey"]) {
+      assert.equal(ignored.includes(marker), false, marker);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("dev, staging, and preview static config still embed apiKey without production secrets", () => {
+  for (const env of ["dev", "staging"]) {
+    const dir = mkdtempSync(path.join(tmpdir(), `yt-dist-${env}-`));
+    try {
+      const written = writeStaticConfig({
+        dist: dir,
+        env,
+        processEnv: { YT_API_KEY: `${env}-key` },
+      });
+      const file = JSON.parse(readFileSync(path.join(dir, "app-config.json"), "utf8"));
+      assert.equal(file.apiKey, `${env}-key`);
+      assert.equal(file.youtubeMode, "mock");
+      assert.equal(file.apiBaseUrl, written.config.apiBaseUrl);
+      assert.match(file.apiBaseUrl, new RegExp(`yt-scheduler-api-${env}`));
+      assert.equal(file.googleClientId, undefined);
+      const fallback = buildAppConfig({ env, processEnv: {} });
+      assert.equal(fallback.apiKey, env);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  const previewDir = mkdtempSync(path.join(tmpdir(), "yt-dist-preview-"));
+  try {
+    const written = writeStaticConfig({
+      dist: previewDir,
+      env: "preview",
+      pr: 4,
+      processEnv: {},
+    });
+    assert.equal(written.config.apiKey, "preview-pr-4");
+    assert.match(written.config.apiBaseUrl, /yt-scheduler-api-pr-4/);
+    assert.equal(written.pageBase, "/preview/yt-scheduler/pr-4/");
+  } finally {
+    rmSync(previewDir, { recursive: true, force: true });
+  }
+});
+
 test("flat htaccess rewrites the preview base and app-config stays out of production secrets", () => {
   const preview = spaHtaccess("/preview/yt-scheduler/pr-8/");
   assert.match(preview, /RewriteBase \/preview\/yt-scheduler\/pr-8\//);

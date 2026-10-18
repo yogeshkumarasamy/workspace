@@ -286,7 +286,7 @@ describe("Terminal App (workspace#32 / PRD §6 & §13)", () => {
 
       assert.match(text, /HTML5/);
       assert.match(text, /React\.js/);
-      assert.match(text, /pnpm/);
+      assert.match(text, /Package managers/);
       assert.match(text, /Monorepos:/);
       assert.match(text, /Turborepo/);
       assert.match(text, /Design tools:/);

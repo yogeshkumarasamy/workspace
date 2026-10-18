@@ -41,7 +41,7 @@ export const verifiedProfile: Profile = {
     "TypeScript",
     "ESLint",
     "Prettier",
-    "pnpm",
+    "Package managers",
   ],
   experience: [
     {

@@ -90,7 +90,7 @@ Vitest runs inside `@cloudflare/vitest-pool-workers` (package 0.23.0, which is t
 
 ## Measure on a Free account
 
-Run it from GitHub Actions so the API token stays in repository secrets.
+Run it from GitHub Actions so the API token stays in repository secrets. The job installs Node 22 because `wrangler@4.151.1` requires Node `>=22.0.0`. The rest of the repo stays on `.nvmrc` (Node 20); those workflows do not run Wrangler.
 
 1. Merge this workflow to `main`. The Actions tab lists it from the default branch.
 2. Open **Actions → Y0 Workers Free CPU measure → Run workflow**.

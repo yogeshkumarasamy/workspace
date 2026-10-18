@@ -115,4 +115,6 @@ test("the measure workflow is manual and does not run on push or pull request", 
   assert.match(text, /yt-spike-gha-throwaway/);
   assert.match(text, /524288000/);
   assert.equal(text.includes("youtube.com"), false);
+  assert.match(text, /node-version: "22"/);
+  assert.equal(text.includes("node-version-file:"), false);
 });

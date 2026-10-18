@@ -1,0 +1,122 @@
+# Reusable static deploy (T09).
+#
+# Uploads dist to <slug>/releases/<sha>.partial, renames the folder onto <sha>,
+# then switches the router by renaming one .htaccess. T12 calls this workflow.
+# T12 must set strategy.max-parallel: 2 (one shared FTP account).
+# This file does not use FTP-Deploy-Action and does not edit the existing
+# deploy or preview workflows.
+#
+# T08 has not confirmed Hostinger rename-over-existing. The script tries
+# mv .htaccess.new .htaccess and falls back to rm + mv. See
+# specs/ci/ftp-release-engine/spec.md.
+#
+# Templates are deploy/htaccess/release.htaccess.tpl and
+# deploy/htaccess/router.htaccess.tpl (T10). They are not vendored here.
+
+name: Deploy static release
+
+on:
+  workflow_call:
+    inputs:
+      env:
+        description: GitHub Environment and deploy environment (preview, dev, staging, production).
+        required: true
+        type: string
+      target:
+        description: Target id from deploy/targets.json, for example portfolio.
+        required: true
+        type: string
+      slug_dir:
+        description: Path under the environment docroot. portfolio, or previews/portfolio/pr-42.
+        required: true
+        type: string
+      base:
+        description: Site base path, slash-bounded (/portfolio/ or /previews/portfolio/pr-42/). Not the planner git SHA.
+        required: true
+        type: string
+      sha:
+        description: Commit SHA to publish.
+        required: true
+        type: string
+      artifact:
+        description: Artifact whose root is the built dist (index.html at the top level).
+        required: true
+        type: string
+      api_base_url:
+        description: Written to app-config.json. Empty when the target has no API.
+        required: false
+        type: string
+        default: ""
+    outputs:
+      result:
+        description: deployed, superseded, rolled-back, or failed.
+        value: ${{ jobs.deploy.outputs.result }}
+      previous:
+        description: SHA that was live before this run.
+        value: ${{ jobs.deploy.outputs.previous }}
+      live:
+        description: SHA the router points at after this run.
+        value: ${{ jobs.deploy.outputs.live }}
+      switch:
+        description: rename-over or rm-then-mv. Empty when the switch was skipped.
+        value: ${{ jobs.deploy.outputs.switch }}
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  deploy:
+    name: deploy ${{ inputs.env }} ${{ inputs.target }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.env }}
+    concurrency:
+      group: deploy-${{ inputs.env }}-${{ inputs.target }}
+      cancel-in-progress: false
+    outputs:
+      result: ${{ steps.publish.outputs.result }}
+      previous: ${{ steps.publish.outputs.previous }}
+      live: ${{ steps.publish.outputs.live }}
+      switch: ${{ steps.publish.outputs.switch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Download dist artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact }}
+          path: dist
+
+      - name: Publish release folder and switch the router
+        id: publish
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USERNAME }}
+          FTP_PASS: ${{ secrets.FTP_PASSWORD }}
+          FTP_ENV_DIR: ${{ secrets.FTP_TARGET_DIR }}
+          FTP_ALLOW_REMOTE: "1"
+          FTP_SSL: require
+          # *.hstgr.io cert vs the IP in FTP_HOST. Chain check stays on.
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          FTP_ROUTER_SWITCH: auto
+          RELEASE_KEEP: "5"
+          DEPLOY_ENV: ${{ inputs.env }}
+          DEPLOY_TARGET: ${{ inputs.target }}
+          SLUG_DIR: ${{ inputs.slug_dir }}
+          SITE_BASE: ${{ inputs.base }}
+          DEPLOY_SHA: ${{ inputs.sha }}
+          API_BASE_URL: ${{ inputs.api_base_url }}
+          DIST_DIR: dist
+        run: node deploy/ftp-release.mjs

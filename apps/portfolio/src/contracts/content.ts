@@ -12,10 +12,16 @@ export interface Role {
   location: string | null;
   bullets: string[];
 }
+export interface SkillGroup {
+  label: string;
+  skills: string[];
+}
 export interface Project {
   name: string;
-  description: string;
-  href: string;
+  /** Company this work belongs to. Projects that share a company render as one group. */
+  company?: string;
+  description?: string;
+  href?: string;
   language?: string;
 }
 export interface Article {
@@ -41,6 +47,7 @@ export interface Profile {
   phone: string | null;
   links: { linkedin: string; github: string; medium: string };
   skills: string[];
+  skillGroups?: SkillGroup[];
   experience: Role[];
   projects: Project[];
   writing: Article[];

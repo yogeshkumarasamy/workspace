@@ -22,17 +22,28 @@ Chennai weekend leather-ball cricket is played on often **remote grounds with no
 
 ## 3. Ecosystem Components
 
-| App | Directory | Users | Purpose |
+> **Pending approval (T17, issue #83).** This section replaces the Node.js + Express API (`apps/innings-break-api`). The direction is approved; this text is the spec waiting for review. Do not implement handlers, migrations, or deploys until it is approved. Binding tables, cron dispatch, and the Cloudflare checklist are in the [runtime spec](file:///specs/innings-break/runtime.md).
+
+| App | Directory | Who it serves | Purpose |
 |---|---|---|---|
 | **Innings Break** | `apps/innings-break` | Team Manager | Schedule matches, pre-order for the squad, pay via UPI, track orders, team wallet. |
 | **Innings Break Console** | `apps/innings-break-console` | Business Owner, Operations Manager | Grounds, kitchen hubs, menu, calendar, fulfillment, dispatch, support & credits. |
-| **Innings Break API** | `apps/innings-break-api` | (Backend) | Node.js + Express REST services for both apps, including spatial resolution and geofencing. |
+| **Innings Break Customer API** | `apps/innings-break-customer-api` | Team Manager | Hono on a Cloudflare Worker (`ib-customer-api-<env>`). Ground search, spatial resolution, and delivery geofencing. Reads and writes D1 `ib-<env>`. |
+| **Innings Break Console API** | `apps/innings-break-console-api` | Business Owner, Operations Manager | Hono on a Cloudflare Worker (`ib-console-api-<env>`). Reads and writes the **same** D1 `ib-<env>` as the customer API. |
+| **Cron hub** | `apps/cron-hub` | No persona | One Worker per environment (`cron-hub-<env>`) with one `* * * * *` trigger. Calls the console API over a service binding. Not an app and not a persona. |
 
 **Platform**: Both client apps are **responsive web + PWA** (installable to home screen). Native iOS/Android apps are deferred.
 
+### 3.1 Runtime (pending approval)
+
+* **Runtime**: Hono on Cloudflare Workers. The backend is not Node.js and not Express. Package names follow AGENTS.md (`apps/`, `@apps/…`), not a separate `services/` tree. Worker script names stay `ib-console-api-<env>` and `ib-customer-api-<env>`.
+* **Data**: One D1 database per environment — `ib-dev`, `ib-staging`, `ib-prod`. Both API Workers in an environment bind that database. Migrations are applied once per environment before either Worker deploys (later tickets). These Wrangler files do not own a migrations directory.
+* **Cron hub**: Workers Free allows 5 cron triggers per account. Only `cron-hub-dev`, `cron-hub-staging`, and `cron-hub-prod` have a trigger (3 total). Neither API Worker has a cron. The `preview` environment sets `triggers.crons` to an empty array, which removes crons; omitting the key would leave a previously deployed cron in place.
+* **Sessions**: WebCrypto (`crypto.getRandomValues`, `crypto.subtle`). Node.js `crypto` is not used. Console sessions and customer sessions are separate.
+
 ## 4. Key Decisions in Force
 
-* **Decoupled locations**: `Areas`, `Venues`, and nested `Ground Facilities / Pitches` are managed independently in the Console with **no manual mapping** (Venues have no Area dropdown). The API resolves proximity, area clustering, and delivery geofencing (straight-line Haversine) for customer search.
+* **Decoupled locations**: `Areas`, `Venues`, and nested `Ground Facilities / Pitches` are managed independently in the Console with **no manual mapping** (Venues have no Area dropdown). The customer API resolves proximity, area clustering, and delivery geofencing (straight-line Haversine) for customer search, reading the same D1 database the console API writes.
 * **Kitchen Hubs**: City ➔ Kitchen Hub hierarchy with a delivery-radius geofence. MVP runs **one Primary Kitchen in Chennai**; data model is multi-kitchen ready. Operations Managers are scoped to their assigned hub.
 * **Console access**: Mobile + SMS OTP, **whitelist only** — one pre-seeded Business Owner, invited Operations Managers; unknown numbers are blocked.
 * **Customer access**: Sign-up requires a CricHeroes Team Profile link and OTP-verified mobile; later logins are Mobile + OTP only. Roster is seeded once from CricHeroes (no recurring sync).
@@ -53,6 +64,7 @@ Personas and their boundaries are defined canonically in [innings-break-personas
 |---|---|
 | [innings-break.md](file:///.specify/memory/innings-break.md) | This stable overview |
 | [innings-break-personas.md](file:///.specify/memory/innings-break-personas.md) | Canonical personas & applications glossary |
-| [innings-break-changelog.md](file:///.specify/memory/innings-break-changelog.md) | Append-only decision log (Sessions 1–26 onward) |
+| [innings-break-changelog.md](file:///.specify/memory/innings-break-changelog.md) | Append-only decision log (Sessions 1–27 onward) |
 | [Console PRD index](file:///specs/innings-break/console/prd.md) | Innings Break Console — Approved; per-feature files under `console/features/` |
 | [Customer PRD index](file:///specs/innings-break/customer/prd.md) | Innings Break (Team Manager app) — Draft; per-feature files under `customer/features/` |
+| [Runtime spec](file:///specs/innings-break/runtime.md) | Workers, shared D1, cron hub, WebCrypto sessions — **pending approval** (T17) |

@@ -45,6 +45,8 @@ jobs:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          # *.hstgr.io cert vs the IP in FTP_HOST. Chain check stays on.
+          FTP_TLS_CHECK_HOSTNAME: "no"
           PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash .github/scripts/preview-cleanup.sh delete-pr
@@ -74,6 +76,8 @@ jobs:
           FTP_HOST: ${{ secrets.FTP_HOST }}
           FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          # *.hstgr.io cert vs the IP in FTP_HOST. Chain check stays on.
+          FTP_TLS_CHECK_HOSTNAME: "no"
           PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
           CONFIRM: ${{ github.event.inputs.confirm }}
           GH_TOKEN: ${{ github.token }}

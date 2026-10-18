@@ -1,0 +1,13 @@
+{
+  "name": "@apps/innings-break-customer-api",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Scaffold only. Wrangler config for ib-customer-api. Depends on @contracts/innings-break. Pending approval of specs/innings-break/runtime.md. Do not deploy.",
+  "scripts": {
+    "build": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@contracts/innings-break": "workspace:*"
+  }
+}

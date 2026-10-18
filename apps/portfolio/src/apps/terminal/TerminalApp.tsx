@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import type { AppProps, TerminalContext, TerminalOutputEntry } from "./types";
 import { commands, executeCommand, getTabCompletions } from "./commands";
-import { verifiedProfile } from "./__fixtures__/profile";
+import { profile as verifiedProfile } from "../../content/profile";
 import "./terminal.css";
 
 export const PROMPT_STRING = "yogesh@yk-os:~$";

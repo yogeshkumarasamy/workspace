@@ -592,6 +592,19 @@ describe("S04: Desktop, icons, taskbar & start menu", () => {
         /\.yk-taskbar__start-btn\s*{[^}]*height:\s*38px/,
         "start button has enlarged height on mobile dock",
       );
+      assert.match(css, /--yk-tab-fg/, "open tabs use a contrasting text color");
+      assert.match(css, /--yk-tab-active-bg/, "active tabs use a solid background");
+      assert.equal(css.includes("#e6e6e6"), false);
+      assert.match(
+        css,
+        /\.yk-taskbar__tray-text\s*{[^}]*clip:\s*rect/,
+        "mobile tray labels are visually hidden so tabs can grow",
+      );
+      assert.match(
+        css,
+        /\.yk-taskbar__window-btn\s*{[^}]*flex:\s*1 1 0/,
+        "mobile window tabs share the free taskbar width",
+      );
     });
   });
 

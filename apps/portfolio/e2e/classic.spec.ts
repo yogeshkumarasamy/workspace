@@ -52,7 +52,7 @@ test.describe("Classic View Content & Semantic Structure", () => {
   }) => {
     await page.goto("/#/classic");
 
-    // Projects: vitest-portfolio
+    // Projects: company groups from the shared profile
     const project = verifiedProfile.projects[0];
     const projectLink = page.getByRole("link", {
       name: new RegExp(project.name, "i"),

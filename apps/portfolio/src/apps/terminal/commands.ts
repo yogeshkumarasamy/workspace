@@ -90,15 +90,38 @@ export const experienceCommand: TerminalCommand = {
 
 export const projectsCommand: TerminalCommand = {
   name: "projects",
-  summary: "List featured open-source repositories and code",
+  summary: "List company projects",
   run(_args, ctx) {
-    const lines: string[] = ["Featured Projects:", ""];
+    const lines: string[] = ["Projects:", ""];
+    const grouped = ctx.profile.projects.some((project) => project.company);
+    if (!grouped) {
+      for (const project of ctx.profile.projects) {
+        lines.push(
+          `• ${project.name}${project.language ? ` [${project.language}]` : ""}`,
+        );
+        if (project.description) {
+          lines.push(`  Description: ${project.description}`);
+        }
+        if (project.href) {
+          lines.push(`  URL:         ${project.href}`);
+        }
+        lines.push("");
+      }
+      return lines;
+    }
+
+    const seen: string[] = [];
     for (const project of ctx.profile.projects) {
-      lines.push(
-        `• ${project.name}${project.language ? ` [${project.language}]` : ""}`,
-      );
-      lines.push(`  Description: ${project.description}`);
-      lines.push(`  URL:         ${project.href}`);
+      const company = project.company ?? "";
+      if (!seen.includes(company)) seen.push(company);
+    }
+    for (const company of seen) {
+      if (company) lines.push(company);
+      for (const project of ctx.profile.projects) {
+        if ((project.company ?? "") !== company) continue;
+        lines.push(`  • ${project.name}`);
+        if (project.href) lines.push(`    URL: ${project.href}`);
+      }
       lines.push("");
     }
     return lines;
@@ -138,10 +161,17 @@ export const skillsCommand: TerminalCommand = {
   name: "skills",
   summary: "Display verified core technical skills",
   run(_args, ctx) {
-    return [
+    const lines = [
       "Verified Technical Skills:",
       ...ctx.profile.skills.map((s) => `  • ${s}`),
     ];
+    for (const group of ctx.profile.skillGroups ?? []) {
+      lines.push("", `${group.label}:`);
+      for (const skill of group.skills) {
+        lines.push(`  • ${skill}`);
+      }
+    }
+    return lines;
   },
 };
 

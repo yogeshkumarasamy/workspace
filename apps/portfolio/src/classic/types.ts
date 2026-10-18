@@ -21,10 +21,16 @@ export interface Role {
   bullets: string[];
 }
 
+export interface SkillGroup {
+  label: string;
+  skills: string[];
+}
+
 export interface Project {
   name: string;
-  description: string;
-  href: string;
+  company?: string;
+  description?: string;
+  href?: string;
   language?: string;
 }
 
@@ -53,6 +59,7 @@ export interface Profile {
   phone: string | null;
   links: { linkedin: string; github: string; medium: string };
   skills: string[];
+  skillGroups?: SkillGroup[];
   experience: Role[];
   projects: Project[];
   writing: Article[];

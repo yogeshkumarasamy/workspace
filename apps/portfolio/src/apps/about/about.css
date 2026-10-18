@@ -192,6 +192,17 @@
   font-weight: bold;
 }
 
+.yk-about-skill-group {
+  margin-top: var(--yk-space-3, 12px);
+}
+
+.yk-about-skill-group-label {
+  margin: 0 0 var(--yk-space-1, 4px);
+  font-family: var(--yk-about-font-mono);
+  font-size: 0.95rem;
+  color: var(--yk-about-fg);
+}
+
 /* Education entries */
 .yk-about-education-list {
   display: flex;

@@ -37,10 +37,20 @@ describe("About App Window (S08)", () => {
     assert.match(html, /Senior Software Engineer at FULL Creative/);
     assert.match(html, /Chennai, Tamil Nadu, India/);
 
-    // Verified skills
-    assert.match(html, /Continuous Integration and Continuous Delivery \(CI\/CD\)/);
-    assert.match(html, /CSS-in-JS/);
-    assert.match(html, /Vitest/);
+    // Shared skills list and groups
+    assert.match(html, /HTML5/);
+    assert.match(html, /React\.js/);
+    assert.match(html, /Caching and remote task caching in CI/);
+    assert.match(html, /pnpm/);
+    assert.match(html, /Monorepos/);
+    assert.match(html, /Moonrepo/);
+    assert.match(html, /Turborepo/);
+    assert.match(html, /Design tools/);
+    assert.match(html, /Figma/);
+    assert.match(html, /Agentic tools/);
+    assert.match(html, /Antigravity/);
+    assert.equal(html.toLowerCase().includes("vitest-portfolio"), false);
+    assert.equal(html.includes("CSS-in-JS"), false);
 
     // Education
     assert.match(html, /RVS College of Engineering and Technology/);

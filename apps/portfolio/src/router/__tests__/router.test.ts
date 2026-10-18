@@ -17,6 +17,15 @@ describe("Router", () => {
     it("parses #/classic as classic route", () => {
       expect(parseHash("#/classic")).toEqual({ view: "classic" });
       expect(parseHash("/classic")).toEqual({ view: "classic" });
+      expect(parseHash("#/classic/skills")).toEqual({ view: "classic" });
+      expect(parseHash("#skills")).toEqual({ view: "classic" });
+      expect(parseHash("#classic-content")).toEqual({ view: "classic" });
+    });
+
+    it("parses a classic section hash as that desktop app, not the generic desktop", () => {
+      expect(parseHash("#projects")).toEqual({ view: "app", appId: "projects" });
+      expect(parseHash("#experience")).toEqual({ view: "app", appId: "experience" });
+      expect(parseHash("#/writing")).toEqual({ view: "app", appId: "writing" });
     });
 
     it("parses #/app/<id> as app route", () => {

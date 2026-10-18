@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { profile } from "../index";
+import { groupProjectsByCompany, profile } from "../index";
 
 function collectAllStrings(
   obj: unknown,
@@ -209,11 +209,36 @@ describe("Portfolio Content Module (PRD §4 & §13.1)", () => {
       );
     });
 
-    it("asserts top verified skills", () => {
+    it("asserts the shared skills list and named groups", () => {
       assert.deepEqual(profile.skills, [
-        "Continuous Integration and Continuous Delivery (CI/CD)",
-        "CSS-in-JS",
+        "HTML5",
+        "CSS3",
+        "JavaScript",
+        "ES6",
+        "React.js",
+        "Redux",
+        "Webpack",
+        "Vite",
         "Vitest",
+        "Playwright",
+        "Node.js",
+        "Express",
+        "Mongoose",
+        "GCP",
+        "CI/CD",
+        "Caching and remote task caching in CI",
+        "Docker",
+        "Design system (EDS)",
+        "shadcn",
+        "TypeScript",
+        "ESLint",
+        "Prettier",
+        "pnpm",
+      ]);
+      assert.deepEqual(profile.skillGroups, [
+        { label: "Monorepos", skills: ["Moonrepo", "Turborepo"] },
+        { label: "Design tools", skills: ["Figma"] },
+        { label: "Agentic tools", skills: ["Claude", "Grok", "Antigravity"] },
       ]);
     });
 
@@ -239,21 +264,62 @@ describe("Portfolio Content Module (PRD §4 & §13.1)", () => {
       ]);
     });
 
-    it("asserts verified projects and excludes private repos", () => {
-      assert.deepEqual(profile.projects, [
-        {
-          name: "vitest-portfolio",
-          description:
-            "volume of browser test files to stress Vitest test runs and performance",
-          href: "https://github.com/yogeshkumarasamy/vitest-portfolio",
-          language: "TypeScript",
-        },
-      ]);
+    it("asserts company projects and excludes vitest-portfolio and private repos", () => {
+      assert.deepEqual(
+        groupProjectsByCompany(profile.projects).map((group) => ({
+          company: group.company,
+          projects: group.projects.map((project) => ({
+            name: project.name,
+            href: project.href,
+          })),
+        })),
+        [
+          {
+            company: "Full Creative",
+            projects: [
+              {
+                name: "Booking page",
+                href: "https://anywhere.setmore.com/kevin-payne",
+              },
+              { name: "BaseApp", href: "https://go.setmore.com/" },
+              { name: "ChatSupport", href: "https://chatsupport.co/" },
+            ],
+          },
+          { company: "Trimble", projects: [{ name: "Kuebix", href: undefined }] },
+          {
+            company: "BI WORLDWIDE",
+            projects: [
+              { name: "Daymaker", href: undefined },
+              { name: "Goodman", href: undefined },
+              { name: "Recognition TV", href: undefined },
+              { name: "Ecards UI", href: undefined },
+              { name: "Delivery customizations", href: undefined },
+            ],
+          },
+          {
+            company: "Accenture",
+            projects: [
+              { name: "AusNet", href: undefined },
+              { name: "CMHC", href: undefined },
+              { name: "Volvo", href: undefined },
+            ],
+          },
+          {
+            company: "Pearson English",
+            projects: [
+              { name: "Dashboard", href: undefined },
+              { name: "Digital Classroom", href: undefined },
+            ],
+          },
+        ],
+      );
 
-      // Strict check: no private workspace repository is listed
+      const serialized = JSON.stringify(profile);
+      assert.equal(serialized.toLowerCase().includes("vitest-portfolio"), false);
       profile.projects.forEach((proj) => {
         assert.equal(proj.name.toLowerCase().includes("workspace"), false);
-        assert.equal(proj.href.toLowerCase().includes("workspace"), false);
+        assert.equal((proj.href ?? "").toLowerCase().includes("workspace"), false);
+        assert.equal(proj.description, undefined);
       });
     });
 
@@ -270,7 +336,9 @@ describe("Portfolio Content Module (PRD §4 & §13.1)", () => {
       assert.ok(profile.links.medium.startsWith("https://"));
 
       profile.projects.forEach((proj) => {
-        assert.ok(proj.href.startsWith("https://"));
+        if (proj.href) {
+          assert.ok(proj.href.startsWith("https://"));
+        }
       });
 
       profile.writing.forEach((art) => {

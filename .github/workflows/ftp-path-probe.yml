@@ -5,13 +5,6 @@ name: FTP path probe
 # check. Does not upload /portfolio/, /yt-scheduler/, or the docroot files.
 on:
   workflow_dispatch:
-  # GitHub only lists workflow_dispatch from the default branch. This push
-  # trigger runs the probe on the fix branch. It is removed before the PR.
-  push:
-    branches:
-      - cursor/ftp-verify-and-mirror-92e3
-    paths:
-      - .github/workflows/ftp-path-probe.yml
 
 concurrency:
   group: ftp-path-probe

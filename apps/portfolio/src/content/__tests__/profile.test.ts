@@ -233,7 +233,7 @@ describe("Portfolio Content Module (PRD §4 & §13.1)", () => {
         "TypeScript",
         "ESLint",
         "Prettier",
-        "pnpm",
+        "Package managers",
       ]);
       assert.deepEqual(profile.skillGroups, [
         { label: "Monorepos", skills: ["Moonrepo", "Turborepo"] },

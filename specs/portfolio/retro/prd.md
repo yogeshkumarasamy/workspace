@@ -41,7 +41,7 @@ Source: LinkedIn PDF export (`/workspace/linkedin-profile/resume-or-export.txt`)
 - **Headline**: Senior Software Engineer at FULL Creative · **Location**: Chennai, Tamil Nadu, India
 - **Email**: yogeshkumarasamy@gmail.com
 - **Links**: LinkedIn https://www.linkedin.com/in/yogeshkumarasamy · Medium https://medium.com/@yogeshkumarasamy · GitHub https://github.com/yogeshkumarasamy · FULL Creative https://full.io/
-- **Top skills**: HTML5, CSS3, JavaScript, ES6, React.js, Redux, Webpack, Vite, Vitest, Playwright, Node.js, Express, Mongoose, GCP, CI/CD, Caching and remote task caching in CI, Docker, Design system (EDS), shadcn, TypeScript, ESLint, Prettier, pnpm. Groups: Monorepos (Moonrepo, Turborepo), Design tools (Figma), Agentic tools (Claude, Grok, Antigravity).
+- **Top skills**: HTML5, CSS3, JavaScript, ES6, React.js, Redux, Webpack, Vite, Vitest, Playwright, Node.js, Express, Mongoose, GCP, CI/CD, Caching and remote task caching in CI, Docker, Design system (EDS), shadcn, TypeScript, ESLint, Prettier, Package managers. Groups: Monorepos (Moonrepo, Turborepo), Design tools (Figma), Agentic tools (Claude, Grok, Antigravity).
 
 **Experience** (order as on LinkedIn, overlaps kept, `bullets: []` until Owner supplies)
 

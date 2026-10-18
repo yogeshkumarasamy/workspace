@@ -90,6 +90,11 @@ export function publicUrls(env, pr) {
   return { corsOrigin: site, appPublicUrl: `${site}/yt-scheduler/`, pageBase: "/yt-scheduler/" };
 }
 
+function embeddedApiKey(env, processEnv, pr) {
+  if (env === "preview") return `preview-pr-${assertPr(pr)}`;
+  return processEnv.YT_API_KEY || env;
+}
+
 export function resolveWorkerSecrets(env, processEnv, pr) {
   if (env === "production") {
     const required = ["YT_API_KEY", "YT_ENCRYPTION_KEY", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"];
@@ -106,22 +111,36 @@ export function resolveWorkerSecrets(env, processEnv, pr) {
       GOOGLE_CLIENT_SECRET: processEnv.GOOGLE_CLIENT_SECRET,
     };
   }
-  const apiKey = env === "preview" ? `preview-pr-${assertPr(pr)}` : processEnv.YT_API_KEY || env;
   return {
-    API_KEY: apiKey,
+    API_KEY: embeddedApiKey(env, processEnv, pr),
     ENCRYPTION_KEY: processEnv.YT_ENCRYPTION_KEY || MOCK_ENCRYPTION_KEY,
   };
 }
 
+/**
+ * Public app-config.json. Production never embeds the Worker API key: the UI
+ * asks for it at sign-in. Dev, staging, and preview still embed apiKey so
+ * those pages can sign in on their own. This does not call
+ * resolveWorkerSecrets — the static step does not have the Worker secrets.
+ */
 export function buildAppConfig({ env, pr, processEnv }) {
   const names = namesFor(env, pr);
-  const secrets = resolveWorkerSecrets(env, processEnv, pr);
   const config = {
     apiBaseUrl: workerOrigin(names.worker),
     youtubeMode: names.youtubeMode,
     driveScope: "file",
   };
-  if (env !== "production") config.apiKey = secrets.API_KEY;
+  if (env === "production") {
+    if (!processEnv.GOOGLE_CLIENT_ID) {
+      throw new Error(
+        "missing GOOGLE_CLIENT_ID. Production app-config writes the public client id and an optional GOOGLE_PICKER_API_KEY, and no Worker secrets.",
+      );
+    }
+    config.googleClientId = processEnv.GOOGLE_CLIENT_ID;
+    if (processEnv.GOOGLE_PICKER_API_KEY) config.pickerApiKey = processEnv.GOOGLE_PICKER_API_KEY;
+    return config;
+  }
+  config.apiKey = embeddedApiKey(env, processEnv, pr);
   if (processEnv.GOOGLE_CLIENT_ID) config.googleClientId = processEnv.GOOGLE_CLIENT_ID;
   if (processEnv.GOOGLE_PICKER_API_KEY) config.pickerApiKey = processEnv.GOOGLE_PICKER_API_KEY;
   return config;

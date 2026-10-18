@@ -136,21 +136,36 @@ function joinBase(rewriteBase, dirPrefix, subst) {
   return `${prefix}${subst}`.replace(/\/{2,}/g, "/");
 }
 
+function flagList(flags) {
+  return flags.split(",").map((flag) => flag.trim().toUpperCase()).filter(Boolean);
+}
+
+/** RewriteCond is AND, unless the condition carries [OR] with the next one. */
+function conditionsPass(conditions, ctx) {
+  let captures = [];
+  for (let i = 0; i < conditions.length; i += 1) {
+    const cond = conditions[i];
+    const result = conditionResult(cond, ctx);
+    const orNext = flagList(cond.flags).includes("OR");
+    if (result.ok) {
+      if (result.captures.length) captures = result.captures;
+      if (orNext) {
+        while (i + 1 < conditions.length && flagList(conditions[i].flags).includes("OR")) i += 1;
+      }
+      continue;
+    }
+    if (!orNext) return { ok: false, captures: [] };
+  }
+  return { ok: true, captures };
+}
+
 function applyRules(parsed, ctx) {
   const relative = relativePath(ctx.path, ctx.dirPrefix);
   if (relative === null) return { type: "none" };
   for (const rule of parsed.rules) {
-    let captures = [];
-    let matched = true;
-    for (const cond of rule.conditions) {
-      const result = conditionResult(cond, ctx);
-      if (!result.ok) {
-        matched = false;
-        break;
-      }
-      if (result.captures.length) captures = result.captures;
-    }
-    if (!matched) continue;
+    const passed = conditionsPass(rule.conditions, ctx);
+    if (!passed.ok) continue;
+    const captures = passed.captures;
     const insensitive = rule.flags.toLowerCase().includes("nc");
     const found = new RegExp(rule.pattern, insensitive ? "i" : "").exec(relative);
     if (!found) continue;

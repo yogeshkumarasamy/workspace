@@ -13,6 +13,7 @@ import { JobDetail } from "./components/JobDetail";
 import { ImportPanel } from "./components/ImportPanel";
 import { Settings } from "./components/Settings";
 import { InstallButton, OfflineScreen, UpdateToast, useOnline } from "./pwa";
+import legalContact from "./legal-contact.json";
 
 const PAGES = ["calendar", "jobs", "import", "settings"] as const;
 type Page = (typeof PAGES)[number];
@@ -41,14 +42,37 @@ export function App() {
   );
 }
 
+function ContactLink() {
+  const profile = <a className="underline" href={legalContact.contactUrl}>{legalContact.contactUrl.replace(/^https:\/\//, "")}</a>;
+  if (!legalContact.contactEmail) return profile;
+  return <><a className="underline" href={`mailto:${legalContact.contactEmail}`}>{legalContact.contactEmail}</a> ({profile})</>;
+}
+
 function Login({ onOk }: { onOk(): void }) {
   const [k, setK] = useState(getRuntimeConfig()?.apiKey ?? "");
   const [err, setErr] = useState("");
   const go = async () => { setKey(k); try { await api("/channels"); onOk(); } catch { setKey(""); setErr("Invalid API key"); } };
+  const base = import.meta.env.BASE_URL;
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader><CardTitle>📅 YT Scheduler</CardTitle><CardDescription>Enter the API key (the <code>API_KEY</code> env var) to continue.</CardDescription></CardHeader>
+    <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-6 p-4">
+      <div>
+        <p className="text-sm text-muted-foreground">Personal tool · Yogesh Kumarasamy</p>
+        <h1 className="mt-1 text-2xl font-semibold">📅 YT Scheduler</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          YT Scheduler uploads videos the owner chooses from Google Drive to their own YouTube channel and schedules when those videos publish. It is a single-owner tool. It does not show ads.
+        </p>
+        <p className="mt-3 text-sm">
+          <a className="underline" href={`${base}privacy`}>Privacy</a>
+          <span className="text-muted-foreground"> · </span>
+          <a className="underline" href={`${base}terms`}>Terms</a>
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">Contact: <ContactLink /></p>
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Sign in</CardTitle>
+          <CardDescription>Enter the API key (the <code>API_KEY</code> env var) to continue.</CardDescription>
+        </CardHeader>
         <CardContent className="space-y-3">
           <Input type="password" autoFocus value={k} onChange={(e) => setK(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} placeholder="API key" />
           {err && <p className="text-sm text-red-400">{err}</p>}

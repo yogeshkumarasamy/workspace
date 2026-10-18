@@ -7,6 +7,10 @@
  * layout and is not used here.
  *
  *   node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env dev [--pr N]
+ *
+ * Production writes the public Google client id and, when set, the picker
+ * key. It does not read YT_API_KEY, YT_ENCRYPTION_KEY, or GOOGLE_CLIENT_SECRET.
+ * Those stay on the Worker. The production UI asks for the API key at sign-in.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -19,10 +23,13 @@ export function spaHtaccess(basePath) {
   const base = basePath.endsWith("/") ? basePath : `${basePath}/`;
   if (!base.startsWith("/")) throw new Error(`RewriteBase must be an absolute path, received ${basePath}`);
   return `# History routing for the yt-scheduler static app.
-# Real files are served. Missing hashed assets 404. Every other path is the SPA.
+# Privacy and terms are real HTML. Both slash forms serve that file.
+# Other real files are served. Missing hashed assets 404. Every other path is the SPA.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase ${base}
+  RewriteRule ^privacy/?$ privacy/index.html [L]
+  RewriteRule ^terms/?$ terms/index.html [L]
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
@@ -40,9 +47,28 @@ export function spaHtaccess(basePath) {
 `;
 }
 
+const PRODUCTION_FIELDS = new Set(["apiBaseUrl", "youtubeMode", "driveScope", "googleClientId", "pickerApiKey"]);
+const SECRET_ENV_NAMES = ["YT_API_KEY", "YT_ENCRYPTION_KEY", "GOOGLE_CLIENT_SECRET"];
+
+function assertProductionConfig(config, processEnv) {
+  if (!processEnv.GOOGLE_CLIENT_ID) {
+    throw new Error(
+      "missing GOOGLE_CLIENT_ID. Production app-config writes the public client id and an optional GOOGLE_PICKER_API_KEY, and no Worker secrets.",
+    );
+  }
+  const unexpected = Object.keys(config).filter((key) => !PRODUCTION_FIELDS.has(key));
+  if (unexpected.length || config.apiKey) {
+    throw new Error(`production app-config must not include ${unexpected.join(", ") || "apiKey"}`);
+  }
+  const serialized = JSON.stringify(config);
+  const leaked = SECRET_ENV_NAMES.filter((name) => processEnv[name] && serialized.includes(processEnv[name]));
+  if (leaked.length) throw new Error(`production app-config must not contain ${leaked.join(", ")}`);
+}
+
 export function writeStaticConfig({ dist, env, pr, processEnv = process.env }) {
   const urls = publicUrls(env, pr);
   const config = buildAppConfig({ env, pr, processEnv });
+  if (env === "production") assertProductionConfig(config, processEnv);
   mkdirSync(dist, { recursive: true });
   writeFileSync(path.join(dist, "app-config.json"), `${JSON.stringify(config, null, 2)}\n`);
   writeFileSync(path.join(dist, ".htaccess"), spaHtaccess(urls.pageBase));

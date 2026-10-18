@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
+import { resolveRequest } from "./htaccess-sim.mjs";
 import { spaHtaccess, writeStaticConfig } from "./yt-static.mjs";
 import {
   MOCK_ENCRYPTION_KEY,
@@ -172,6 +173,98 @@ test("preview public path matches the served /preview/ prefix", () => {
   assert.equal(publicUrls("dev").pageBase, "/yt-scheduler/");
 });
 
+test("production static config needs only the public client id and optional picker key", () => {
+  assert.throws(
+    () => buildAppConfig({ env: "production", processEnv: { GOOGLE_PICKER_API_KEY: "picker-only" } }),
+    (error) => {
+      assert.match(error.message, /GOOGLE_CLIENT_ID/);
+      assert.equal(/YT_API_KEY|YT_ENCRYPTION_KEY|GOOGLE_CLIENT_SECRET/.test(error.message), false);
+      return true;
+    },
+  );
+
+  const dir = mkdtempSync(path.join(tmpdir(), "yt-dist-public-"));
+  try {
+    const written = writeStaticConfig({
+      dist: dir,
+      env: "production",
+      processEnv: {
+        GOOGLE_CLIENT_ID: "123-abc.apps.googleusercontent.com",
+        GOOGLE_PICKER_API_KEY: "picker-key",
+      },
+    });
+    const raw = readFileSync(path.join(dir, "app-config.json"), "utf8");
+    const file = JSON.parse(raw);
+    assert.equal(file.googleClientId, "123-abc.apps.googleusercontent.com");
+    assert.equal(file.pickerApiKey, "picker-key");
+    assert.equal(file.youtubeMode, "live");
+    assert.equal(file.apiBaseUrl, written.config.apiBaseUrl);
+    assert.match(file.apiBaseUrl, /yt-scheduler-api-prod/);
+    assert.equal(file.apiKey, undefined);
+    assert.equal(file.driveScope, "file");
+    for (const marker of ["apiKey", "YT_API_KEY", "YT_ENCRYPTION_KEY", "GOOGLE_CLIENT_SECRET"]) {
+      assert.equal(raw.includes(marker), false, marker);
+    }
+
+    writeStaticConfig({
+      dist: dir,
+      env: "production",
+      processEnv: {
+        GOOGLE_CLIENT_ID: "123-abc.apps.googleusercontent.com",
+        YT_API_KEY: "prod-key",
+        YT_ENCRYPTION_KEY: MOCK_ENCRYPTION_KEY,
+        GOOGLE_CLIENT_SECRET: "super-secret",
+      },
+    });
+    const ignored = readFileSync(path.join(dir, "app-config.json"), "utf8");
+    const ignoredFile = JSON.parse(ignored);
+    assert.equal(ignoredFile.pickerApiKey, undefined);
+    assert.equal(ignoredFile.apiKey, undefined);
+    for (const marker of ["prod-key", "super-secret", MOCK_ENCRYPTION_KEY, "apiKey"]) {
+      assert.equal(ignored.includes(marker), false, marker);
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("dev, staging, and preview static config still embed apiKey without production secrets", () => {
+  for (const env of ["dev", "staging"]) {
+    const dir = mkdtempSync(path.join(tmpdir(), `yt-dist-${env}-`));
+    try {
+      const written = writeStaticConfig({
+        dist: dir,
+        env,
+        processEnv: { YT_API_KEY: `${env}-key` },
+      });
+      const file = JSON.parse(readFileSync(path.join(dir, "app-config.json"), "utf8"));
+      assert.equal(file.apiKey, `${env}-key`);
+      assert.equal(file.youtubeMode, "mock");
+      assert.equal(file.apiBaseUrl, written.config.apiBaseUrl);
+      assert.match(file.apiBaseUrl, new RegExp(`yt-scheduler-api-${env}`));
+      assert.equal(file.googleClientId, undefined);
+      const fallback = buildAppConfig({ env, processEnv: {} });
+      assert.equal(fallback.apiKey, env);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+  const previewDir = mkdtempSync(path.join(tmpdir(), "yt-dist-preview-"));
+  try {
+    const written = writeStaticConfig({
+      dist: previewDir,
+      env: "preview",
+      pr: 4,
+      processEnv: {},
+    });
+    assert.equal(written.config.apiKey, "preview-pr-4");
+    assert.match(written.config.apiBaseUrl, /yt-scheduler-api-pr-4/);
+    assert.equal(written.pageBase, "/preview/yt-scheduler/pr-4/");
+  } finally {
+    rmSync(previewDir, { recursive: true, force: true });
+  }
+});
+
 test("flat htaccess rewrites the preview base and app-config stays out of production secrets", () => {
   const preview = spaHtaccess("/preview/yt-scheduler/pr-8/");
   assert.match(preview, /RewriteBase \/preview\/yt-scheduler\/pr-8\//);
@@ -196,5 +289,49 @@ test("flat htaccess rewrites the preview base and app-config stays out of produc
     assert.equal(readFileSync(path.join(dir, "app-config.json"), "utf8").includes("super-secret"), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("privacy and terms are served as HTML with or without a trailing slash", () => {
+  const base = "/preview/yt-scheduler/pr-8/";
+  const preview = spaHtaccess(base);
+  const privacyAt = preview.indexOf("RewriteRule ^privacy/?$ privacy/index.html [L]");
+  const termsAt = preview.indexOf("RewriteRule ^terms/?$ terms/index.html [L]");
+  const passAt = preview.indexOf("RewriteCond %{REQUEST_FILENAME} -f [OR]");
+  const spaAt = preview.indexOf("RewriteRule ^ index.html [L]");
+  assert.ok(privacyAt > 0 && termsAt > privacyAt && passAt > termsAt && spaAt > passAt);
+
+  const privacy = "<!doctype html><title>Privacy</title>";
+  const terms = "<!doctype html><title>Terms</title>";
+  const spa = "<!doctype html><title>app</title>";
+  const files = {
+    [`${base}index.html`]: spa,
+    [`${base}privacy/index.html`]: privacy,
+    [`${base}terms/index.html`]: terms,
+  };
+  const htaccess = { [base]: preview };
+  for (const suffix of ["privacy", "privacy/", "terms", "terms/"]) {
+    const result = resolveRequest({ path: `${base}${suffix}`, host: "dev.yogeshkumarasamy.in", htaccess, files });
+    assert.equal(result.status, 200, suffix);
+    assert.equal(result.body.includes("<title>app</title>"), false, suffix);
+    assert.match(result.contentType ?? "", /^text\/html/);
+  }
+  assert.equal(resolveRequest({ path: `${base}privacy`, host: "dev.yogeshkumarasamy.in", htaccess, files }).path, `${base}privacy/index.html`);
+  assert.equal(resolveRequest({ path: `${base}terms/`, host: "dev.yogeshkumarasamy.in", htaccess, files }).body, terms);
+  assert.equal(resolveRequest({ path: `${base}jobs/1`, host: "dev.yogeshkumarasamy.in", htaccess, files }).body, spa);
+
+  const liveBase = "/yt-scheduler/";
+  const live = {
+    htaccess: { [liveBase]: spaHtaccess(liveBase) },
+    files: {
+      [`${liveBase}index.html`]: spa,
+      [`${liveBase}privacy/index.html`]: privacy,
+      [`${liveBase}terms/index.html`]: terms,
+    },
+  };
+  for (const pathName of ["/yt-scheduler/privacy", "/yt-scheduler/privacy/", "/yt-scheduler/terms", "/yt-scheduler/terms/"]) {
+    const result = resolveRequest({ path: pathName, host: "yogeshkumarasamy.in", htaccess: live.htaccess, files: live.files });
+    assert.equal(result.status, 200, pathName);
+    assert.equal(result.body === spa, false, pathName);
   }
 });

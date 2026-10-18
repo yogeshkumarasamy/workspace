@@ -120,6 +120,8 @@ jobs:
           APP_BASE: /yt-scheduler/
         run: pnpm --filter @apps/yt-scheduler... build
 
+      # Public fields only. Worker secrets stay on the deploy step above.
+      # Production app-config has no apiKey; the UI asks for it at sign-in.
       - name: Write app-config and history rewrite
         env:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}

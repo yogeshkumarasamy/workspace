@@ -4,6 +4,8 @@ import test from "node:test";
 import {
   CHUNK_CANDIDATES_BYTES,
   cloudflareErrorIsMissing,
+  checksumMatches,
+  classifyCpu,
   collectCpuSamples,
   collectTailCpuSamples,
   COMPATIBILITY_DATE,
@@ -11,11 +13,13 @@ import {
   exitCodeFor,
   explainMissingCpu,
   extractJsonObjects,
+  formatOtherInvocations,
   isIgnorableTeardown,
   LONG_VIDEO_BYTES,
   planSweep,
   r2Unavailable,
   renderSummary,
+  shouldResumeInstance,
   stepsForRun,
   SWEEP_STEP_BUDGET,
   teardownCommands,
@@ -29,21 +33,38 @@ test("schedules 64 MiB first and stops before the daily step cap", () => {
   const plan = planSweep(LONG_VIDEO_BYTES, 64 * 1024 * 1024);
   assert.equal(plan.runs[0].chunkBytes, 64 * 1024 * 1024);
   assert.equal(plan.runs[0].steps, 9);
+  assert.equal(stepsForRun(LONG_VIDEO_BYTES, 32 * 1024 * 1024), 17);
+  assert.equal(stepsForRun(LONG_VIDEO_BYTES, 16 * 1024 * 1024), 34);
   assert.ok(plan.stepsIfEveryScheduledRunExecutes <= SWEEP_STEP_BUDGET);
   assert.ok(plan.skipped.some((row) => row.chunkBytes === 256 * 1024));
   const withSmallest = plan.stepsIfEveryScheduledRunExecutes + stepsForRun(LONG_VIDEO_BYTES, 256 * 1024);
   assert.ok(withSmallest > 3000);
 });
 
-test("decides the sweep from real cpuTimeMs only", () => {
+test("decides the sweep from per-chunk cpuTimeMs only", () => {
   assert.equal(decideNext({ complete: true, checksumMatches: true, cpuTimeMsMax: 9.5 }), "stop-pass");
   assert.equal(decideNext({ complete: true, checksumMatches: true, cpuTimeMsMax: 10 }), "step-down");
   assert.equal(decideNext({ complete: true, checksumMatches: true, cpuTimeMsMax: null }), "stop-no-cpu");
   assert.equal(decideNext({ complete: false, cpuExceeded: true }), "step-down");
   assert.equal(decideNext({ complete: true, checksumMatches: false, cpuTimeMsMax: 1 }), "stop-error");
+  assert.equal(decideNext({ complete: false, checksumMatches: null, cpuTimeMsMax: null }), "stop-error");
   assert.equal(exitCodeFor({ attempts: [{ decision: "stop-no-cpu" }] }), 3);
   assert.equal(exitCodeFor({ attempts: [{ decision: "stop-pass", cpuTimeMsMax: 2 }] }), 0);
   assert.equal(exitCodeFor({ infrastructureError: "deploy failed", attempts: [] }), 1);
+});
+
+test("an unfinished sink is not a checksum mismatch, and a budget stop resumes", () => {
+  assert.equal(checksumMatches({ complete: false, actualSha: null, expectedSha: "abc" }), null);
+  assert.equal(checksumMatches({ complete: true, actualSha: null, expectedSha: "abc" }), null);
+  assert.equal(checksumMatches({ complete: true, actualSha: "abc", expectedSha: "abc" }), true);
+  assert.equal(checksumMatches({ complete: true, actualSha: "nope", expectedSha: "abc" }), false);
+  assert.equal(shouldResumeInstance({ status: "complete", output: { reason: "subrequest-budget" } }), true);
+  assert.equal(shouldResumeInstance({ status: "complete", output: { complete: true, reason: "complete" } }), false);
+  assert.equal(
+    shouldResumeInstance({ status: "errored", error: { message: "Too many subrequests" } }),
+    true,
+  );
+  assert.equal(shouldResumeInstance({ status: "errored", error: { message: "sink cursor mismatch" } }), false);
 });
 
 test("reads cpuTimeMs from the uploader event and ignores other numbers", () => {
@@ -70,37 +91,122 @@ test("reads cpuTimeMs from the uploader event and ignores other numbers", () => 
   assert.deepEqual(samples, [{ id: "log-1", cpuTimeMs: 4.25 }]);
 });
 
-test("joins cpuTimeMs on a workflow invocation with the sibling uploader log", () => {
-  const samples = collectCpuSamples({
+test("does not treat a sibling workflow cpuTimeMs as a chunk sample", () => {
+  const body = {
     result: {
       invocations: {
         "req-9": [
           {
             "$metadata": { id: "inv-9" },
-            "$workers": { cpuTimeMs: 6.5, eventType: "workflow", scriptName: THROWAWAY_WORKER_NAME, requestId: "req-9" },
+            "$workers": {
+              cpuTimeMs: 6.5,
+              eventType: "workflow",
+              scriptName: THROWAWAY_WORKER_NAME,
+              requestId: "req-9",
+            },
           },
           {
             "$metadata": { id: "line-9", message: '{"role":"uploader","event":"chunk","offset":0}' },
           },
+          {
+            "$metadata": { id: "line-10", message: '{"role":"uploader","event":"chunk","offset":16}' },
+          },
         ],
       },
     },
-  });
-  assert.deepEqual(samples, [{ id: "inv-9", cpuTimeMs: 6.5 }]);
+  };
+  const classified = classifyCpu(body);
+  assert.deepEqual(classified.chunkSamples, []);
+  assert.deepEqual(collectCpuSamples(body), []);
+  assert.equal(classified.chunkLogsWithoutCpu, 2);
+  assert.deepEqual(classified.otherInvocations, [{ id: "inv-9", kind: "workflow", cpuTimeMs: 6.5 }]);
+  assert.match(formatOtherInvocations(classified.otherInvocations), /workflow/);
+  assert.match(formatOtherInvocations(classified.otherInvocations), /cpuTimeMs 6\.5/);
+  assert.match(formatOtherInvocations(classified.otherInvocations), /not used for step-down/);
 });
 
-test("uses workflow cpuTimeMs when the console line was not stored, and ignores fetch CPU", () => {
-  const samples = collectCpuSamples({
+test("the Workers Logs shape from the Free-account run is not one chunk sample", () => {
+  const body = {
+    result: {
+      invocations: {
+        "req-workflow": [
+          {
+            source: {
+              skipped: false,
+              role: "uploader",
+              event: "chunk",
+              offset: 335544320,
+              chunkBytes: 67108864,
+              received: 402653184,
+            },
+            "$workers": { eventType: "workflow", entrypoint: "UploadWorkflow" },
+            "$metadata": { id: "chunk-a", requestId: "req-workflow" },
+          },
+          {
+            source: {
+              skipped: false,
+              role: "uploader",
+              event: "chunk",
+              offset: 402653184,
+              chunkBytes: 67108864,
+              received: 469762048,
+            },
+            "$workers": { eventType: "workflow", entrypoint: "UploadWorkflow" },
+            "$metadata": { id: "chunk-b", requestId: "req-workflow" },
+          },
+          {
+            source: { level: "info", message: "workflow" },
+            "$workers": {
+              eventType: "workflow",
+              entrypoint: "UploadWorkflow",
+              outcome: "ok",
+              wallTimeMs: 18826,
+              cpuTimeMs: 24,
+              event: { rpcCallCount: 19 },
+            },
+            "$metadata": { id: "outcome", requestId: "req-workflow", message: "workflow" },
+          },
+        ],
+        "req-fetch": [
+          {
+            source: { message: "GET /uploads/instance" },
+            "$workers": { eventType: "fetch", cpuTimeMs: 0, outcome: "ok" },
+            "$metadata": { id: "poll", requestId: "req-fetch" },
+          },
+        ],
+      },
+    },
+  };
+  const classified = classifyCpu(body);
+  assert.deepEqual(classified.chunkSamples, []);
+  assert.equal(classified.chunkLogsWithoutCpu, 2);
+  assert.equal(decideNext({ complete: true, checksumMatches: true, cpuTimeMsMax: null }), "stop-no-cpu");
+  const kinds = classified.otherInvocations.map((item) => `${item.kind}:${item.cpuTimeMs}`).sort();
+  assert.deepEqual(kinds, ["fetch:0", "workflow:24"]);
+});
+
+test("a workflow or fetch cpuTimeMs without a chunk event is not a chunk sample", () => {
+  const classified = classifyCpu({
     result: {
       events: {
         events: [
-          { "$metadata": { id: "step-1" }, "$workers": { cpuTimeMs: 8, eventType: "workflow", scriptName: THROWAWAY_WORKER_NAME } },
-          { "$metadata": { id: "poll" }, "$workers": { cpuTimeMs: 1, eventType: "fetch", scriptName: THROWAWAY_WORKER_NAME } },
+          {
+            "$metadata": { id: "step-1" },
+            "$workers": { cpuTimeMs: 8, eventType: "workflow", scriptName: THROWAWAY_WORKER_NAME },
+          },
+          {
+            "$metadata": { id: "poll" },
+            "$workers": { cpuTimeMs: 1, eventType: "fetch", scriptName: THROWAWAY_WORKER_NAME },
+          },
         ],
       },
     },
   });
-  assert.deepEqual(samples, [{ id: "step-1", cpuTimeMs: 8 }]);
+  assert.deepEqual(classified.chunkSamples, []);
+  assert.deepEqual(
+    classified.otherInvocations.map((item) => item.id),
+    ["step-1", "poll"],
+  );
 });
 
 test("an empty Workers Logs response does not invent cpuTimeMs", () => {
@@ -134,6 +240,19 @@ test("tail CPUTimeMs is scored and bare cpuTime is not", () => {
   ]);
   assert.deepEqual(scored.samples, [{ id: "10", cpuTimeMs: 3.25 }]);
   assert.equal(scored.unscoredCpuTime, 1);
+  const instanceSummary = collectTailCpuSamples([
+    {
+      eventTimestamp: 12,
+      cpuTimeMs: 24,
+      logs: [
+        { message: ['{"role":"uploader","event":"chunk","offset":0}'] },
+        { message: ['{"role":"uploader","event":"chunk","offset":16777216}'] },
+      ],
+    },
+  ]);
+  assert.deepEqual(instanceSummary.samples, []);
+  assert.equal(instanceSummary.otherInvocations[0].cpuTimeMs, 24);
+  assert.equal(instanceSummary.chunkLogsWithoutCpu, 2);
   const pretty = extractJsonObjects('Connected\n{\n  "cpuTimeMs": 2,\n  "logs": [{"message":["{\\"role\\":\\"uploader\\",\\"event\\":\\"chunk\\"}"]}]\n}\n{');
   assert.equal(pretty.objects.length, 1);
   assert.equal(pretty.objects[0].cpuTimeMs, 2);
@@ -195,6 +314,31 @@ test("summary does not invent a CPU figure", () => {
   assert.match(markdown, /payment method/);
   assert.match(markdown, /YouTube was not called/);
   assert.doesNotMatch(markdown, /cpuTimeMs max \| [0-9]/);
+});
+
+test("summary labels a workflow-instance cpuTimeMs and does not put it in the max column", () => {
+  const markdown = renderSummary({
+    sourceMode: "runner",
+    attempts: [
+      {
+        chunkBytes: CHUNK_CANDIDATES_BYTES[0],
+        steps: 9,
+        complete: true,
+        checksumMatches: true,
+        cpuTimeMs: [],
+        cpuTimeMsMax: null,
+        chunkLogsWithoutCpu: 8,
+        otherInvocations: [{ id: "inv-9", kind: "workflow", cpuTimeMs: 24 }],
+        decision: "stop-no-cpu",
+      },
+    ],
+    skipped: [],
+    teardown: ["wrangler delete yt-spike-gha-throwaway --force already gone"],
+  });
+  assert.match(markdown, /\| 64 MiB \| 9 \| yes \| match \| not returned \| 0 \| stop-no-cpu \|/);
+  assert.match(markdown, /8 uploader chunk logs had no cpuTimeMs/);
+  assert.match(markdown, /Non-chunk invocations \(not used for step-down\): 1 workflow \(cpuTimeMs 24\)/);
+  assert.doesNotMatch(markdown, /\| not returned \| 24 \|/);
 });
 
 test("the measure workflow is manual and does not run on push or pull request", () => {

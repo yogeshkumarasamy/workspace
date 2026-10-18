@@ -7,8 +7,12 @@ export const LONG_VIDEO_BYTES = 500 * 1024 * 1024;
 export const CPU_LIMIT_MS = 10;
 /** Stay under the 3,000 steps/day cap, leaving room for a retried step. */
 export const SWEEP_STEP_BUDGET = 2_800;
-/** Chunk steps per instance after the one status step inside the 1,020 step budget. */
-export const INSTANCE_CHUNK_ROOM = 1_019;
+/**
+ * Chunk steps per Workflow instance. Matches maxChunkStepsPerInstance() in
+ * src/budget.ts: 1 status subrequest + 3 per chunk, under the Free cap of 50.
+ * The 1,020 step instance budget is looser than this on the measured runtime.
+ */
+export const CHUNK_STEPS_PER_INSTANCE = 16;
 export const COMPATIBILITY_DATE = "2026-08-22";
 export const EXPECTED_WORKERS_DEV_SUFFIX = ".coderdevelopment.workers.dev";
 
@@ -36,8 +40,28 @@ export function assertThrowawayName(name) {
 export function stepsForRun(totalBytes, chunkBytes) {
   if (chunkBytes < 1) throw new Error("chunkBytes must be positive");
   const chunkSteps = Math.ceil(totalBytes / chunkBytes);
-  const instances = Math.max(1, Math.ceil(chunkSteps / INSTANCE_CHUNK_ROOM));
+  const instances = Math.max(1, Math.ceil(chunkSteps / CHUNK_STEPS_PER_INSTANCE));
   return chunkSteps + instances;
+}
+
+/**
+ * Incomplete transfers have no digest. Comparing a null hash to the file
+ * hash is not a checksum mismatch.
+ */
+export function checksumMatches({ complete, actualSha, expectedSha }) {
+  if (!complete) return null;
+  if (typeof actualSha !== "string" || typeof expectedSha !== "string") return null;
+  return actualSha === expectedSha;
+}
+
+/** Start another instance on the same sink session. */
+export function shouldResumeInstance(finished) {
+  if (!finished || finished.status === "terminated") return false;
+  const reason = finished.output?.reason;
+  if (reason === "subrequest-budget" || reason === "instance-step-budget") return true;
+  if (finished.status !== "errored") return false;
+  const text = JSON.stringify(finished.error ?? "");
+  return /subrequest limit|too many subrequests|exceeded .*subrequests/i.test(text);
 }
 
 export function planSweep(totalBytes, startChunkBytes) {
@@ -236,6 +260,59 @@ function isUploaderChunk(text) {
   return text.includes('"role":"uploader"') && text.includes('"event":"chunk"');
 }
 
+function chunkOffsets(text) {
+  const offsets = new Set();
+  const patterns = [
+    /"role":"uploader","event":"chunk","offset":(\d+)/g,
+    /\\"role\\":\\"uploader\\",\\"event\\":\\"chunk\\",\\"offset\\":(\d+)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) offsets.add(match[1]);
+  }
+  return offsets;
+}
+
+function offsetsFor(event) {
+  const offsets = new Set();
+  const seen = new Set();
+  const walk = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (seen.has(value)) return;
+    seen.add(value);
+    if (
+      !Array.isArray(value) &&
+      value.role === "uploader" &&
+      value.event === "chunk" &&
+      (typeof value.offset === "number" || typeof value.offset === "string")
+    ) {
+      offsets.add(String(value.offset));
+    }
+    for (const child of Object.values(value)) walk(child);
+  };
+  walk(event);
+  const text = `${eventText(event)}\n${JSON.stringify(event)}`;
+  for (const offset of chunkOffsets(text)) offsets.add(offset);
+  return { offsets, text };
+}
+
+function chunkCountFrom(event) {
+  const { offsets, text } = offsetsFor(event);
+  if (offsets.size > 0) return offsets.size;
+  return isUploaderChunk(text) ? 1 : 0;
+}
+
+function invocationKind(event) {
+  const type = event?.$workers?.eventType;
+  if (typeof type === "string" && type) return type;
+  if (event?.message === "workflow" || event?.$metadata?.message === "workflow") return "workflow";
+  return "other";
+}
+
+function eventId(event, fallback) {
+  const id = event?.$metadata?.id ?? event?.$workers?.requestId ?? event?.eventTimestamp;
+  return String(id ?? fallback);
+}
+
 function cpuMillis(event) {
   const values = [event?.$workers?.cpuTimeMs, event?.cpuTimeMs, event?.CPUTimeMs];
   for (const value of values) {
@@ -272,60 +349,79 @@ function gatherGroups(value, groups) {
   }
 }
 
-function linkedSample(group) {
-  const blobs = group.map((event) => `${eventText(event)}\n${JSON.stringify(event)}`);
-  if (!isUploaderChunk(blobs.join("\n"))) return null;
-  const ranked = [];
-  for (let index = 0; index < group.length; index += 1) {
-    const cpu = cpuMillis(group[index]);
-    if (cpu == null) continue;
-    const own = isUploaderChunk(blobs[index]);
-    const workflow = group[index].$workers?.eventType === "workflow";
-    ranked.push({
-      rank: own ? 0 : workflow ? 1 : 2,
-      id: group[index].$metadata?.id ?? group[index].$workers?.requestId ?? `uploader-${index}`,
-      cpuTimeMs: cpu,
-    });
-  }
-  ranked.sort((left, right) => left.rank - right.rank);
-  if (!ranked.length) return null;
-  return { id: ranked[0].id, cpuTimeMs: ranked[0].cpuTimeMs };
-}
-
-function workflowSamples(group) {
-  const samples = [];
-  for (const event of group) {
-    const cpu = cpuMillis(event);
-    if (cpu == null || event.$workers?.eventType !== "workflow") continue;
-    const id = event.$metadata?.id ?? event.$workers?.requestId;
-    if (id) samples.push({ id, cpuTimeMs: cpu });
-  }
-  return samples;
+function remember(list, seen, item) {
+  if (seen.has(item.id)) return;
+  seen.add(item.id);
+  list.push(item);
 }
 
 /**
- * Reads Workers Logs `cpuTimeMs` (or Logpush `CPUTimeMs`).
- * The invocation that carries cpuTimeMs is often a sibling of the console.log
- * inside the same request id, so an invocations group is joined.
- * When the console line was not stored, eventType "workflow" on this script is
- * still that field. GraphQL quantiles and tail `cpuTime` are not converted.
+ * A chunk sample is one event that describes exactly one uploader chunk and
+ * itself carries cpuTimeMs or CPUTimeMs. A sibling outcome on the same
+ * request id is a different invocation. A workflow-instance CPU time is not
+ * divided across chunks and is not used as a chunk sample.
  */
-export function collectCpuSamples(value, { workflowFallback = true } = {}) {
+export function classifyCpu(value) {
   const groups = [];
   gatherGroups(value, groups);
-  const linked = [];
-  const workflow = [];
+  const chunkSamples = [];
+  const otherInvocations = [];
+  const seenChunks = new Set();
+  const seenOther = new Set();
+  let chunkLogsWithoutCpu = 0;
+  let fallback = 0;
   for (const group of groups) {
-    const sample = linkedSample(group);
-    if (sample) linked.push(sample);
-    else if (workflowFallback) workflow.push(...workflowSamples(group));
+    for (const event of group) {
+      const chunks = chunkCountFrom(event);
+      const cpu = cpuMillis(event);
+      const id = eventId(event, `event-${fallback}`);
+      fallback += 1;
+      if (chunks === 1 && cpu != null) {
+        remember(chunkSamples, seenChunks, { id, cpuTimeMs: cpu });
+        continue;
+      }
+      if (chunks >= 1) {
+        chunkLogsWithoutCpu += chunks;
+        if (cpu != null) {
+          remember(otherInvocations, seenOther, {
+            id,
+            kind: invocationKind(event),
+            cpuTimeMs: cpu,
+          });
+        }
+        continue;
+      }
+      const kind = invocationKind(event);
+      if (cpu == null && kind !== "workflow" && kind !== "fetch") continue;
+      remember(otherInvocations, seenOther, { id, kind, cpuTimeMs: cpu });
+    }
   }
-  const chosen = linked.length ? linked : workflow;
-  const found = [];
-  for (const sample of chosen) {
-    if (!found.some((item) => item.id === sample.id)) found.push(sample);
+  return { chunkSamples, otherInvocations, chunkLogsWithoutCpu };
+}
+
+/** Per-chunk samples only. Workflow and fetch CPU stays out of this list. */
+export function collectCpuSamples(value) {
+  return classifyCpu(value).chunkSamples;
+}
+
+export function formatOtherInvocations(list) {
+  if (!list?.length) return "";
+  const byKind = new Map();
+  for (const item of list) {
+    const kind = item.kind || "other";
+    if (!byKind.has(kind)) byKind.set(kind, []);
+    byKind.get(kind).push(item.cpuTimeMs);
   }
-  return found;
+  const parts = [];
+  for (const [kind, cpus] of byKind) {
+    const present = cpus.filter((cpu) => typeof cpu === "number");
+    const missing = cpus.length - present.length;
+    const unique = [...new Set(present)].sort((left, right) => left - right);
+    let cpuText = present.length ? `cpuTimeMs ${unique.join(", ")}` : "cpuTimeMs not returned";
+    if (present.length && missing) cpuText += `; ${missing} without cpuTimeMs`;
+    parts.push(`${cpus.length} ${kind} (${cpuText})`);
+  }
+  return `Non-chunk invocations (not used for step-down): ${parts.join("; ")}.`;
 }
 
 export function summarizeTelemetry(body) {
@@ -394,43 +490,70 @@ export function extractJsonObjects(buffer) {
 }
 
 /**
- * Scores a tail event only when it has cpuTimeMs or CPUTimeMs (milliseconds,
- * same name Workers Logs and Logpush use). Trace `cpuTime` is left unscored:
- * workers-types do not document its unit, and GraphQL cpuTimeP50 is microseconds.
+ * Scores a tail event only when that event is exactly one uploader chunk and
+ * has cpuTimeMs or CPUTimeMs. An event that contains several chunk logs and
+ * one CPU figure is the instance summary, not one chunk sample. Trace
+ * `cpuTime` is left unscored: workers-types do not document its unit, and
+ * GraphQL cpuTimeP50 is microseconds.
  */
 export function collectTailCpuSamples(events) {
   const samples = [];
+  const otherInvocations = [];
   let uploaderLogs = 0;
+  let chunkLogsWithoutCpu = 0;
   let unscoredCpuTime = 0;
   for (const event of events) {
     if (!event || typeof event !== "object") continue;
-    const text = eventText(event);
-    if (!isUploaderChunk(text)) continue;
-    uploaderLogs += 1;
+    const chunks = chunkCountFrom(event);
     const cpu = cpuMillis(event);
-    if (cpu != null) {
-      const id = String(event.eventTimestamp ?? event.$workers?.requestId ?? samples.length);
-      if (!samples.some((item) => item.id === id)) samples.push({ id, cpuTimeMs: cpu });
+    const id = eventId(event, samples.length + otherInvocations.length);
+    if (chunks === 1) {
+      uploaderLogs += 1;
+      if (cpu != null) {
+        if (!samples.some((item) => item.id === id)) samples.push({ id, cpuTimeMs: cpu });
+        continue;
+      }
+      chunkLogsWithoutCpu += 1;
+      if (typeof event.cpuTime === "number") unscoredCpuTime += 1;
       continue;
     }
-    if (typeof event.cpuTime === "number") unscoredCpuTime += 1;
+    if (chunks > 1) {
+      uploaderLogs += chunks;
+      chunkLogsWithoutCpu += chunks;
+      if (cpu != null) otherInvocations.push({ id, kind: invocationKind(event), cpuTimeMs: cpu });
+      else if (typeof event.cpuTime === "number") unscoredCpuTime += 1;
+      continue;
+    }
+    if (cpu != null) otherInvocations.push({ id, kind: invocationKind(event), cpuTimeMs: cpu });
   }
-  return { samples, uploaderLogs, unscoredCpuTime };
+  return { samples, otherInvocations, uploaderLogs, chunkLogsWithoutCpu, unscoredCpuTime };
 }
 
-export function explainMissingCpu({ httpStatus, polls, summary, tailConnected, tailEvents, tailUploaderLogs, tailUnscoredCpuTime }) {
+export function explainMissingCpu({
+  httpStatus,
+  polls,
+  summary,
+  tailConnected,
+  tailEvents,
+  tailUploaderLogs,
+  tailUnscoredCpuTime,
+  chunkLogsWithoutCpu = 0,
+}) {
   const where = summary.scriptNames.length ? ` scriptName ${summary.scriptNames.join(", ")}` : "";
   const parts = [
     `Workers Logs query HTTP ${httpStatus ?? "n/a"} after ${polls} polls: ${summary.events} events, ${summary.invocations} invocations${where}.`,
   ];
   if (!tailConnected) parts.push("wrangler tail did not connect.");
   else parts.push(`wrangler tail connected: ${tailEvents} events, ${tailUploaderLogs} with an uploader chunk log.`);
+  if (chunkLogsWithoutCpu > 0) {
+    parts.push(`${chunkLogsWithoutCpu} uploader chunk logs had no cpuTimeMs on that event.`);
+  }
   if (tailUnscoredCpuTime > 0) {
     parts.push(
       `${tailUnscoredCpuTime} of those tail events included cpuTime. That field was not scored. Workers Logs publishes cpuTimeMs, and GraphQL cpuTimeP50 is a different unit.`,
     );
   }
-  parts.push("No cpuTimeMs sample was returned. No CPU figure was filled in.");
+  parts.push("No per-chunk cpuTimeMs sample was returned. No CPU figure was filled in.");
   return parts.join(" ");
 }
 
@@ -479,8 +602,19 @@ export function renderSummary(report) {
       lines.push(`- ${formatBytes(skipped.chunkBytes)} would add ${skipped.steps} steps (${skipped.reason}).`);
     }
   }
-  lines.push("", "cpuTimeMs values are the Workers Logs field of that name (or Logpush CPUTimeMs) on uploader chunk or workflow-step events. Empty cells were not filled in.");
+  lines.push(
+    "",
+    "The cpuTimeMs max column is the maximum on uploader chunk events that themselves included cpuTimeMs (or Logpush CPUTimeMs). One sample is one chunk. A workflow-instance outcome or a fetch invocation is listed separately and is not that max. Empty cells were not filled in.",
+  );
   for (const attempt of report.attempts ?? []) {
+    if (attempt.chunkLogsWithoutCpu > 0) {
+      lines.push(
+        "",
+        `${formatBytes(attempt.chunkBytes)}: ${attempt.chunkLogsWithoutCpu} uploader chunk logs had no cpuTimeMs on that event.`,
+      );
+    }
+    const other = formatOtherInvocations(attempt.otherInvocations);
+    if (other) lines.push("", other);
     if (attempt.logNote) lines.push("", attempt.logNote);
   }
   lines.push("", "Teardown:");

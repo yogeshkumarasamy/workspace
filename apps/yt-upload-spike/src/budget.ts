@@ -58,6 +58,19 @@ export function instancesFor(chunkSteps: number): number {
   return Math.max(1, Math.ceil(chunkSteps / roomForChunks));
 }
 
+/**
+ * Chunk steps that fit in one Workflow instance on this runtime.
+ * The opening status step is one subrequest. Each chunk step is a status
+ * probe, a source GET, and a sink PUT. Free plan allows 50 subrequests, and
+ * the measured runtime spends that budget on the whole instance (one request
+ * id), not on each step.do. 1 + 3 * 16 = 49, so the 17th chunk is not sent.
+ */
+export function maxChunkStepsPerInstance(): number {
+  const afterStatus = FREE_PLAN.subrequestsPerInvocation - 1;
+  if (afterStatus < FREE_PLAN.subrequestsPerChunkStep) return 0;
+  return Math.floor(afterStatus / FREE_PLAN.subrequestsPerChunkStep);
+}
+
 export interface DayBudget {
   chunkBytes: number;
   longSteps: number;

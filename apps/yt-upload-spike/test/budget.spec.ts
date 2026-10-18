@@ -8,6 +8,7 @@ import {
   budgetTable,
   dayBudget,
   instancesFor,
+  maxChunkStepsPerInstance,
   stepsFor,
 } from "../src/budget";
 
@@ -19,6 +20,9 @@ describe("free-plan budget", () => {
     expect(stepsFor(LONG_VIDEO_BYTES, 256 * 1024)).toBe(2000);
     expect(instancesFor(2000)).toBe(2);
     expect(instancesFor(8)).toBe(1);
+    expect(maxChunkStepsPerInstance()).toBe(16);
+    expect(1 + 16 * FREE_PLAN.subrequestsPerChunkStep).toBeLessThanOrEqual(FREE_PLAN.subrequestsPerInvocation);
+    expect(1 + 17 * FREE_PLAN.subrequestsPerChunkStep).toBeGreaterThan(FREE_PLAN.subrequestsPerInvocation);
   });
 
   it("fits the stated week at 64 MiB and blows the step cap at 256 KiB", () => {

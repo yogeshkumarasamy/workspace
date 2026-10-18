@@ -1,5 +1,7 @@
 name: Deploy Vite App to Hostinger
 
+# release/staging runs this file from the branch tip. It builds @apps/portfolio into FTP_TARGET_DIR_STAGING (#66).
+
 on:
   push:
     branches:

@@ -81,7 +81,26 @@ export function r2Unavailable(text) {
 }
 
 export function isIgnorableTeardown(text) {
-  return /not found|does not exist|already deleted|10007|10042|10090|no such|code: 7003|not exist/i.test(text);
+  const plain = String(text ?? "")
+    .replace(/\u001b\[[0-9;]*m/g, "")
+    .replace(/\s+/g, " ");
+  return /not found|does not exist|already deleted|already been deleted|10007|10042|10090|10200|no such|\b404\b|code: 7003|not exist/i.test(
+    plain,
+  );
+}
+
+/**
+ * Cloudflare's workflow-not-found error is code 10200. Worker-not-found is 10007.
+ * A missing resource is a successful teardown.
+ */
+export function cloudflareErrorIsMissing(status, body) {
+  if (status === 404) return true;
+  const errors = Array.isArray(body?.errors) ? body.errors : [];
+  return errors.some((error) => {
+    const code = Number(error?.code);
+    if (code === 10007 || code === 10200 || code === 10090) return true;
+    return isIgnorableTeardown(String(error?.message ?? ""));
+  });
 }
 
 export function assertSafeRemoteUrl(raw) {
@@ -119,7 +138,13 @@ export function throwawayConfig({ includeR2, compatibilityDate = COMPATIBILITY_D
     main: "src/index.ts",
     compatibility_date: compatibilityDate,
     workers_dev: true,
-    observability: { enabled: true, head_sampling_rate: 1 },
+    // head_sampling_rate 1 is 100% (Workers Logs docs). logs.invocation_logs
+    // keeps the invocation event that carries $workers.cpuTimeMs.
+    observability: {
+      enabled: true,
+      head_sampling_rate: 1,
+      logs: { enabled: true, head_sampling_rate: 1, invocation_logs: true },
+    },
     vars: { SPIKE: "yt-upload-spike", PLAN: "workers-free" },
     workflows: [
       {
@@ -150,11 +175,11 @@ export function teardownCommands() {
   ];
 }
 
-export function telemetryQueryBody(workerName, from, to) {
+export function telemetryQueryBody(workerName, from, to, view = "invocations") {
   return {
-    queryId: `yt-spike-${workerName}-${from}`,
+    queryId: `yt-spike-${workerName}-${view}-${from}`,
     dry: true,
-    view: "events",
+    view,
     limit: 1000,
     timeframe: { from, to },
     parameters: {
@@ -167,7 +192,25 @@ export function telemetryQueryBody(workerName, from, to) {
           value: workerName,
         },
       ],
-      needle: { value: '"role":"uploader"', isRegex: false, matchCase: true },
+    },
+  };
+}
+
+/**
+ * Used only when the scriptName query returns nothing, to see whether the
+ * uploader log was stored under a different script name.
+ */
+export function telemetryDiscoveryQueryBody(from, to) {
+  return {
+    queryId: `yt-spike-discover-${from}`,
+    dry: true,
+    view: "events",
+    limit: 100,
+    timeframe: { from, to },
+    parameters: {
+      filterCombination: "and",
+      filters: [],
+      needle: { value: "uploader", isRegex: false, matchCase: false },
     },
   };
 }
@@ -177,29 +220,218 @@ function eventText(node) {
   if (typeof node.source === "string") parts.push(node.source);
   if (typeof node.$metadata?.message === "string") parts.push(node.$metadata.message);
   if (typeof node.message === "string") parts.push(node.message);
+  if (Array.isArray(node.logs)) {
+    for (const log of node.logs) {
+      const message = log?.message;
+      if (typeof message === "string") parts.push(message);
+      else if (Array.isArray(message)) {
+        parts.push(message.map((part) => (typeof part === "string" ? part : JSON.stringify(part))).join(" "));
+      } else if (message && typeof message === "object") parts.push(JSON.stringify(message));
+    }
+  }
   return parts.join("\n");
 }
 
-/**
- * Reads Workers Logs `cpuTimeMs` only when the same event also carries an uploader chunk log.
- * Does not convert GraphQL quantiles and does not fill a number in when the field is absent.
- */
-export function collectCpuSamples(value, found = []) {
-  if (!value || typeof value !== "object") return found;
+function isUploaderChunk(text) {
+  return text.includes('"role":"uploader"') && text.includes('"event":"chunk"');
+}
+
+function cpuMillis(event) {
+  const values = [event?.$workers?.cpuTimeMs, event?.cpuTimeMs, event?.CPUTimeMs];
+  for (const value of values) {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
+function isEventLike(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value) && (value.$workers || value.$metadata || value.source || value.logs));
+}
+
+function gatherGroups(value, groups) {
+  if (!value || typeof value !== "object") return;
   if (Array.isArray(value)) {
-    for (const item of value) collectCpuSamples(item, found);
-    return found;
+    for (const item of value) gatherGroups(item, groups);
+    return;
   }
-  const cpu = value.$workers?.cpuTimeMs ?? value.cpuTimeMs;
-  const text = eventText(value);
-  if (typeof cpu === "number" && text.includes('"role":"uploader"') && text.includes('"event":"chunk"')) {
-    const id = value.$metadata?.id ?? value.$workers?.requestId ?? text.slice(0, 180);
-    if (!found.some((item) => item.id === id)) found.push({ id, cpuTimeMs: cpu });
+  if (value.invocations && typeof value.invocations === "object" && !Array.isArray(value.invocations)) {
+    for (const group of Object.values(value.invocations)) {
+      if (Array.isArray(group)) groups.push(group.filter(isEventLike));
+    }
   }
-  for (const child of Object.values(value)) {
-    if (child && typeof child === "object") collectCpuSamples(child, found);
+  const eventsAreLogs = Array.isArray(value.events) && value.events.some(isEventLike);
+  if (eventsAreLogs) {
+    for (const event of value.events) {
+      if (isEventLike(event)) groups.push([event]);
+    }
+  }
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "invocations") continue;
+    if (key === "events" && eventsAreLogs) continue;
+    if (child && typeof child === "object") gatherGroups(child, groups);
+  }
+}
+
+function linkedSample(group) {
+  const blobs = group.map((event) => `${eventText(event)}\n${JSON.stringify(event)}`);
+  if (!isUploaderChunk(blobs.join("\n"))) return null;
+  const ranked = [];
+  for (let index = 0; index < group.length; index += 1) {
+    const cpu = cpuMillis(group[index]);
+    if (cpu == null) continue;
+    const own = isUploaderChunk(blobs[index]);
+    const workflow = group[index].$workers?.eventType === "workflow";
+    ranked.push({
+      rank: own ? 0 : workflow ? 1 : 2,
+      id: group[index].$metadata?.id ?? group[index].$workers?.requestId ?? `uploader-${index}`,
+      cpuTimeMs: cpu,
+    });
+  }
+  ranked.sort((left, right) => left.rank - right.rank);
+  if (!ranked.length) return null;
+  return { id: ranked[0].id, cpuTimeMs: ranked[0].cpuTimeMs };
+}
+
+function workflowSamples(group) {
+  const samples = [];
+  for (const event of group) {
+    const cpu = cpuMillis(event);
+    if (cpu == null || event.$workers?.eventType !== "workflow") continue;
+    const id = event.$metadata?.id ?? event.$workers?.requestId;
+    if (id) samples.push({ id, cpuTimeMs: cpu });
+  }
+  return samples;
+}
+
+/**
+ * Reads Workers Logs `cpuTimeMs` (or Logpush `CPUTimeMs`).
+ * The invocation that carries cpuTimeMs is often a sibling of the console.log
+ * inside the same request id, so an invocations group is joined.
+ * When the console line was not stored, eventType "workflow" on this script is
+ * still that field. GraphQL quantiles and tail `cpuTime` are not converted.
+ */
+export function collectCpuSamples(value, { workflowFallback = true } = {}) {
+  const groups = [];
+  gatherGroups(value, groups);
+  const linked = [];
+  const workflow = [];
+  for (const group of groups) {
+    const sample = linkedSample(group);
+    if (sample) linked.push(sample);
+    else if (workflowFallback) workflow.push(...workflowSamples(group));
+  }
+  const chosen = linked.length ? linked : workflow;
+  const found = [];
+  for (const sample of chosen) {
+    if (!found.some((item) => item.id === sample.id)) found.push(sample);
   }
   return found;
+}
+
+export function summarizeTelemetry(body) {
+  const scriptNames = new Set();
+  let events = 0;
+  let invocations = 0;
+  const walk = (value) => {
+    if (!value || typeof value !== "object") return;
+    if (Array.isArray(value)) {
+      for (const item of value) walk(item);
+      return;
+    }
+    if (typeof value.$workers?.scriptName === "string") scriptNames.add(value.$workers.scriptName);
+    if (Array.isArray(value.events)) events += value.events.filter(isEventLike).length;
+    if (value.invocations && typeof value.invocations === "object" && !Array.isArray(value.invocations)) {
+      invocations += Object.keys(value.invocations).length;
+    }
+    for (const child of Object.values(value)) walk(child);
+  };
+  walk(body);
+  return { events, invocations, scriptNames: [...scriptNames] };
+}
+
+/**
+ * Tail `--format json` pretty-prints one object per event. Pull complete
+ * objects out of a stdout buffer and keep the unfinished tail.
+ */
+export function extractJsonObjects(buffer) {
+  const objects = [];
+  let rest = buffer;
+  let start = rest.indexOf("{");
+  while (start !== -1) {
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    let end = -1;
+    for (let index = start; index < rest.length; index += 1) {
+      const char = rest[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === "\\") escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+      if (char === '"') inString = true;
+      else if (char === "{") depth += 1;
+      else if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          end = index;
+          break;
+        }
+      }
+    }
+    if (end === -1) break;
+    try {
+      objects.push(JSON.parse(rest.slice(start, end + 1)));
+    } catch {
+      // A brace inside a banner is not an event.
+    }
+    rest = rest.slice(end + 1);
+    start = rest.indexOf("{");
+  }
+  const unfinished = rest.lastIndexOf("{");
+  return { objects, rest: unfinished === -1 ? "" : rest.slice(unfinished) };
+}
+
+/**
+ * Scores a tail event only when it has cpuTimeMs or CPUTimeMs (milliseconds,
+ * same name Workers Logs and Logpush use). Trace `cpuTime` is left unscored:
+ * workers-types do not document its unit, and GraphQL cpuTimeP50 is microseconds.
+ */
+export function collectTailCpuSamples(events) {
+  const samples = [];
+  let uploaderLogs = 0;
+  let unscoredCpuTime = 0;
+  for (const event of events) {
+    if (!event || typeof event !== "object") continue;
+    const text = eventText(event);
+    if (!isUploaderChunk(text)) continue;
+    uploaderLogs += 1;
+    const cpu = cpuMillis(event);
+    if (cpu != null) {
+      const id = String(event.eventTimestamp ?? event.$workers?.requestId ?? samples.length);
+      if (!samples.some((item) => item.id === id)) samples.push({ id, cpuTimeMs: cpu });
+      continue;
+    }
+    if (typeof event.cpuTime === "number") unscoredCpuTime += 1;
+  }
+  return { samples, uploaderLogs, unscoredCpuTime };
+}
+
+export function explainMissingCpu({ httpStatus, polls, summary, tailConnected, tailEvents, tailUploaderLogs, tailUnscoredCpuTime }) {
+  const where = summary.scriptNames.length ? ` scriptName ${summary.scriptNames.join(", ")}` : "";
+  const parts = [
+    `Workers Logs query HTTP ${httpStatus ?? "n/a"} after ${polls} polls: ${summary.events} events, ${summary.invocations} invocations${where}.`,
+  ];
+  if (!tailConnected) parts.push("wrangler tail did not connect.");
+  else parts.push(`wrangler tail connected: ${tailEvents} events, ${tailUploaderLogs} with an uploader chunk log.`);
+  if (tailUnscoredCpuTime > 0) {
+    parts.push(
+      `${tailUnscoredCpuTime} of those tail events included cpuTime. That field was not scored. Workers Logs publishes cpuTimeMs, and GraphQL cpuTimeP50 is a different unit.`,
+    );
+  }
+  parts.push("No cpuTimeMs sample was returned. No CPU figure was filled in.");
+  return parts.join(" ");
 }
 
 export function formatBytes(bytes) {
@@ -247,7 +479,10 @@ export function renderSummary(report) {
       lines.push(`- ${formatBytes(skipped.chunkBytes)} would add ${skipped.steps} steps (${skipped.reason}).`);
     }
   }
-  lines.push("", "cpuTimeMs values are the Workers Logs field of that name on uploader chunk events. Empty cells were not filled in.");
+  lines.push("", "cpuTimeMs values are the Workers Logs field of that name (or Logpush CPUTimeMs) on uploader chunk or workflow-step events. Empty cells were not filled in.");
+  for (const attempt of report.attempts ?? []) {
+    if (attempt.logNote) lines.push("", attempt.logNote);
+  }
   lines.push("", "Teardown:");
   for (const line of report.teardown ?? []) lines.push(`- ${line}`);
   if (!(report.teardown ?? []).length) lines.push("- not recorded");

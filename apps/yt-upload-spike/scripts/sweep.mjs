@@ -13,17 +13,23 @@ import {
   assertSafeRemoteUrl,
   assertThrowawayName,
   cloudflaredUrl,
+  cloudflareErrorIsMissing,
   collectCpuSamples,
+  collectTailCpuSamples,
   COMPATIBILITY_DATE,
   decideNext,
   exitCodeFor,
+  explainMissingCpu,
+  extractJsonObjects,
   isIgnorableTeardown,
   LONG_VIDEO_BYTES,
   namespaceIsThrowaway,
   planSweep,
   r2Unavailable,
   renderSummary,
+  summarizeTelemetry,
   teardownCommands,
+  telemetryDiscoveryQueryBody,
   telemetryQueryBody,
   THROWAWAY_WORKER_NAME,
   throwawayConfig,
@@ -48,6 +54,17 @@ function run(args, { input } = {}) {
 
 function outputOf(result) {
   return `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
+}
+
+function failureDetail(result) {
+  const plain = outputOf(result)
+    .replace(/\u001b\[[0-9;]*m/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(-8)
+    .join(" | ");
+  return plain.slice(0, 500);
 }
 
 async function writeMeasuredFile(bytes) {
@@ -101,29 +118,75 @@ function putSpikeToken(token) {
   if (result.status !== 0) throw new Error(`secret put failed: ${outputOf(result)}`);
 }
 
-async function queryLogs(accountId, token, workerName, from, to) {
+async function queryLogs(accountId, token, body) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/observability/telemetry/query`,
     {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify(telemetryQueryBody(workerName, from, to)),
+      body: JSON.stringify(body),
     },
   );
-  const body = await response.json();
-  return { httpStatus: response.status, body };
+  const parsed = await response.json();
+  return { httpStatus: response.status, body: parsed };
 }
 
-async function collectLogs(accountId, token, workerName, from) {
+const LOG_POLLS = 12;
+const LOG_POLL_MS = 10_000;
+
+async function collectLogs(accountId, token, workerName, from, tail) {
   const logs = [];
-  for (let attempt = 0; attempt < 6; attempt += 1) {
-    const queried = await queryLogs(accountId, token, workerName, from - 60_000, Date.now());
+  let samples = [];
+  let source = "";
+  for (let attempt = 0; attempt < LOG_POLLS; attempt += 1) {
+    const to = Date.now();
+    let queried = await queryLogs(accountId, token, telemetryQueryBody(workerName, from - 60_000, to, "invocations"));
+    if (queried.httpStatus >= 400) {
+      queried = await queryLogs(accountId, token, telemetryQueryBody(workerName, from - 60_000, to, "events"));
+    }
     logs.push(queried);
-    if (queried.httpStatus === 200 && collectCpuSamples(queried.body).length) break;
-    await new Promise((resolve) => setTimeout(resolve, 10_000));
+    samples = collectCpuSamples(queried.body);
+    if (queried.httpStatus === 200 && samples.length) {
+      source = "Workers Logs $workers.cpuTimeMs";
+      break;
+    }
+    const tailed = collectTailCpuSamples(tail?.events ?? []);
+    if (tailed.samples.length) {
+      samples = tailed.samples;
+      source = "wrangler tail cpuTimeMs/CPUTimeMs on the uploader chunk log";
+      break;
+    }
+    if (attempt < LOG_POLLS - 1) await new Promise((resolve) => setTimeout(resolve, LOG_POLL_MS));
   }
   const last = logs.at(-1);
-  return { samples: collectCpuSamples(last?.body), httpStatus: last?.httpStatus ?? null, last };
+  const seen = summarizeTelemetry(last?.body);
+  if (!samples.length && last?.httpStatus === 200 && seen.events + seen.invocations === 0) {
+    const discovered = await queryLogs(accountId, token, telemetryDiscoveryQueryBody(from - 60_000, Date.now()));
+    logs.push(discovered);
+    samples = collectCpuSamples(discovered.body, { workflowFallback: false });
+    if (samples.length) source = "Workers Logs $workers.cpuTimeMs (uploader needle, no scriptName filter)";
+  }
+  if (!samples.length) {
+    const tailed = collectTailCpuSamples(tail?.events ?? []);
+    if (tailed.samples.length) {
+      samples = tailed.samples;
+      source = "wrangler tail cpuTimeMs/CPUTimeMs on the uploader chunk log";
+    }
+  }
+  const tailReport = collectTailCpuSamples(tail?.events ?? []);
+  const summary = summarizeTelemetry(logs.at(-1)?.body);
+  const logNote = samples.length
+    ? `cpuTimeMs source: ${source}. Last Workers Logs query had ${summary.events} events and ${summary.invocations} invocations.`
+    : explainMissingCpu({
+        httpStatus: logs.at(-1)?.httpStatus ?? null,
+        polls: logs.length,
+        summary,
+        tailConnected: Boolean(tail?.connected),
+        tailEvents: tail?.events.length ?? 0,
+        tailUploaderLogs: tailReport.uploaderLogs,
+        tailUnscoredCpuTime: tailReport.unscoredCpuTime,
+      });
+  return { samples, httpStatus: logs.at(-1)?.httpStatus ?? null, last: logs.at(-1) ?? null, logNote };
 }
 
 async function poll(base, auth, instanceId) {
@@ -268,6 +331,78 @@ function startTunnel(port) {
   );
 }
 
+function startTail() {
+  const child = spawn(
+    "pnpm",
+    ["exec", "wrangler", "tail", THROWAWAY_WORKER_NAME, "--format", "json", "--config", CONFIG_PATH],
+    {
+      cwd: APP_DIR,
+      detached: true,
+      env: { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "true" },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  const events = [];
+  let buffer = "";
+  let connected = false;
+  const consume = (chunk) => {
+    const text = chunk.toString();
+    if (text.includes("waiting for logs")) connected = true;
+    buffer += text;
+    const extracted = extractJsonObjects(buffer);
+    buffer = extracted.rest;
+    events.push(...extracted.objects);
+  };
+  child.stdout?.on("data", consume);
+  child.stderr?.on("data", consume);
+  const ready = new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(connected), 20_000);
+    const watch = () => {
+      if (!connected) return;
+      clearTimeout(timer);
+      resolve(true);
+    };
+    child.stdout?.on("data", watch);
+    child.stderr?.on("data", watch);
+    child.on("exit", () => {
+      clearTimeout(timer);
+      resolve(false);
+    });
+  });
+  return {
+    events,
+    ready,
+    get connected() {
+      return connected;
+    },
+    stop() {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {
+        child.kill("SIGTERM");
+      }
+    },
+  };
+}
+
+async function workflowAlreadyGone() {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const token = process.env.CLOUDFLARE_API_TOKEN;
+  if (!accountId || !token) return null;
+  try {
+    const response = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/workflows/${THROWAWAY_WORKER_NAME}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    const body = await response.json().catch(() => ({}));
+    if (cloudflareErrorIsMissing(response.status, body)) return true;
+    if (response.ok && body.success !== false && body.result) return false;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function deleteNamespaces(accountId, token) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/durable_objects/namespaces`,
@@ -294,14 +429,22 @@ export async function teardownThrowaway() {
   const lines = [];
   let failed = false;
   for (const args of teardownCommands()) {
-    const result = run(args);
-    const text = outputOf(result).trim().split("\n").at(-1) ?? "";
-    if (result.status === 0) lines.push(`${args.join(" ")} ok`);
-    else if (isIgnorableTeardown(outputOf(result))) lines.push(`${args[0]} ${args[1]} ${args[2] ?? ""} already gone`);
-    else {
-      failed = true;
-      lines.push(`${args.join(" ")} failed: ${text}`);
+    const isWorkflowDelete = args[1] === "workflows" && args[2] === "delete";
+    if (isWorkflowDelete && (await workflowAlreadyGone()) === true) {
+      lines.push(`${args.join(" ")} already gone`);
+      continue;
     }
+    const result = run(args);
+    if (result.status === 0) {
+      lines.push(`${args.join(" ")} ok`);
+      continue;
+    }
+    if (isIgnorableTeardown(outputOf(result)) || (isWorkflowDelete && (await workflowAlreadyGone()) === true)) {
+      lines.push(`${args[0]} ${args[1]} ${args[2] ?? ""} already gone`);
+      continue;
+    }
+    failed = true;
+    lines.push(`${args.join(" ")} failed: ${failureDetail(result)}`);
   }
   if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN) {
     try {
@@ -341,6 +484,7 @@ export async function runSweep({ bytes, startChunkBytes, out, summaryPath }) {
   let fixture = null;
   let tunnel = null;
   let file = null;
+  let tail = null;
   const auth = { Authorization: `Bearer ${spikeToken}`, "Content-Type": "application/json" };
 
   const finish = async () => {
@@ -351,6 +495,7 @@ export async function runSweep({ bytes, startChunkBytes, out, summaryPath }) {
         // Teardown still deletes the bucket. A non-empty bucket is reported below.
       }
     }
+    if (tail) tail.stop();
     if (tunnel) tunnel.stop();
     if (fixture) await fixture.close();
     if (file) await file.remove();
@@ -404,6 +549,8 @@ export async function runSweep({ bytes, startChunkBytes, out, summaryPath }) {
       source = { kind: "http", url: `${publicBase}/source`, sinkBaseUrl: publicBase };
       storage = "memory";
     }
+    tail = startTail();
+    await tail.ready;
 
     let stop = false;
     for (const planned of scheduled.runs) {
@@ -423,6 +570,7 @@ export async function runSweep({ bytes, startChunkBytes, out, summaryPath }) {
         process.env.CLOUDFLARE_API_TOKEN,
         THROWAWAY_WORKER_NAME,
         measured.startedAt,
+        tail,
       );
       const cpuTimeMs = logs.samples.map((sample) => sample.cpuTimeMs);
       const attempt = {
@@ -434,6 +582,7 @@ export async function runSweep({ bytes, startChunkBytes, out, summaryPath }) {
         cpuTimeMs,
         cpuTimeMsMax: cpuTimeMs.length ? Math.max(...cpuTimeMs) : null,
         logQueryHttpStatus: logs.httpStatus,
+        logNote: logs.logNote,
         received: measured.received,
       };
       attempt.decision = decideNext(attempt);

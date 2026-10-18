@@ -83,6 +83,8 @@ export function parseArgs(argv) {
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
+    // pnpm --filter <pkg> <script> -- <args> forwards the separator itself.
+    if (flag === "--") continue;
     if (flag === "--help" || flag === "-h") args.help = true;
     else if (flag === "--source") args.source = argv[++i] ?? "";
     else if (flag === "--chunk-mib") args.chunkMib = Number(argv[++i]);

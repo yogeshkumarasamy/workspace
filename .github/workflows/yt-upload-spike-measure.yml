@@ -51,18 +51,16 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           MEASURE_OUT: ${{ runner.temp }}/yt-upload-spike-measure.json
-        run: |
-          pnpm --filter @apps/yt-upload-spike measure -- \
-            --sweep \
-            --bytes "${{ inputs.bytes }}" \
-            --chunk-mib "${{ inputs.start_chunk_mib }}"
+        run: node scripts/deploy-and-measure.mjs --sweep --bytes "${{ inputs.bytes }}" --chunk-mib "${{ inputs.start_chunk_mib }}"
+        working-directory: apps/yt-upload-spike
 
       - name: Tear down throwaway Worker
         if: always()
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: pnpm --filter @apps/yt-upload-spike measure -- --teardown-only
+        run: node scripts/deploy-and-measure.mjs --teardown-only
+        working-directory: apps/yt-upload-spike
 
       - name: Upload measurement
         if: always()

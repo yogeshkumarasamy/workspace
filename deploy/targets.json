@@ -34,14 +34,14 @@
     "api": "yt-scheduler-api"
   },
   "ib-console-api": {
-    "package": "@services/ib-console-api",
+    "package": "@apps/innings-break-console-api",
     "kind": "cf-worker",
     "d1": "ib",
     "contract": "@contracts/innings-break",
     "cron": "hub"
   },
   "ib-customer-api": {
-    "package": "@services/ib-customer-api",
+    "package": "@apps/innings-break-customer-api",
     "kind": "cf-worker",
     "d1": "ib",
     "contract": "@contracts/innings-break"

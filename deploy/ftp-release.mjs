@@ -182,6 +182,9 @@ export function validateDeploy(settings) {
     errors.push("FTP_ROUTER_SWITCH must be auto, rename-over, or rm-then-mv");
   }
   if (!["require", "off"].includes(settings.ssl)) errors.push("FTP_SSL must be require or off");
+  if (!tlsCheckHostnameValue(settings.tlsCheckHostname)) {
+    errors.push("FTP_TLS_CHECK_HOSTNAME must be yes or no");
+  }
   if (!Number.isInteger(settings.port) || settings.port < 1 || settings.port > 65535) {
     errors.push("FTP port is invalid");
   }
@@ -227,6 +230,9 @@ function resolveSettings(options = {}) {
     password: options.password ?? env.FTP_PASS ?? "",
     envDir: options.envDir ?? env.FTP_ENV_DIR ?? "",
     ssl: options.ssl ?? env.FTP_SSL ?? "require",
+    // Hostinger's cert is for *.hstgr.io. FTP_HOST is an IP, so the name
+    // check fails. Default no keeps the chain check and skips only the name.
+    tlsCheckHostname: options.tlsCheckHostname ?? env.FTP_TLS_CHECK_HOSTNAME ?? "no",
     allowRemote: options.allowRemote ?? env.FTP_ALLOW_REMOTE === "1",
     switchMode: options.switchMode ?? env.FTP_ROUTER_SWITCH ?? "auto",
     env: options.env ?? env.DEPLOY_ENV ?? "",
@@ -329,12 +335,22 @@ function redact(text, secret) {
   return String(text ?? "").split(secret).join("***");
 }
 
-function sslLines(settings) {
+export function tlsCheckHostnameValue(value) {
+  if (value == null || String(value).trim() === "") return "no";
+  const text = String(value).trim().toLowerCase();
+  if (text === "yes" || text === "no") return text;
+  return null;
+}
+
+export function sslLines(settings) {
   if (settings.ssl === "require") {
+    const check = tlsCheckHostnameValue(settings.tlsCheckHostname);
+    if (!check) throw new Error("FTP_TLS_CHECK_HOSTNAME must be yes or no");
     return [
       "set ftp:ssl-force true",
       "set ftp:ssl-protect-data true",
       "set ssl:verify-certificate yes",
+      `set ssl:check-hostname ${check}`,
     ];
   }
   return ["set ftp:ssl-allow false", "set ssl:verify-certificate no"];

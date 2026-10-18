@@ -11,6 +11,11 @@
 # Settings are applied before `open`. A later `cls` is required: lftp's `open`
 # can return success without logging in when ftp:ssl-force refuses cleartext,
 # and `rm -f` then exits 0 without deleting anything.
+#
+# Hostinger's FTPS certificate is for *.hstgr.io / hstgr.io. FTP_HOST is the
+# server IP, so the name on the certificate does not match. Chain verification
+# stays on (`ssl:verify-certificate yes`). `FTP_TLS_CHECK_HOSTNAME` (default
+# no) is the only switch for `ssl:check-hostname`.
 set -euo pipefail
 
 OPEN_PR_NUMS=()
@@ -80,6 +85,24 @@ normalize_preview_root() {
     done
   fi
   printf '%s' "$r"
+}
+
+# yes or no. Empty means no. Anything else is a configuration error.
+tls_check_hostname() {
+  local raw="${FTP_TLS_CHECK_HOSTNAME:-no}"
+  raw="${raw//$'\r'/}"
+  raw="${raw#"${raw%%[![:space:]]*}"}"
+  raw="${raw%"${raw##*[![:space:]]}"}"
+  if [[ -z "$raw" ]]; then
+    raw=no
+  fi
+  case "$raw" in
+    yes|no) printf '%s' "$raw" ;;
+    *)
+      echo "::error::FTP_TLS_CHECK_HOSTNAME must be yes or no" >&2
+      return 1
+      ;;
+  esac
 }
 
 lftp_quote() {
@@ -276,16 +299,18 @@ classify_preview_tree() {
 }
 
 prepare_connection() {
-  local target root quoted_user quoted_pass
+  local target root quoted_user quoted_pass check_hostname
   target=$(normalize_ftp_target "$FTP_HOST") || return 1
   root=$(normalize_preview_root "$PREVIEW_ROOT") || return 1
   quoted_user=$(lftp_quote "$FTP_USERNAME") || return 1
   quoted_pass=$(lftp_quote "$FTP_PASSWORD") || return 1
+  check_hostname=$(tls_check_hostname) || return 1
   LFTP_TARGET="$target"
   PREVIEW_ROOT="$root"
   LFTP_USER_Q="$quoted_user"
   LFTP_PASS_Q="$quoted_pass"
-  echo "FTP target normalized to a bare hostname or ftp://host:port; ssl:verify-certificate yes"
+  LFTP_CHECK_HOSTNAME="$check_hostname"
+  echo "FTP target normalized to a bare hostname or ftp://host:port; ssl:verify-certificate yes; ssl:check-hostname ${LFTP_CHECK_HOSTNAME}"
 }
 
 # Run one lftp session. Arguments are complete lftp command lines, after open.
@@ -303,6 +328,7 @@ lftp_run() {
       'set net:timeout 30' \
       'set ftp:ssl-force true' \
       'set ssl:verify-certificate yes' \
+      "set ssl:check-hostname ${LFTP_CHECK_HOSTNAME}" \
       'set ftp:list-options -a'
     printf 'open -u %s,%s %s\n' "$LFTP_USER_Q" "$LFTP_PASS_Q" "$(lftp_quote "$LFTP_TARGET")"
     for line in "$@"; do

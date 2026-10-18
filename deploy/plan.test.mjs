@@ -62,6 +62,8 @@ test("targets.json declares apps, dist paths, and which API each UI uses", () =>
   assert.equal(targets.ib.api, "ib-customer-api");
   assert.equal(targets["yt-scheduler"].api, "yt-scheduler-api");
   assert.equal(targets["yt-scheduler"].dist, "apps/yt-scheduler/dist");
+  assert.equal(targets["ib-console-api"].package, "@apps/innings-break-console-api");
+  assert.equal(targets["ib-customer-api"].package, "@apps/innings-break-customer-api");
   assert.equal(targets["ib-console-api"].d1, "ib");
   assert.equal(targets["ib-customer-api"].d1, "ib");
   assert.equal(targets["ib-console-api"].contract, "@contracts/innings-break");
@@ -107,8 +109,8 @@ test("row 1 from changed files only, with no turbo output", () => {
 
 test("row 2: API code only deploys the API and auto-rebuilds the paired UI against the PR API", () => {
   const report = preview({
-    affected: [{ name: "@services/ib-console-api", reason: "FileChanged" }],
-    changedFiles: ["services/ib-console-api/src/index.ts"],
+    affected: [{ name: "@apps/innings-break-console-api", reason: "FileChanged" }],
+    changedFiles: ["apps/innings-break-console-api/src/index.ts"],
   });
   assert.deepEqual(names(report), ["ib-console-api", "ib-customer-api", "ib", "ib-console"]);
   const api = entry(report, "ib-console-api");
@@ -123,10 +125,10 @@ test("row 2: API code only deploys the API and auto-rebuilds the paired UI again
   assert.equal(ui.reason, "paired-api");
   assert.equal(ui.apiBaseUrl, "https://ib-console-api-pr-42.acct.workers.dev");
   assert.equal(ui.path, "/previews/ib-console/pr-42/");
-  assert.deepEqual(report.test, ["@services/ib-console-api"]);
+  assert.deepEqual(report.test, ["@apps/innings-break-console-api"]);
   assert.deepEqual(report.build, [
-    "@services/ib-console-api",
-    "@services/ib-customer-api",
+    "@apps/innings-break-console-api",
+    "@apps/innings-break-customer-api",
     "@apps/innings-break",
     "@apps/innings-break-console",
   ]);
@@ -134,8 +136,8 @@ test("row 2: API code only deploys the API and auto-rebuilds the paired UI again
 
 test("row 3: API plus migrations deploys a fresh preview DB and flags the contract check", () => {
   const report = preview({
-    affected: [{ name: "@services/ib-console-api", reason: "FileChanged" }],
-    changedFiles: ["services/ib-console-api/migrations/0002_orders.sql"],
+    affected: [{ name: "@apps/innings-break-console-api", reason: "FileChanged" }],
+    changedFiles: ["apps/innings-break-console-api/migrations/0002_orders.sql"],
   });
   for (const target of ["ib-console-api", "ib-customer-api"]) {
     const api = entry(report, target);
@@ -157,7 +159,7 @@ test("row 4: UI and API both changed, so the UI keeps reason affected and uses t
   const report = preview({
     affected: [
       { name: "@apps/innings-break-console", reason: "FileChanged" },
-      { name: "@services/ib-console-api", reason: "TaskFileChanged" },
+      { name: "@apps/innings-break-console-api", reason: "TaskFileChanged" },
     ],
   });
   assert.equal(entry(report, "ib-console").reason, "affected");
@@ -165,7 +167,7 @@ test("row 4: UI and API both changed, so the UI keeps reason affected and uses t
   assert.equal(entry(report, "ib-console-api").reason, "affected");
   assert.equal(entry(report, "ib-console-api").freshDb, false);
   assert.equal(entry(report, "ib").reason, "shared-d1");
-  assert.deepEqual(report.test, ["@apps/innings-break-console", "@services/ib-console-api"]);
+  assert.deepEqual(report.test, ["@apps/innings-break-console", "@apps/innings-break-console-api"]);
 });
 
 test("row 5: a contract package plans both APIs and both UIs against the PR API", () => {
@@ -227,8 +229,8 @@ test("row 7: specs, docs, and markdown deploy nothing even if turbo lists a pack
 
 test("IB shared D1: either API plans both Workers, both UIs, and one ib-pr-N database", () => {
   const report = preview({
-    affected: [{ name: "@services/ib-customer-api", reason: "FileChanged" }],
-    changedFiles: ["services/ib-customer-api/src/health.ts"],
+    affected: [{ name: "@apps/innings-break-customer-api", reason: "FileChanged" }],
+    changedFiles: ["apps/innings-break-customer-api/src/health.ts"],
   });
   assert.deepEqual(names(report), ["ib-console-api", "ib-customer-api", "ib", "ib-console"]);
   assert.equal(entry(report, "ib-customer-api").reason, "affected");
@@ -342,7 +344,7 @@ test("push deploys affected targets only and does not auto-rebuild a paired UI",
     bases: { "ib-console-api": "sha-api" },
     fallbackBase: "head-minus-one",
     affectedByBase: {
-      "sha-api": [{ name: "@services/ib-console-api", reason: "FileChanged" }],
+      "sha-api": [{ name: "@apps/innings-break-console-api", reason: "FileChanged" }],
       "head-minus-one": [],
     },
   });
@@ -450,7 +452,7 @@ test("production Worker names have no env suffix; staging keeps one", () => {
     bases: { "ib-console-api": "prod-base", ib: "prod-base" },
     affectedByBase: {
       "prod-base": [
-        { name: "@services/ib-console-api", reason: "FileChanged" },
+        { name: "@apps/innings-break-console-api", reason: "FileChanged" },
         { name: "@apps/innings-break", reason: "FileChanged" },
       ],
     },

@@ -23,4 +23,8 @@ export function oauthStartUrl(key: string, extra = ""): string {
   return resolveOauthStart(config, baseURI || document.baseURI, key, extra);
 }
 
+export function getRuntimeConfig(): AppConfig | null {
+  return config;
+}
+
 export { apiUrl };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Progress, Select, Tabs } from "@repo/ui/shadcn";
-import { api, connectUrl, getKey, setKey } from "./api";
+import { api, connectUrl, getKey, getRuntimeConfig, initApi, setKey } from "./api";
 import type { Job } from "./api";
 import { routerBasename } from "./runtime";
 import { AppProvider, useApp } from "./state";
@@ -24,10 +24,12 @@ function isPage(value: string): value is Page {
 export function App() {
   const [authed, setAuthed] = useState<boolean | "offline" | null>(null);
   const check = () => {
+    const preset = getRuntimeConfig()?.apiKey ?? "";
+    if (!getKey() && preset) setKey(preset);
     if (!getKey()) { setAuthed(false); return; }
     api("/channels").then(() => setAuthed(true)).catch((e) => setAuthed(e instanceof TypeError || !navigator.onLine ? "offline" : false));
   };
-  useEffect(check, []);
+  useEffect(() => { initApi().finally(check); }, []);
   return (
     <BrowserRouter basename={routerBasename(import.meta.env.BASE_URL)}>
       <UpdateToast />
@@ -40,7 +42,7 @@ export function App() {
 }
 
 function Login({ onOk }: { onOk(): void }) {
-  const [k, setK] = useState("");
+  const [k, setK] = useState(getRuntimeConfig()?.apiKey ?? "");
   const [err, setErr] = useState("");
   const go = async () => { setKey(k); try { await api("/channels"); onOk(); } catch { setKey(""); setErr("Invalid API key"); } };
   return (
@@ -58,7 +60,7 @@ function Login({ onOk }: { onOk(): void }) {
 }
 
 function Shell({ onLogout }: { onLogout(): void }) {
-  const { channels, channelId, setChannelId, quota, audited, jobs, tz } = useApp();
+  const { channels, channelId, setChannelId, quota, audited, jobs, tz, youtubeMode } = useApp();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [params] = useSearchParams();
@@ -97,6 +99,7 @@ function Shell({ onLogout }: { onLogout(): void }) {
       <main className="mx-auto max-w-7xl space-y-4 p-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-4">
         {!online && <Alert variant="destructive">You’re offline — showing the last loaded data. Changes need a connection.</Alert>}
         {quota && <div className="md:hidden"><div className="mb-1 flex justify-between text-xs text-muted-foreground"><span>Quota {quota.used.toLocaleString()}/{quota.limit.toLocaleString()}</span><span>~{quota.uploadsLeftToday} uploads left</span></div><Progress value={(quota.used / quota.limit) * 100} /></div>}
+        {youtubeMode === "mock" && <Alert>Mock YouTube: nothing on this environment is sent to YouTube.</Alert>}
         {!audited && <Alert variant="warning"><b>Unverified API project:</b> until Google approves the YouTube API audit, uploads from this app are locked to <b>Private</b> and scheduled publishing will not go public. See README → “API audit”.</Alert>}
         {connected && <Alert>Connected: {connected}</Alert>}
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">{Object.entries(counts).map(([s, n]) => <span key={s} className="rounded-md border px-2 py-0.5">{s}: {n}</span>)}</div>

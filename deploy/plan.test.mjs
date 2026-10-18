@@ -54,6 +54,7 @@ test("targets.json declares apps, dist paths, and which API each UI uses", () =>
     "yt-scheduler",
     "ib-console-api",
     "ib-customer-api",
+    "yt-scheduler-api",
   ]);
   assert.equal(targets.portfolio.package, "@apps/portfolio");
   assert.equal(targets.portfolio.dist, "apps/portfolio/dist");
@@ -67,7 +68,10 @@ test("targets.json declares apps, dist paths, and which API each UI uses", () =>
   assert.equal(targets["ib-console-api"].d1, "ib");
   assert.equal(targets["ib-customer-api"].d1, "ib");
   assert.equal(targets["ib-console-api"].contract, "@contracts/innings-break");
-  assert.equal("yt-scheduler-api" in targets, false);
+  assert.equal(targets["yt-scheduler-api"].package, "@apps/yt-scheduler-api");
+  assert.equal(targets["yt-scheduler-api"].d1, "yt");
+  assert.equal(targets["yt-scheduler-api"].workerNames.production, "yt-scheduler-api-prod");
+  assert.equal(targets["yt-scheduler-api"].workerNames.previewPrefix, "yt-scheduler-api-pr-");
 });
 
 test("row 1: a UI-only change previews that UI against the dev API", () => {
@@ -287,6 +291,7 @@ test("force-all deploys every manifest target when the diff is otherwise ignored
   assert.deepEqual(names(report), [
     "ib-console-api",
     "ib-customer-api",
+    "yt-scheduler-api",
     "ib",
     "ib-console",
     "portfolio",
@@ -294,7 +299,9 @@ test("force-all deploys every manifest target when the diff is otherwise ignored
   ]);
   for (const item of report.deploy) assert.equal(item.reason, "force-all");
   assert.equal(entry(report, "ib-console").apiBaseUrl, "https://ib-console-api-pr-42.acct.workers.dev");
-  assert.equal(entry(report, "yt-scheduler").apiBaseUrl, "https://yt-scheduler-api-dev.acct.workers.dev");
+  assert.equal(entry(report, "yt-scheduler").apiBaseUrl, "https://yt-scheduler-api-pr-42.acct.workers.dev");
+  assert.equal(entry(report, "yt-scheduler-api").path, "yt-scheduler-api-pr-42");
+  assert.equal(entry(report, "yt-scheduler-api").d1, "yt-pr-42");
   assert.equal(entry(report, "portfolio").apiBaseUrl, null);
   assert.equal(entry(report, "ib-console-api").d1, "ib-pr-42");
   assert.equal(entry(report, "ib-console-api").freshDb, false);
@@ -479,6 +486,61 @@ test("production Worker names have no env suffix; staging keeps one", () => {
   assert.equal(staging[0].path, "/ib-console/");
   assert.equal(staging[0].host, "staging.yogeshkumarasamy.in");
   assert.equal(staging[0].apiBaseUrl, "https://ib-console-api-staging.acct.workers.dev");
+});
+
+test("yt-scheduler API change previews the worker and rebuilds the UI against that worker", () => {
+  const report = preview({
+    affected: [{ name: "@apps/yt-scheduler-api", reason: "FileChanged" }],
+    changedFiles: ["apps/yt-scheduler-api/src/index.ts"],
+  });
+  assert.deepEqual(names(report), ["yt-scheduler-api", "yt-scheduler"]);
+  const api = entry(report, "yt-scheduler-api");
+  const ui = entry(report, "yt-scheduler");
+  assert.equal(api.reason, "affected");
+  assert.equal(api.kind, "cf-worker");
+  assert.equal(api.path, "yt-scheduler-api-pr-42");
+  assert.equal(api.host, "yt-scheduler-api-pr-42.acct.workers.dev");
+  assert.equal(api.d1, "yt-pr-42");
+  assert.equal(api.freshDb, false);
+  assert.equal(ui.reason, "paired-api");
+  assert.equal(ui.apiBaseUrl, "https://yt-scheduler-api-pr-42.acct.workers.dev");
+  assert.equal(ui.path, "/previews/yt-scheduler/pr-42/");
+});
+
+test("a yt-scheduler migration plans a fresh preview database", () => {
+  const report = preview({
+    affected: [{ name: "@apps/yt-scheduler-api", reason: "FileChanged" }],
+    changedFiles: ["apps/yt-scheduler-api/migrations/0001_init.sql"],
+  });
+  assert.equal(entry(report, "yt-scheduler-api").freshDb, true);
+  assert.equal(entry(report, "yt-scheduler-api").schemaChanged, true);
+  assert.equal(entry(report, "yt-scheduler-api").d1, "yt-pr-42");
+  assert.equal(names(report).includes("ib-console-api"), false);
+});
+
+test("yt-scheduler production worker keeps the -prod suffix", () => {
+  const production = createPlan({
+    targets,
+    event: "push",
+    ref: "refs/heads/release/production",
+    workersSubdomain: "coderdevelopment",
+    bases: { "yt-scheduler-api": "prod-base", "yt-scheduler": "prod-base" },
+    affectedByBase: {
+      "prod-base": [
+        { name: "@apps/yt-scheduler-api", reason: "FileChanged" },
+        { name: "@apps/yt-scheduler", reason: "FileChanged" },
+      ],
+    },
+  });
+  const api = production.find((item) => item.target === "yt-scheduler-api");
+  const ui = production.find((item) => item.target === "yt-scheduler");
+  assert.equal(api.env, "production");
+  assert.equal(api.path, "yt-scheduler-api-prod");
+  assert.equal(api.host, "yt-scheduler-api-prod.coderdevelopment.workers.dev");
+  assert.equal(api.d1, "yt-prod");
+  assert.equal(ui.path, "/yt-scheduler/");
+  assert.equal(ui.host, "yogeshkumarasamy.in");
+  assert.equal(ui.apiBaseUrl, "https://yt-scheduler-api-prod.coderdevelopment.workers.dev");
 });
 
 test("turbo query affected JSON selects the package that owns the build task", () => {

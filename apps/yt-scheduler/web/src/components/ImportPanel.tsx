@@ -8,7 +8,7 @@ interface Draft { idempotencyKey: string; video: { driveFileId: string }; thumbn
 interface Result { ok: boolean; created?: boolean; title?: string; error?: string; publishAt?: string }
 
 export function ImportPanel() {
-  const { channel, channels, refresh, toast } = useApp();
+  const { channel, channels, refresh, toast, driveScope, youtubeMode } = useApp();
   const ch = channel ?? (channels.length === 1 ? channels[0]! : null);
   const [folder, setFolder] = useState({ id: "", name: "" });
   const [picker, setPicker] = useState(false);
@@ -42,6 +42,7 @@ export function ImportPanel() {
           <CardDescription>Each folder with an MP4 + <code>metadata.json</code> becomes a job (Ep folder and its “Short NN” subfolders). Re-importing is safe: keys are <code>drive:&lt;fileId&gt;</code>.</CardDescription></CardHeader>
         <CardContent className="space-y-3">
           <div className="text-sm text-muted-foreground">Channel: <b className="text-foreground">{ch ? ch.title : "select a channel in the header"}</b></div>
+          {youtubeMode === "live" && driveScope === "file" && <Alert>This environment uses the drive.file scope. Pick a folder in Google Picker, or paste an id the app already opened. Listing a whole Drive needs <code>DRIVE_SCOPE=readonly</code>.</Alert>}
           <div className="flex gap-2"><Input placeholder="Drive folder id" value={folder.id} onChange={(e) => setFolder({ id: e.target.value, name: "" })} /><Button variant="outline" disabled={!ch} onClick={() => setPicker(true)}>Browse</Button></div>
           {folder.name && <p className="text-xs text-muted-foreground">📁 {folder.name}</p>}
           <div className="flex gap-2"><Button variant="secondary" disabled={busy || !ch || folder.id.length < 10} onClick={() => run(true)}>Dry run</Button><Button disabled={busy || !ch || folder.id.length < 10} onClick={() => run(false)}>Import</Button></div>

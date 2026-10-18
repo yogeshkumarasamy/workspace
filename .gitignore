@@ -9,6 +9,7 @@ plan.json
 .env
 .dev.vars
 .wrangler
+apps/yt-scheduler-api/wrangler.deploy.json
 .cache
 server/dist
 public/dist

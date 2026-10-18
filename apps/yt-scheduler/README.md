@@ -57,6 +57,7 @@ The service ships a React + Vite + Tailwind single-page app. It uses the shadcn-
 - Run `pnpm --filter @apps/yt-scheduler dev` (API on :8787) and `pnpm --filter @apps/yt-scheduler dev:web` (Vite on :5173 at `/yt-scheduler/`, proxying `api/` and `oauth/` to the Node server).
 - The UI reads `app-config.json` (`cache: no-store`) next to `index.html`. `apiBaseUrl` is a Workers URL; paths such as `channels` are joined onto it, and every request sends `x-api-key`. An origin with no path is treated as `https://<worker>/api/`. If the file or `apiBaseUrl` is missing, requests go to `new URL("api/", document.baseURI)`.
 - Preview builds: `APP_BASE=/previews/yt-scheduler/pr-<N>/ VITE_PWA=off pnpm --filter @apps/yt-scheduler build`.
+- **Hosted API:** `apps/yt-scheduler-api` on Cloudflare Workers (D1, mock YouTube except production). Local Worker dev is `pnpm --filter @apps/yt-scheduler-api dev` on port 8787, which needs Node 22 because Wrangler 4 refuses older Node. Copy `apps/yt-scheduler-api/.dev.vars.example` to `.dev.vars` (API key `dev`). The Node server above is still the Postgres demo and also binds 8787, so run one of them at a time. Dev, staging, and PR previews never call Google. Production uses `drive.file` plus Google Picker, and publishes videos publicly.
 - **Offline demo with mock data, no Google needed:** `pnpm --filter @apps/yt-scheduler build && pnpm --filter @apps/yt-scheduler demo`, then open http://localhost:8788/yt-scheduler/ with API key `demo`.
 
 ## Market reference (what we copied as ideas, not code)

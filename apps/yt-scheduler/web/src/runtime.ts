@@ -2,7 +2,15 @@
 
 export interface AppConfig {
   apiBaseUrl?: string;
+  /** Present on mock environments so the preview can sign in. Never set in production. */
+  apiKey?: string;
+  youtubeMode?: string;
+  googleClientId?: string;
+  pickerApiKey?: string;
+  driveScope?: string;
 }
+
+const CONFIG_FIELDS = ["apiBaseUrl", "apiKey", "youtubeMode", "googleClientId", "pickerApiKey", "driveScope"] as const;
 
 export function routerBasename(baseUrl: string): string {
   if (!baseUrl || baseUrl === "/" || baseUrl === "./") return "/";
@@ -49,9 +57,14 @@ export async function loadAppConfig(baseURI: string, fetchImpl: typeof fetch = f
   try {
     const res = await fetchImpl(new URL("app-config.json", baseURI), { cache: "no-store" });
     if (!res.ok) return null;
-    const body = (await res.json()) as { apiBaseUrl?: unknown };
+    const body = (await res.json()) as Record<string, unknown>;
     if (!body || typeof body !== "object") return null;
-    return typeof body.apiBaseUrl === "string" ? { apiBaseUrl: body.apiBaseUrl } : {};
+    const config: AppConfig = {};
+    for (const field of CONFIG_FIELDS) {
+      const value = body[field];
+      if (typeof value === "string" && value.trim()) config[field] = value.trim();
+    }
+    return config;
   } catch {
     return null;
   }

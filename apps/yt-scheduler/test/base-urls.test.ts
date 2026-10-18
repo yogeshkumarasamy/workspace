@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { checkDist, urlsOutsideBase } from "../scripts/check-base-urls.mjs";
-import { apiUrl, resolveApiBase, resolveOauthStart, routerBasename } from "../web/src/runtime.js";
+import { apiUrl, loadAppConfig, resolveApiBase, resolveOauthStart, routerBasename } from "../web/src/runtime.js";
 
 const BASE = "/yt-scheduler/";
 const PAGE = "https://dev.yogeshkumarasamy.in/yt-scheduler/";
@@ -54,6 +54,26 @@ describe("API base", () => {
     expect(resolveOauthStart({ apiBaseUrl: "https://yt-scheduler-api.acct.workers.dev/api" }, PAGE, "secret", "&purpose=drive&channelId=c1"))
       .toBe("https://yt-scheduler-api.acct.workers.dev/oauth/start?key=secret&purpose=drive&channelId=c1");
     expect(resolveOauthStart(null, PAGE, "secret")).toBe("https://dev.yogeshkumarasamy.in/yt-scheduler/oauth/start?key=secret");
+  });
+
+  it("keeps public app-config fields and drops anything that is not a string", async () => {
+    const body = {
+      apiBaseUrl: "https://yt-scheduler-api-pr-9.coderdevelopment.workers.dev",
+      apiKey: "preview-pr-9",
+      youtubeMode: "mock",
+      driveScope: "file",
+      googleClientId: "123.apps.googleusercontent.com",
+      clientSecret: "nope",
+    };
+    const fetchImpl = (async () => new Response(JSON.stringify(body), { status: 200 })) as typeof fetch;
+    const config = await loadAppConfig(PAGE, fetchImpl);
+    expect(config).toEqual({
+      apiBaseUrl: body.apiBaseUrl,
+      apiKey: "preview-pr-9",
+      youtubeMode: "mock",
+      driveScope: "file",
+      googleClientId: "123.apps.googleusercontent.com",
+    });
   });
 
   it("strips the trailing slash for the history basename", () => {

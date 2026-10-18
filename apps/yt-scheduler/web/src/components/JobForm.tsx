@@ -122,7 +122,7 @@ export function JobForm({ open, onOpenChange, job, initialPublishAt }: { open: b
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2"><Label>Category</Label><Select disabled={locked} value={m.categoryId} onChange={(e) => set("categoryId", e.target.value)}>{CATEGORIES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></div>
             <div className="space-y-2"><Label>Language</Label><Select disabled={locked} value={m.defaultLanguage} onChange={(e) => setM({ ...m, defaultLanguage: e.target.value, defaultAudioLanguage: e.target.value })}>{LANGS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></div>
-            <div className="space-y-2"><Label>Privacy</Label><Select disabled={locked} value={m.privacyStatus} onChange={(e) => set("privacyStatus", e.target.value as Metadata["privacyStatus"])}><option value="private">private (scheduled)</option><option value="unlisted">unlisted</option><option value="public">public</option></Select></div>
+            <div className="space-y-2"><Label>Privacy</Label><Select disabled={locked} value={m.privacyStatus} onChange={(e) => set("privacyStatus", e.target.value as Metadata["privacyStatus"])}><option value="private">public at the scheduled time</option><option value="unlisted">unlisted</option><option value="public">public now</option></Select></div>
           </div>
           <div className="space-y-2"><Label>Playlist</Label>
             <Input disabled={locked} list="pl" value={m.playlist ?? ""} placeholder={defaultPlaylist ? `channel default: ${defaultPlaylist}` : "playlist name or PL… id"} onChange={(e) => set("playlist", e.target.value)} />

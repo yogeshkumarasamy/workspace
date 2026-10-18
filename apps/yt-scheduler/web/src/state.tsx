@@ -5,7 +5,7 @@ import type { Channel, Job, Quota } from "./api";
 
 interface Ctx {
   channels: Channel[]; channelId: string; setChannelId(id: string): void; channel: Channel | null;
-  jobs: Job[]; quota: Quota | null; audited: boolean; tz: string;
+  jobs: Job[]; quota: Quota | null; audited: boolean; tz: string; youtubeMode: string; driveScope: string;
   refresh(): Promise<void>; toast(msg: string, kind?: "ok" | "err"): void;
   channelById(id: string): Channel | undefined;
 }
@@ -18,14 +18,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [quota, setQuota] = useState<Quota | null>(null);
   const [audited, setAudited] = useState(true);
+  const [youtubeMode, setYoutubeMode] = useState("");
+  const [driveScope, setDriveScope] = useState("file");
   const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([]);
 
   const setChannelId = (id: string) => { localStorage.setItem("ytch", id); setChannelIdS(id); };
   const refresh = useCallback(async () => {
     const [chs, js, q, cfg] = await Promise.all([
-      api<Channel[]>("/channels"), api<Job[]>(`/jobs?limit=1000${channelId ? `&channel=${channelId}` : ""}`), api<Quota>("/quota"), api<{ audited: boolean }>("/config"),
+      api<Channel[]>("/channels"), api<Job[]>(`/jobs?limit=1000${channelId ? `&channel=${channelId}` : ""}`), api<Quota>("/quota"), api<{ audited: boolean; youtubeMode?: string; driveScope?: string }>("/config"),
     ]);
     setChannels(chs); setJobs(js); setQuota(q); setAudited(cfg.audited);
+    setYoutubeMode(cfg.youtubeMode ?? ""); setDriveScope(cfg.driveScope ?? "file");
   }, [channelId]);
   useEffect(() => { refresh().catch(() => {}); const t = setInterval(() => refresh().catch(() => {}), 15000); return () => clearInterval(t); }, [refresh]);
 
@@ -37,7 +40,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const channel = channels.find((c) => c.id === channelId) ?? null;
   const tz = channel?.slots.timezone ?? channels[0]?.slots.timezone ?? "Asia/Kolkata";
   return (
-    <C.Provider value={{ channels, channelId, setChannelId, channel, jobs, quota, audited, tz, refresh, toast, channelById: (id) => channels.find((c) => c.id === id) }}>
+    <C.Provider value={{ channels, channelId, setChannelId, channel, jobs, quota, audited, tz, youtubeMode, driveScope, refresh, toast, channelById: (id) => channels.find((c) => c.id === id) }}>
       {children}
       <div className="fixed bottom-4 right-4 z-[60] space-y-2">
         {toasts.map((t) => (

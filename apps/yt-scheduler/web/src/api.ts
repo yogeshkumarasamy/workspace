@@ -3,6 +3,7 @@ import type { AppConfig } from "./runtime";
 
 export type { AppConfig };
 export { loadAppConfig, resolveApiBase, resolveOauthStart, routerBasename } from "./runtime";
+export { getRuntimeConfig } from "./client";
 
 export type JobStatus = "queued" | "uploading" | "processing" | "scheduled" | "published" | "failed" | "cancelled";
 export type Source = { kind: "url"; url: string } | { kind: "drive"; fileId: string };

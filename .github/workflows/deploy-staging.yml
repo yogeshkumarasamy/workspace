@@ -7,17 +7,17 @@ on:
     branches:
       - release/staging
 
+# Portfolio and yt-scheduler share one FTP account.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-    # Same rule as dev and production. Pushes to release/staging still run
-    # the workflow copy on that branch until #66 resets it.
-    concurrency:
-      group: deploy-staging-portfolio
-      cancel-in-progress: false
 
     steps:
       - name: ⬇️ Checkout code
@@ -50,3 +50,102 @@ jobs:
           security: loose
           local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}
+
+  deploy-yt-scheduler:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Wrangler 4 requires Node >= 22. The portfolio job stays on Node 20.
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy yt-scheduler API Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          UPLOAD_CHUNK_BYTES: ${{ vars.UPLOAD_CHUNK_BYTES }}
+        run: node deploy/yt-worker.mjs deploy --env staging
+
+      - name: Build yt-scheduler UI
+        env:
+          APP_BASE: /yt-scheduler/
+        run: pnpm --filter @apps/yt-scheduler... build
+
+      - name: Write app-config and history rewrite
+        env:
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+        run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env staging
+
+      - name: Upload yt-scheduler to Hostinger
+        id: ftp1
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
+          local-dir: apps/yt-scheduler/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/yt-scheduler/
+
+      - name: Wait before FTP retry
+        if: steps.ftp1.outcome == 'failure'
+        run: sleep 20
+
+      - name: Upload yt-scheduler to Hostinger (retry)
+        id: ftp2
+        if: steps.ftp1.outcome == 'failure'
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
+          local-dir: apps/yt-scheduler/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/yt-scheduler/
+
+      - name: Wait before second FTP retry
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        run: sleep 20
+
+      - name: Upload yt-scheduler to Hostinger (retry 2)
+        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
+          local-dir: apps/yt-scheduler/dist/
+          server-dir: ${{ secrets.FTP_TARGET_DIR_STAGING }}/yt-scheduler/
+
+      - name: Check Worker health
+        run: |
+          body=$(curl --fail --show-error --retry 5 --retry-all-errors --retry-delay 3 \
+            https://yt-scheduler-api-staging.coderdevelopment.workers.dev/api/health)
+          node -e 'const b=JSON.parse(process.argv[1]); if(!b.ok||b.youtubeMode!=="mock"){console.error("expected mock health"); process.exit(1)} console.log(b.youtubeMode)' "$body"
+
+      - name: Check published app-config
+        run: |
+          body=$(curl --fail --show-error --retry 8 --retry-all-errors --retry-delay 5 \
+            https://staging.yogeshkumarasamy.in/yt-scheduler/app-config.json)
+          node -e 'const b=JSON.parse(process.argv[1]); if(b.youtubeMode!=="mock"||!String(b.apiBaseUrl).includes("yt-scheduler-api-staging")){console.error("staging app-config does not point at the staging worker"); process.exit(1)} console.log(b.apiBaseUrl)' "$body"

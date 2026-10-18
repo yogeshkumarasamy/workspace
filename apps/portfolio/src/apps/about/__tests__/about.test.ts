@@ -41,7 +41,7 @@ describe("About App Window (S08)", () => {
     assert.match(html, /HTML5/);
     assert.match(html, /React\.js/);
     assert.match(html, /Caching and remote task caching in CI/);
-    assert.match(html, /pnpm/);
+    assert.match(html, /Package managers/);
     assert.match(html, /Monorepos/);
     assert.match(html, /Moonrepo/);
     assert.match(html, /Turborepo/);

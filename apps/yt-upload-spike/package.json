@@ -1,0 +1,25 @@
+{
+  "name": "@apps/yt-upload-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Workers Free spike for chunked resumable uploads. Not a production deploy target.",
+  "scripts": {
+    "build": "node -e \"process.exit(0)\"",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run && node --test scripts/deploy-and-measure.test.mjs scripts/measure-plan.test.mjs scripts/range-fixture-server.test.mjs",
+    "measure": "node scripts/deploy-and-measure.mjs",
+    "client-transfer": "node scripts/client-transfer.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.23.0",
+    "@cloudflare/workers-types": "5.20261018.1",
+    "@repo/eslint-config": "workspace:*",
+    "@repo/typescript-config": "workspace:*",
+    "eslint": "^8.57.0",
+    "typescript": "5.5.4",
+    "vitest": "4.1.12",
+    "wrangler": "4.151.1"
+  }
+}

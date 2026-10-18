@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
+import { resolveRequest } from "./htaccess-sim.mjs";
 import { spaHtaccess, writeStaticConfig } from "./yt-static.mjs";
 import {
   MOCK_ENCRYPTION_KEY,
@@ -288,5 +289,49 @@ test("flat htaccess rewrites the preview base and app-config stays out of produc
     assert.equal(readFileSync(path.join(dir, "app-config.json"), "utf8").includes("super-secret"), false);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("privacy and terms are served as HTML with or without a trailing slash", () => {
+  const base = "/preview/yt-scheduler/pr-8/";
+  const preview = spaHtaccess(base);
+  const privacyAt = preview.indexOf("RewriteRule ^privacy/?$ privacy/index.html [L]");
+  const termsAt = preview.indexOf("RewriteRule ^terms/?$ terms/index.html [L]");
+  const passAt = preview.indexOf("RewriteCond %{REQUEST_FILENAME} -f [OR]");
+  const spaAt = preview.indexOf("RewriteRule ^ index.html [L]");
+  assert.ok(privacyAt > 0 && termsAt > privacyAt && passAt > termsAt && spaAt > passAt);
+
+  const privacy = "<!doctype html><title>Privacy</title>";
+  const terms = "<!doctype html><title>Terms</title>";
+  const spa = "<!doctype html><title>app</title>";
+  const files = {
+    [`${base}index.html`]: spa,
+    [`${base}privacy/index.html`]: privacy,
+    [`${base}terms/index.html`]: terms,
+  };
+  const htaccess = { [base]: preview };
+  for (const suffix of ["privacy", "privacy/", "terms", "terms/"]) {
+    const result = resolveRequest({ path: `${base}${suffix}`, host: "dev.yogeshkumarasamy.in", htaccess, files });
+    assert.equal(result.status, 200, suffix);
+    assert.equal(result.body.includes("<title>app</title>"), false, suffix);
+    assert.match(result.contentType ?? "", /^text\/html/);
+  }
+  assert.equal(resolveRequest({ path: `${base}privacy`, host: "dev.yogeshkumarasamy.in", htaccess, files }).path, `${base}privacy/index.html`);
+  assert.equal(resolveRequest({ path: `${base}terms/`, host: "dev.yogeshkumarasamy.in", htaccess, files }).body, terms);
+  assert.equal(resolveRequest({ path: `${base}jobs/1`, host: "dev.yogeshkumarasamy.in", htaccess, files }).body, spa);
+
+  const liveBase = "/yt-scheduler/";
+  const live = {
+    htaccess: { [liveBase]: spaHtaccess(liveBase) },
+    files: {
+      [`${liveBase}index.html`]: spa,
+      [`${liveBase}privacy/index.html`]: privacy,
+      [`${liveBase}terms/index.html`]: terms,
+    },
+  };
+  for (const pathName of ["/yt-scheduler/privacy", "/yt-scheduler/privacy/", "/yt-scheduler/terms", "/yt-scheduler/terms/"]) {
+    const result = resolveRequest({ path: pathName, host: "yogeshkumarasamy.in", htaccess: live.htaccess, files: live.files });
+    assert.equal(result.status, 200, pathName);
+    assert.equal(result.body === spa, false, pathName);
   }
 });

@@ -23,10 +23,13 @@ export function spaHtaccess(basePath) {
   const base = basePath.endsWith("/") ? basePath : `${basePath}/`;
   if (!base.startsWith("/")) throw new Error(`RewriteBase must be an absolute path, received ${basePath}`);
   return `# History routing for the yt-scheduler static app.
-# Real files are served. Missing hashed assets 404. Every other path is the SPA.
+# Privacy and terms are real HTML. Both slash forms serve that file.
+# Other real files are served. Missing hashed assets 404. Every other path is the SPA.
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase ${base}
+  RewriteRule ^privacy/?$ privacy/index.html [L]
+  RewriteRule ^terms/?$ terms/index.html [L]
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]

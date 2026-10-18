@@ -10,6 +10,7 @@ plan.json
 .dev.vars
 .wrangler
 apps/yt-scheduler-api/wrangler.deploy.json
+throwaway.wrangler.jsonc
 .cache
 server/dist
 public/dist

@@ -97,6 +97,8 @@ Secrets read from the selected environment:
 
 `PUBLIC_ORIGIN` is chosen from `env` (preview and dev share `https://dev.yogeshkumarasamy.in`). The script will not open a non-local FTP host or a public smoke URL unless `FTP_ALLOW_REMOTE=1`, which the workflow sets and local tests do not.
 
+Hostinger's FTPS certificate is a Let's Encrypt cert for `*.hstgr.io` and `hstgr.io` only. `FTP_HOST` is the account IP (`82.25.107.98`). That address has no PTR, and `ftp.yogeshkumarasamy.in` is the same IP, so no name we control is on the certificate. `lftp` still forces TLS and verifies the chain (`ftp:ssl-force true`, `ssl:verify-certificate yes`). It does not check the certificate name (`ssl:check-hostname no`). `FTP_TLS_CHECK_HOSTNAME` overrides that: `yes` turns the name check back on, and an empty value or `no` leaves it off. [deploy-static.yml](file:///workspace/.github/workflows/deploy-static.yml) sets `FTP_TLS_CHECK_HOSTNAME=no`. Local unit tests use `FTP_SSL=off` against pure-ftpd and do not set the variable.
+
 Outputs: `result` (`deployed`, `superseded`, `rolled-back`, or `failed`), `previous`, `live`, `switch` (`rename-over` or `rm-then-mv`). `rolled-back` and `failed` exit 1 after the outputs are written.
 
 ## Router switch and T08

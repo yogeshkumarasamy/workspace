@@ -35,11 +35,16 @@ jobs:
       - name: 🛠️ Build Vite app
         run: pnpm --filter @apps/portfolio... build
 
+      # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
+      # so the hostname does not match. protocol ftps keeps encryption.
+      # security loose is this action's only switch that skips the name check.
       - name: 📤 Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          security: loose
           local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR }}

@@ -108,6 +108,8 @@ jobs:
           FTP_ENV_DIR: ${{ secrets.FTP_TARGET_DIR }}
           FTP_ALLOW_REMOTE: "1"
           FTP_SSL: require
+          # *.hstgr.io cert vs the IP in FTP_HOST. Chain check stays on.
+          FTP_TLS_CHECK_HOSTNAME: "no"
           FTP_ROUTER_SWITCH: auto
           RELEASE_KEEP: "5"
           DEPLOY_ENV: ${{ inputs.env }}

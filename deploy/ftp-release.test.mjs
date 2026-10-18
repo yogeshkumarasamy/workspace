@@ -29,6 +29,8 @@ import {
   remoteJoin,
   renderTemplate,
   selectReleasesToPrune,
+  sslLines,
+  tlsCheckHostnameValue,
   validateDeploy,
 } from "./ftp-release.mjs";
 
@@ -91,12 +93,12 @@ function baseSettings(overrides = {}) {
   };
 }
 
-test("template paths are the T10 files and are not vendored here", () => {
+test("template paths are the T10 files", () => {
   assert.equal(path.basename(TEMPLATE_PATHS.release), "release.htaccess.tpl");
   assert.equal(path.basename(TEMPLATE_PATHS.router), "router.htaccess.tpl");
   assert.equal(path.basename(path.dirname(TEMPLATE_PATHS.release)), "htaccess");
-  assert.equal(existsSync(TEMPLATE_PATHS.release), false);
-  assert.equal(existsSync(TEMPLATE_PATHS.router), false);
+  assert.equal(existsSync(TEMPLATE_PATHS.release), true);
+  assert.equal(existsSync(TEMPLATE_PATHS.router), true);
 });
 
 test("renderTemplate substitutes tokens and drops the previous-release rule on the first deploy", () => {
@@ -163,6 +165,31 @@ test("remote paths reject traversal and preserve an absolute docroot", () => {
   assert.equal(remoteJoin("", "portfolio", "releases", "abc"), "portfolio/releases/abc");
   assert.equal(remoteJoin("/public_html", "portfolio"), "/public_html/portfolio");
   assert.throws(() => remoteJoin("/public_html/../etc", "portfolio"), /must not contain/);
+});
+
+test("TLS keeps certificate verification and skips only the hostname check by default", () => {
+  assert.deepEqual(sslLines(baseSettings({ ssl: "off" })), [
+    "set ftp:ssl-allow false",
+    "set ssl:verify-certificate no",
+  ]);
+  assert.deepEqual(sslLines(baseSettings({ ssl: "require" })), [
+    "set ftp:ssl-force true",
+    "set ftp:ssl-protect-data true",
+    "set ssl:verify-certificate yes",
+    "set ssl:check-hostname no",
+  ]);
+  assert.equal(tlsCheckHostnameValue(undefined), "no");
+  assert.deepEqual(sslLines(baseSettings({ ssl: "require", tlsCheckHostname: "yes" })), [
+    "set ftp:ssl-force true",
+    "set ftp:ssl-protect-data true",
+    "set ssl:verify-certificate yes",
+    "set ssl:check-hostname yes",
+  ]);
+  const templates = writeTemplates(mkdtempSync(path.join(tmpdir(), "tpl-")));
+  assert.throws(
+    () => validateDeploy(baseSettings({ ...templates, ssl: "require", tlsCheckHostname: "maybe" })),
+    /FTP_TLS_CHECK_HOSTNAME/,
+  );
 });
 
 test("non-local FTP hosts are refused unless the workflow opts in", () => {

@@ -10,7 +10,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { collectCpuSamples, telemetryQueryBody } from "./measure-plan.mjs";
+import { collectCpuSamples, shouldResumeInstance, telemetryQueryBody } from "./measure-plan.mjs";
 
 const APP_DIR = fileURLToPath(new URL("..", import.meta.url));
 const LONG_VIDEO_BYTES = 500 * 1024 * 1024;
@@ -271,7 +271,7 @@ async function main() {
   const instances = [];
   let sessionId = null;
   let guard = 0;
-  while (guard < 8) {
+  while (guard < 200) {
     guard += 1;
     const body = sessionId
       ? { sessionId }
@@ -282,9 +282,8 @@ async function main() {
     sessionId = payload.sessionId;
     const finished = await poll(base, auth, payload.instanceId);
     instances.push({ instanceId: payload.instanceId, status: finished });
-    if (finished.status === "errored") break;
     if (finished.output?.complete === true || finished.output?.reason === "complete") break;
-    if (finished.output?.reason !== "instance-step-budget") break;
+    if (!shouldResumeInstance(finished)) break;
   }
 
   const sessionResponse = await fetch(`${base}/sink/sessions/${sessionId}`, { headers: auth });

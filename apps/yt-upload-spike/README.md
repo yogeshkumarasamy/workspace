@@ -39,7 +39,7 @@ Caps reset daily. A month does not pool steps, so 60 uploads / month is the wron
 
 A spread-out week is easier than the piled row: the long video's own step count is the peak day.
 
-Each chunk step does three subrequests (status probe, source `GET`, sink `PUT`). The status probe is what makes a retried step skip a chunk the sink already committed. Three is under the cap of 50. One Workflow instance stops at 1,020 steps so it stays under the 1,024 instance cap; the measure script starts another instance on the same sink session if it has to.
+Each chunk step does three subrequests (status probe, source `GET`, sink `PUT`). The status probe is what makes a retried step skip a chunk the sink already committed. The measured runtime spends the 50-subrequest cap on the whole Workflow instance, not on each `step.do`: one request id, one outcome, `rpcCallCount` covering every step. The opening status step is one subrequest, so an instance can run 16 chunk steps (`1 + 3 × 16 = 49`) and then returns `subrequest-budget` before the 17th chunk. The measure script starts another instance on the same sink session. A 500 MiB file at 16 MiB is 32 chunk steps, so two instances (34 steps, counting both status steps). Run `39129870938` stopped at 256 MiB, which is exactly those 16 chunks, and the sink digest was still null. The Instances column below is only the 1,024-step cap. That cap is looser: the instance also returns `instance-step-budget` at 1,020 steps, and the measure script resumes that the same way.
 
 | Chunk | Steps for one 500 MiB long | Instances | Steps for one 64 MiB Short | Typical week piled (7 files) | Max mix piled (15 files) | 15-long envelope | Under 3,000 steps for the envelope? |
 |---|---:|---:|---:|---:|---:|---:|---|
@@ -63,7 +63,7 @@ The mock sink is itself a Worker, so a chunk PUT is an incoming request. On a Fr
 
 ## Best free-plan option, before the CPU measurement
 
-On budget alone, **Workflow passthrough at 64 MiB** is the one that fits. A 500 MiB long is 8 steps. A piled max week in the stated shape is 22 steps. Even the 15-long envelope is 120 steps, against 3,000 / day and 1,024 / instance. Run the measure script at 64, then 32, then 16. Keep the largest size whose uploader `cpuTimeMs` stays under 10.
+On budget alone, **Workflow passthrough at 64 MiB** is the one that fits. A 500 MiB long is 8 steps. A piled max week in the stated shape is 22 steps. Even the 15-long envelope is 120 steps, against 3,000 / day and 1,024 / instance. Run the measure script at 64, then 32, then 16. Keep the largest size whose per-chunk `cpuTimeMs` stays under 10. A workflow-instance CPU time is not that number.
 
 If 64 / 32 / 16 all exceed 10 ms, keep stepping down. 8 MiB and 4 MiB still fit the 15-long envelope. Below 4 MiB the envelope does not fit in one UTC day. The stated max mix (one long + 14 Shorts) still fits at 512 KiB (2,792 steps) and does not fit at 256 KiB. 256 KiB also needs two Workflow instances per 500 MiB file.
 
@@ -86,7 +86,7 @@ pnpm --filter @apps/yt-upload-spike lint
 pnpm --filter @apps/yt-upload-spike typecheck
 ```
 
-Vitest runs inside `@cloudflare/vitest-pool-workers` (package 0.23.0, which is the Workers Vitest pool; Cloudflare has since published the same API as `@cloudflare/vitest-plugin`). That package's workerd accepts compatibility dates through 2026-08-22, so `wrangler.jsonc` uses that date. The suite covers the sink protocol, a duplicate range, checksums, resume after a forced interruption, stream identity, the queue consumer, and the budget table. It does not produce CPU milliseconds. Miniflare does not apply the 10 ms cap.
+Vitest runs inside `@cloudflare/vitest-pool-workers` (package 0.23.0, which is the Workers Vitest pool; Cloudflare has since published the same API as `@cloudflare/vitest-plugin`). That package's workerd accepts compatibility dates through 2026-08-22, so `wrangler.jsonc` uses that date. The suite covers the sink protocol, a duplicate range, a 16 MiB chunk plus a shorter tail, checksums, resume after a forced interruption, resume after 16 chunk steps, stream identity, the queue consumer, and the budget table. It does not produce CPU milliseconds. Miniflare does not apply the 10 ms cap.
 
 ## Measure on a Free account
 
@@ -94,13 +94,13 @@ Run it from GitHub Actions so the API token stays in repository secrets. The job
 
 1. Merge this workflow to `main`. The Actions tab lists it from the default branch.
 2. Open **Actions → Y0 Workers Free CPU measure → Run workflow**.
-3. Leave the inputs at 500 MiB and 64 MiB unless you are stepping down by hand. The job starts at 64 MiB and steps down on its own when `cpuTimeMs` is 10 or higher, stopping before it would spend more than 2,800 of the 3,000 daily Workflow steps.
-4. Read the job summary and download the `yt-upload-spike-cpu` artifact. `cpuTimeMs` cells that say `not returned` are empty on purpose.
+3. Leave the inputs at 500 MiB and 64 MiB unless you are stepping down by hand. The job starts at 64 MiB and steps down only when the per-chunk `cpuTimeMs` max is 10 or higher. It stops before it would spend more than 2,800 of the 3,000 daily Workflow steps. A size that needs more than 16 chunk steps is more than one Workflow instance.
+4. Read the job summary and download the `yt-upload-spike-cpu` artifact. `cpuTimeMs` cells that say `not returned` are empty on purpose. A workflow or fetch invocation listed under the table was returned, and it is not the max.
 
 The job deploys only `yt-spike-gha-throwaway` (workers.dev, no cron). It does not call YouTube. When the measurement finishes, or the measure step fails, it deletes that Worker, its Workflow, its Durable Object namespace, and the R2 bucket of the same name. A second run starts by deleting leftovers from a cancelled run.
 
 R2 is the default source: the job writes a 500 MiB fixture and puts it in the throwaway bucket. Enabling R2 on a new account asks for a payment method even though the free tier (10 GB-month, plus the operation allowance) is enough for this fixture. If bucket creation fails for that reason, the job says so and falls back to serving the same fixture from the Actions runner through a temporary tunnel. The Worker then only streams Range GETs into mock sink PUTs. That fallback needs no R2 subscription and no Drive grant.
 
-The observability query needs Workers Observability Write (the Edit permission on the token template). It asks for invocations of `yt-spike-gha-throwaway` and reads `$workers.cpuTimeMs` from the invocation that contains the uploader chunk log. A console line and its CPU time are often separate events with the same request id, so the query does not filter on the console text. While the upload runs, `wrangler tail` is attached. A tail event is scored only when it has `cpuTimeMs` or `CPUTimeMs`. Tail `cpuTime` is not scored, and the script does not read GraphQL `cpuTimeP50`. Deleting the throwaway workflow a second time is success when Cloudflare says it is already gone (HTTP 404 or error 10200).
+The observability query needs Workers Observability Write (the Edit permission on the token template). It asks for invocations of `yt-spike-gha-throwaway` and does not filter on the console text. A chunk sample is counted only when that same event is one uploader chunk and carries `$workers.cpuTimeMs` (or Logpush `CPUTimeMs`). The workflow outcome is a sibling event on the same request id. Its `cpuTimeMs` is the whole instance, so the summary labels it and does not compare it to 10 ms. Chunk logs with no `cpuTimeMs` stay "not returned". While the upload runs, `wrangler tail` is attached. A tail event is scored only when it is one chunk and has `cpuTimeMs` or `CPUTimeMs`. Tail `cpuTime` is not scored, and the script does not read GraphQL `cpuTimeP50`. Deleting the throwaway workflow a second time is success when Cloudflare says it is already gone (HTTP 404 or error 10200).
 
 `pnpm measure` from a shell is the same sweep when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set and you pass `--sweep`. Without those variables it exits 2 and prints the credential list. It does not invent a CPU number.

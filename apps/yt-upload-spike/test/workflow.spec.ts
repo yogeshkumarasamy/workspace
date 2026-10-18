@@ -88,6 +88,100 @@ describe("upload workflow", () => {
     expect(done.sha256).toBe(await sha256Hex(fillRange(seed, 0, total)));
   });
 
+  it("finishes exactly 16 chunk steps in one instance", async () => {
+    const chunk = 4;
+    const total = chunk * 16;
+    const seed = 5;
+    const id = crypto.randomUUID();
+    await using instance = await introspectWorkflowInstance(env.UPLOAD_WORKFLOW, id);
+    await instance.modify(async (modifier) => {
+      await modifier.disableSleeps();
+    });
+    const started = await api("/uploads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instanceId: id,
+        totalSize: total,
+        chunkSize: chunk,
+        allowUnaligned: true,
+        storage: "memory",
+        source: { kind: "generated", seed },
+        retryLimit: 0,
+      }),
+    });
+    expect(started.status).toBe(202);
+    const startedBody = await read(started);
+    await instance.waitForStatus("complete");
+    expect(await instance.getOutput()).toMatchObject({
+      complete: true,
+      received: total,
+      chunks: 16,
+      reason: "complete",
+    });
+    const done = await read(await api(`/sink/sessions/${startedBody.sessionId}`));
+    expect(done.sha256).toBe(await sha256Hex(fillRange(seed, 0, total)));
+  });
+
+  it("stops after 16 chunk steps and the next instance finishes the file", async () => {
+    const chunk = 8;
+    const total = chunk * 18;
+    const seed = 11;
+    const firstId = crypto.randomUUID();
+    await using first = await introspectWorkflowInstance(env.UPLOAD_WORKFLOW, firstId);
+    await first.modify(async (modifier) => {
+      await modifier.disableSleeps();
+    });
+    const started = await api("/uploads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instanceId: firstId,
+        totalSize: total,
+        chunkSize: chunk,
+        allowUnaligned: true,
+        storage: "memory",
+        source: { kind: "generated", seed },
+        retryLimit: 0,
+      }),
+    });
+    expect(started.status).toBe(202);
+    const startedBody = await read(started);
+    await first.waitForStatus("complete");
+    expect(await first.getOutput()).toMatchObject({
+      complete: false,
+      received: 16 * chunk,
+      chunks: 16,
+      reason: "subrequest-budget",
+    });
+    const mid = await read(await api(`/sink/sessions/${startedBody.sessionId}`));
+    expect(mid.received).toBe(16 * chunk);
+    expect(mid.complete).toBe(false);
+    expect(mid.sha256).toBeNull();
+
+    const resumeId = crypto.randomUUID();
+    await using resumed = await introspectWorkflowInstance(env.UPLOAD_WORKFLOW, resumeId);
+    await resumed.modify(async (modifier) => {
+      await modifier.disableSleeps();
+    });
+    const continued = await api("/uploads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instanceId: resumeId, sessionId: startedBody.sessionId, retryLimit: 0 }),
+    });
+    expect(continued.status).toBe(202);
+    await resumed.waitForStatus("complete");
+    expect(await resumed.getOutput()).toMatchObject({
+      complete: true,
+      received: total,
+      reason: "complete",
+    });
+    const done = await read(await api(`/sink/sessions/${startedBody.sessionId}`));
+    expect(done.received).toBe(total);
+    expect(done.appended).toBe(total);
+    expect(done.sha256).toBe(await sha256Hex(fillRange(seed, 0, total)));
+  });
+
   it("refuses to send bytes to YouTube", async () => {
     const response = await api("/uploads", {
       method: "POST",

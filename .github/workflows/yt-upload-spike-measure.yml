@@ -13,7 +13,7 @@ on:
         default: "524288000"
         type: string
       start_chunk_mib:
-        description: First chunk size in MiB. Smaller sizes run only when this one is over 10 ms CPU.
+        description: First chunk size in MiB. Smaller sizes run only when this one's per-chunk cpuTimeMs is 10 or higher.
         required: false
         default: "64"
         type: string

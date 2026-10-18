@@ -14,7 +14,8 @@ import {
   assertThrowawayName,
   cloudflaredUrl,
   cloudflareErrorIsMissing,
-  collectCpuSamples,
+  checksumMatches,
+  classifyCpu,
   collectTailCpuSamples,
   COMPATIBILITY_DATE,
   decideNext,
@@ -27,6 +28,7 @@ import {
   planSweep,
   r2Unavailable,
   renderSummary,
+  shouldResumeInstance,
   summarizeTelemetry,
   teardownCommands,
   telemetryDiscoveryQueryBody,
@@ -134,9 +136,17 @@ async function queryLogs(accountId, token, body) {
 const LOG_POLLS = 12;
 const LOG_POLL_MS = 10_000;
 
+function classificationFromTail(tailed) {
+  return {
+    chunkSamples: tailed.samples,
+    otherInvocations: tailed.otherInvocations,
+    chunkLogsWithoutCpu: tailed.chunkLogsWithoutCpu,
+  };
+}
+
 async function collectLogs(accountId, token, workerName, from, tail) {
   const logs = [];
-  let samples = [];
+  let classified = { chunkSamples: [], otherInvocations: [], chunkLogsWithoutCpu: 0 };
   let source = "";
   for (let attempt = 0; attempt < LOG_POLLS; attempt += 1) {
     const to = Date.now();
@@ -145,38 +155,41 @@ async function collectLogs(accountId, token, workerName, from, tail) {
       queried = await queryLogs(accountId, token, telemetryQueryBody(workerName, from - 60_000, to, "events"));
     }
     logs.push(queried);
-    samples = collectCpuSamples(queried.body);
-    if (queried.httpStatus === 200 && samples.length) {
-      source = "Workers Logs $workers.cpuTimeMs";
+    classified = classifyCpu(queried.body);
+    if (queried.httpStatus === 200 && classified.chunkSamples.length) {
+      source = "Workers Logs $workers.cpuTimeMs on the uploader chunk event";
       break;
     }
     const tailed = collectTailCpuSamples(tail?.events ?? []);
     if (tailed.samples.length) {
-      samples = tailed.samples;
-      source = "wrangler tail cpuTimeMs/CPUTimeMs on the uploader chunk log";
+      classified = classificationFromTail(tailed);
+      source = "wrangler tail cpuTimeMs/CPUTimeMs on the same uploader chunk event";
       break;
     }
     if (attempt < LOG_POLLS - 1) await new Promise((resolve) => setTimeout(resolve, LOG_POLL_MS));
   }
   const last = logs.at(-1);
   const seen = summarizeTelemetry(last?.body);
-  if (!samples.length && last?.httpStatus === 200 && seen.events + seen.invocations === 0) {
+  if (!classified.chunkSamples.length && last?.httpStatus === 200 && seen.events + seen.invocations === 0) {
     const discovered = await queryLogs(accountId, token, telemetryDiscoveryQueryBody(from - 60_000, Date.now()));
     logs.push(discovered);
-    samples = collectCpuSamples(discovered.body, { workflowFallback: false });
-    if (samples.length) source = "Workers Logs $workers.cpuTimeMs (uploader needle, no scriptName filter)";
+    const found = classifyCpu(discovered.body);
+    if (found.chunkSamples.length) {
+      classified = found;
+      source = "Workers Logs $workers.cpuTimeMs on the uploader chunk event (uploader needle, no scriptName filter)";
+    }
   }
-  if (!samples.length) {
+  if (!classified.chunkSamples.length) {
     const tailed = collectTailCpuSamples(tail?.events ?? []);
     if (tailed.samples.length) {
-      samples = tailed.samples;
-      source = "wrangler tail cpuTimeMs/CPUTimeMs on the uploader chunk log";
+      classified = classificationFromTail(tailed);
+      source = "wrangler tail cpuTimeMs/CPUTimeMs on the same uploader chunk event";
     }
   }
   const tailReport = collectTailCpuSamples(tail?.events ?? []);
   const summary = summarizeTelemetry(logs.at(-1)?.body);
-  const logNote = samples.length
-    ? `cpuTimeMs source: ${source}. Last Workers Logs query had ${summary.events} events and ${summary.invocations} invocations.`
+  const logNote = classified.chunkSamples.length
+    ? `Per-chunk cpuTimeMs source: ${source}. ${classified.chunkSamples.length} chunk sample(s). Last Workers Logs query had ${summary.events} events and ${summary.invocations} invocations.`
     : explainMissingCpu({
         httpStatus: logs.at(-1)?.httpStatus ?? null,
         polls: logs.length,
@@ -185,8 +198,16 @@ async function collectLogs(accountId, token, workerName, from, tail) {
         tailEvents: tail?.events.length ?? 0,
         tailUploaderLogs: tailReport.uploaderLogs,
         tailUnscoredCpuTime: tailReport.unscoredCpuTime,
+        chunkLogsWithoutCpu: Math.max(classified.chunkLogsWithoutCpu, tailReport.chunkLogsWithoutCpu),
       });
-  return { samples, httpStatus: logs.at(-1)?.httpStatus ?? null, last: logs.at(-1) ?? null, logNote };
+  return {
+    samples: classified.chunkSamples,
+    otherInvocations: classified.otherInvocations,
+    chunkLogsWithoutCpu: classified.chunkLogsWithoutCpu,
+    httpStatus: logs.at(-1)?.httpStatus ?? null,
+    last: logs.at(-1) ?? null,
+    logNote,
+  };
 }
 
 async function poll(base, auth, instanceId) {
@@ -229,48 +250,63 @@ function cpuExceeded(instance) {
 }
 
 async function runOneSize({ base, auth, totalSize, chunkBytes, source, storage, localSha, fixture }) {
-  const body = {
-    totalSize,
-    chunkSize: chunkBytes,
-    storage,
-    source,
-    sinkBaseUrl: source.sinkBaseUrl,
-  };
-  if (body.sinkBaseUrl) delete body.storage;
-  const response = await fetch(`${base}/uploads`, {
-    method: "POST",
-    headers: auth,
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json();
-  if (!response.ok) throw new Error(`start failed ${response.status}: ${JSON.stringify(payload)}`);
   const startedAt = Date.now();
-  const finished = await poll(base, auth, payload.instanceId);
-  let checksumMatches = null;
+  let sessionId = null;
+  const instances = [];
+  for (let guard = 0; guard < 200; guard += 1) {
+    const body = {
+      totalSize,
+      chunkSize: chunkBytes,
+      storage,
+      source,
+      sinkBaseUrl: source.sinkBaseUrl,
+      ...(sessionId ? { sessionId } : {}),
+    };
+    if (body.sinkBaseUrl) delete body.storage;
+    const response = await fetch(`${base}/uploads`, {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(`start failed ${response.status}: ${JSON.stringify(payload)}`);
+    sessionId = payload.sessionId;
+    const finished = await poll(base, auth, payload.instanceId);
+    instances.push(finished);
+    if (!shouldResumeInstance(finished)) break;
+  }
+  const last = instances.at(-1) ?? null;
+  const workflowComplete = last?.status === "complete" && last?.output?.complete === true;
   if (fixture) {
-    const local = fixture.session(payload.sessionId);
-    checksumMatches = localSha ? local?.sha256 === localSha : null;
+    const local = fixture.session(sessionId);
+    const sinkComplete = local?.received === totalSize && local?.complete === true;
     return {
-      instance: finished,
-      checksumMatches,
-      complete: local?.received === totalSize && finished.status === "complete",
+      instance: last,
+      instances,
+      checksumMatches: checksumMatches({
+        complete: sinkComplete,
+        actualSha: local?.sha256 ?? null,
+        expectedSha: localSha,
+      }),
+      complete: sinkComplete && workflowComplete,
       received: local?.received ?? null,
       startedAt,
+      sessionId,
     };
   }
-  const sessionResponse = await fetch(`${base}/sink/sessions/${payload.sessionId}`, { headers: auth });
+  const sessionResponse = await fetch(`${base}/sink/sessions/${sessionId}`, { headers: auth });
   const session = await sessionResponse.json();
-  if (session.complete) {
-    const downloaded = await downloadSha(base, auth, payload.sessionId, session);
-    checksumMatches = localSha ? downloaded === localSha : null;
-  }
+  let actualSha = null;
+  if (session.complete) actualSha = await downloadSha(base, auth, sessionId, session);
+  const sinkComplete = Boolean(session.complete);
   return {
-    instance: finished,
-    checksumMatches,
-    complete: Boolean(session.complete) && finished.status === "complete",
+    instance: last,
+    instances,
+    checksumMatches: checksumMatches({ complete: sinkComplete, actualSha, expectedSha: localSha }),
+    complete: sinkComplete && workflowComplete,
     received: session.received ?? null,
     startedAt,
-    sessionId: payload.sessionId,
+    sessionId,
   };
 }
 
@@ -578,12 +614,15 @@ export async function runSweep({ bytes, startChunkBytes, out, summaryPath }) {
         steps: planned.steps,
         complete: measured.complete,
         checksumMatches: measured.checksumMatches,
-        cpuExceeded: cpuExceeded(measured.instance),
+        cpuExceeded: (measured.instances ?? [measured.instance]).some((instance) => cpuExceeded(instance)),
         cpuTimeMs,
         cpuTimeMsMax: cpuTimeMs.length ? Math.max(...cpuTimeMs) : null,
+        otherInvocations: logs.otherInvocations,
+        chunkLogsWithoutCpu: logs.chunkLogsWithoutCpu,
         logQueryHttpStatus: logs.httpStatus,
         logNote: logs.logNote,
         received: measured.received,
+        instances: measured.instances?.length ?? 1,
       };
       attempt.decision = decideNext(attempt);
       report.attempts.push(attempt);

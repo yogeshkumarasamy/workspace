@@ -21,7 +21,7 @@ Published Free-plan caps (Workers limits and Workflows limits, checked 2026-10-1
 | Worker memory | 128 MB |
 | Queues | 10,000 operations / day. One delivered message is a write, a read, and a delete (3 operations). |
 
-**CPU milliseconds are not measured here.** Nothing in this repo, and nothing this agent could see, is a Free-plan account token. The numbers below are budget arithmetic. They are not a pass or a fail against 10 ms.
+**The table below is budget arithmetic, not a CPU measurement.** A pass or a fail against 10 ms comes only from Workers Logs `cpuTimeMs`, collected by the manual workflow [Y0 Workers Free CPU measure](../../.github/workflows/yt-upload-spike-measure.yml). That workflow has not filled a number into this file.
 
 Streaming matters for two caps at once. Buffering a 64 MiB chunk in JavaScript would both spend CPU on the copy and press the 128 MB isolate limit. Each step passes the source `ReadableStream` straight into the sink `PUT`. Local tests check that the PUT body is that same stream.
 
@@ -90,32 +90,17 @@ Vitest runs inside `@cloudflare/vitest-pool-workers` (package 0.23.0, which is t
 
 ## Measure on a Free account
 
-From `apps/yt-upload-spike`:
+Run it from GitHub Actions so the API token stays in repository secrets.
 
-```sh
-export CLOUDFLARE_ACCOUNT_ID=...
-export CLOUDFLARE_API_TOKEN=...
-pnpm measure -- --chunk-mib 64
-```
+1. Merge this workflow to `main`. The Actions tab lists it from the default branch.
+2. Open **Actions → Y0 Workers Free CPU measure → Run workflow**.
+3. Leave the inputs at 500 MiB and 64 MiB unless you are stepping down by hand. The job starts at 64 MiB and steps down on its own when `cpuTimeMs` is 10 or higher, stopping before it would spend more than 2,800 of the 3,000 daily Workflow steps.
+4. Read the job summary and download the `yt-upload-spike-cpu` artifact. `cpuTimeMs` cells that say `not returned` are empty on purpose.
 
-Drive, once the file and token exist:
+The job deploys only `yt-spike-gha-throwaway` (workers.dev, no cron). It does not call YouTube. When the measurement finishes, or the measure step fails, it deletes that Worker, its Workflow, its Durable Object namespace, and the R2 bucket of the same name. A second run starts by deleting leftovers from a cancelled run.
 
-```sh
-export DRIVE_FILE_ID=...
-export DRIVE_ACCESS_TOKEN=...
-pnpm measure -- --source drive --chunk-mib 64
-```
+R2 is the default source: the job writes a 500 MiB fixture and puts it in the throwaway bucket. Enabling R2 on a new account asks for a payment method even though the free tier (10 GB-month, plus the operation allowance) is enough for this fixture. If bucket creation fails for that reason, the job says so and falls back to serving the same fixture from the Actions runner through a temporary tunnel. The Worker then only streams Range GETs into mock sink PUTs. That fallback needs no R2 subscription and no Drive grant.
 
-Missing variables exit 2 and print the full list. The script deploys `yt-upload-spike` on `workers.dev`, creates the R2 bucket and the queue, sets a random `SPIKE_TOKEN`, runs the Workflow, downloads the sink parts, and queries Workers Logs for `cpuTimeMs` on uploader events. Results go to `/tmp/yt-upload-spike-measure.json` unless `--out` is set.
+The observability query needs Workers Observability Write (the Edit permission on the token template). Score a size only from the `cpuTimeMs` field. The script does not read GraphQL `cpuTimeP50`.
 
-If the log API returns no `cpuTimeMs`, the script exits 3 when the upload itself finished. It still does not fill in a number. Score a size only from the `cpuTimeMs` field. GraphQL `cpuTimeP50` is a different unit in Cloudflare's analytics API and this script does not use it as a pass/fail.
-
-Token scopes and the Drive grant are printed by `pnpm measure` when the variables are absent. Short version:
-
-- `CLOUDFLARE_ACCOUNT_ID` from the Workers overview URL.
-- `CLOUDFLARE_API_TOKEN` for this account only: Workers Scripts Edit, Workers Tail Read, Workers Observability Read, Workers R2 Storage Edit, Queues Edit, Account Settings Read.
-- Drive: a ~500 MB file, OAuth scope `https://www.googleapis.com/auth/drive.readonly`, `DRIVE_FILE_ID` plus a short-lived `DRIVE_ACCESS_TOKEN`. The R2 stand-in needs no Drive grant and does not exercise Drive.
-
-Delete the worker, the queue, the bucket, and the secrets when the measurement is done. `wrangler delete`, `wrangler queues delete yt-upload-spike-chunks`, `wrangler r2 bucket delete yt-upload-spike`.
-
-Run 32 and 16 MiB the same way if 64 is over 10 ms. The client fallback is `node scripts/client-transfer.mjs --help`.
+`pnpm measure` from a shell is the same sweep when `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` are set and you pass `--sweep`. Without those variables it exits 2 and prints the credential list. It does not invent a CPU number.

@@ -10,6 +10,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { collectCpuSamples, telemetryQueryBody } from "./measure-plan.mjs";
 
 const APP_DIR = fileURLToPath(new URL("..", import.meta.url));
 const LONG_VIDEO_BYTES = 500 * 1024 * 1024;
@@ -62,6 +63,12 @@ Provide these, then run the script again from apps/yt-upload-spike:
 
 The script prints Workers Logs cpuTimeMs for uploader steps when the API returns them.
 If the log query is empty or rejected, it says so and still does not fill in a number.
+
+GitHub Actions, with no local secrets: Actions → "Y0 Workers Free CPU measure" → Run workflow.
+That workflow is manual only. It uses the repository secrets CLOUDFLARE_API_TOKEN and
+CLOUDFLARE_ACCOUNT_ID, deploys the throwaway worker yt-spike-gha-throwaway, measures a
+500 MiB R2 stand-in (or a runner-hosted fixture if R2 cannot be created), and deletes
+the Worker, Workflow, and R2 bucket afterward. It does not call YouTube.
 `.trim();
 
 export function parseArgs(argv) {
@@ -69,8 +76,10 @@ export function parseArgs(argv) {
     source: "r2",
     chunkMib: 64,
     bytes: LONG_VIDEO_BYTES,
-    out: join(tmpdir(), "yt-upload-spike-measure.json"),
+    out: process.env.MEASURE_OUT || join(tmpdir(), "yt-upload-spike-measure.json"),
     help: false,
+    sweep: false,
+    teardownOnly: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -79,6 +88,8 @@ export function parseArgs(argv) {
     else if (flag === "--chunk-mib") args.chunkMib = Number(argv[++i]);
     else if (flag === "--bytes") args.bytes = Number(argv[++i]);
     else if (flag === "--out") args.out = argv[++i] ?? args.out;
+    else if (flag === "--sweep") args.sweep = true;
+    else if (flag === "--teardown-only") args.teardownOnly = true;
     else throw new Error(`unknown argument ${flag}`);
   }
   if (args.source !== "r2" && args.source !== "drive") {
@@ -148,17 +159,6 @@ async function driveMetadata(fileId, token) {
   return body;
 }
 
-function collectCpuMs(value, found = []) {
-  if (!value || typeof value !== "object") return found;
-  const blob = JSON.stringify(value);
-  if (typeof value.cpuTimeMs === "number" && blob.includes('"role":"uploader"')) {
-    const id = value.requestId ?? value.executionId ?? value.rayId ?? blob.slice(0, 180);
-    if (!found.some((item) => item.id === id)) found.push({ id, cpuTimeMs: value.cpuTimeMs });
-  }
-  for (const child of Object.values(value)) collectCpuMs(child, found);
-  return found;
-}
-
 async function queryLogs(accountId, token, from, to) {
   const response = await fetch(
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/workers/observability/telemetry/query`,
@@ -168,24 +168,7 @@ async function queryLogs(accountId, token, from, to) {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        queryId: "yt-upload-spike-cpu",
-        dry: true,
-        view: "events",
-        timeframe: { from, to },
-        parameters: {
-          filterCombination: "and",
-          filters: [
-            {
-              key: "$metadata.service",
-              operation: "eq",
-              type: "string",
-              value: "yt-upload-spike",
-            },
-          ],
-          limit: 200,
-        },
-      }),
+      body: JSON.stringify(telemetryQueryBody("yt-upload-spike", from, to)),
     },
   );
   const body = await response.json();
@@ -196,6 +179,29 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) {
     console.log(REQUIREMENTS);
+    return;
+  }
+  if (args.teardownOnly || args.sweep) {
+    const { runSweep, teardownThrowaway } = await import("./sweep.mjs");
+    if (!process.env.CLOUDFLARE_ACCOUNT_ID || !process.env.CLOUDFLARE_API_TOKEN) {
+      console.error(REQUIREMENTS);
+      console.error("\nMissing: CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_API_TOKEN");
+      process.exitCode = 2;
+      return;
+    }
+    if (args.teardownOnly) {
+      const torn = await teardownThrowaway();
+      console.log(torn.lines.join("\n"));
+      process.exitCode = torn.failed ? 1 : 0;
+      return;
+    }
+    const chunkBytes = args.chunkMib * 1024 * 1024;
+    process.exitCode = await runSweep({
+      bytes: args.bytes,
+      startChunkBytes: chunkBytes,
+      out: args.out,
+      summaryPath: process.env.GITHUB_STEP_SUMMARY,
+    });
     return;
   }
   const missing = missingRequirements(process.env, args);
@@ -296,11 +302,11 @@ async function main() {
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const queried = await queryLogs(process.env.CLOUDFLARE_ACCOUNT_ID, process.env.CLOUDFLARE_API_TOKEN, startedAt - 60_000, Date.now());
     logs.push(queried);
-    const samples = collectCpuMs(queried.body);
+    const samples = collectCpuSamples(queried.body);
     if (queried.httpStatus === 200 && samples.length) break;
     await new Promise((resolve) => setTimeout(resolve, 10_000));
   }
-  const samples = collectCpuMs(logs.at(-1)?.body);
+  const samples = collectCpuSamples(logs.at(-1)?.body);
   const result = {
     measured: samples.length > 0,
     base,

@@ -9,6 +9,7 @@ plan.json
 .env
 .dev.vars
 .wrangler
+throwaway.wrangler.jsonc
 .cache
 server/dist
 public/dist

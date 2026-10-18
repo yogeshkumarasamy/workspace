@@ -1,7 +1,14 @@
 import { browserTransferPage } from "./browser";
 import { authorized, type Env } from "./env";
 import { handleQueueBatch, type ChunkMessage } from "./queue";
-import { assertChunkSize, INTERNAL_ORIGIN, json, type SourceSpec, type UploadPlan } from "./protocol";
+import {
+  assertChunkSize,
+  assertSafeRemoteUrl,
+  INTERNAL_ORIGIN,
+  json,
+  type SourceSpec,
+  type UploadPlan,
+} from "./protocol";
 import { generatedFromRequest, handleSource } from "./source";
 import { UploadSession } from "./session";
 import { UploadWorkflow } from "./workflow";
@@ -28,6 +35,7 @@ export default {
     if (url.pathname.startsWith("/source/")) return handleSource(request, env);
     if (url.pathname === "/sink/sessions" && request.method === "POST") return createSession(request, env);
     if (url.pathname.startsWith("/sink/sessions/")) return proxySession(request, env);
+    if (url.pathname === "/spike/purge-r2" && request.method === "POST") return purgeR2(url, env);
     if (url.pathname === "/uploads" && request.method === "POST") return startUpload(request, env);
     if (url.pathname.startsWith("/uploads/") && request.method === "GET") return uploadStatus(request, env);
     if (url.pathname === "/queue/chunk" && request.method === "POST") return enqueueChunk(request, env);
@@ -89,7 +97,29 @@ async function startUpload(request: Request, env: Env): Promise<Response> {
   }
 }
 
+async function purgeR2(url: URL, env: Env): Promise<Response> {
+  const bucket = "BUCKET" in env ? env.BUCKET : undefined;
+  if (!bucket) return json({ deleted: 0, truncated: false });
+  const prefix = url.searchParams.get("prefix") || undefined;
+  const listed = await bucket.list({ limit: 25, ...(prefix ? { prefix } : {}) });
+  for (const object of listed.objects) await bucket.delete(object.key);
+  return json({ deleted: listed.objects.length, truncated: listed.truncated });
+}
+
 async function resolvePlan(body: Partial<UploadPlan>, env: Env): Promise<UploadPlan> {
+  if (body.sinkBaseUrl) {
+    assertSafeRemoteUrl(body.sinkBaseUrl);
+    if (body.source?.kind === "http") {
+      if (!body.source.url) throw new Error("http source requires url");
+      assertSafeRemoteUrl(body.source.url);
+    }
+    if (!body.totalSize || !body.chunkSize || !body.source) {
+      throw new Error("totalSize, chunkSize, and source are required");
+    }
+    const plan = normalize(body);
+    plan.sessionId = body.sessionId || crypto.randomUUID();
+    return plan;
+  }
   if (body.sessionId && body.chunkSize && body.totalSize && body.source) return normalize(body);
   if (body.sessionId && !body.source) {
     const current = await readSession(env, body.sessionId);
@@ -132,6 +162,8 @@ async function initSession(
 
 function normalize(body: Partial<UploadPlan>): UploadPlan {
   const source = body.source as SourceSpec;
+  if (source?.kind === "http" && source.url) assertSafeRemoteUrl(source.url);
+  if (body.sinkBaseUrl) assertSafeRemoteUrl(body.sinkBaseUrl);
   return {
     sessionId: body.sessionId ?? "",
     totalSize: body.totalSize ?? 0,
@@ -139,6 +171,7 @@ function normalize(body: Partial<UploadPlan>): UploadPlan {
     allowUnaligned: body.allowUnaligned === true,
     storage: body.storage ?? "auto",
     source,
+    sinkBaseUrl: body.sinkBaseUrl,
     interruptAfterChunks: body.interruptAfterChunks,
     retryLimit: body.retryLimit,
   };

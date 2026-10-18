@@ -88,6 +88,22 @@ describe("upload workflow", () => {
     expect(done.sha256).toBe(await sha256Hex(fillRange(seed, 0, total)));
   });
 
+  it("refuses to send bytes to YouTube", async () => {
+    const response = await api("/uploads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        totalSize: 256 * 1024,
+        chunkSize: 256 * 1024,
+        sinkBaseUrl: "https://upload.youtube.com/upload",
+        source: { kind: "http", url: "https://example.com/video.bin" },
+      }),
+    });
+    expect(response.status).toBe(400);
+    const body = await read(response);
+    expect(JSON.stringify(body)).toContain("YouTube");
+  });
+
   it("rejects an unaligned chunk unless the caller opts into the test size", async () => {
     const response = await api("/uploads", {
       method: "POST",

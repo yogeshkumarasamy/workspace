@@ -75,12 +75,36 @@ export interface UploadPlan {
   allowUnaligned: boolean;
   storage: "auto" | "memory" | "r2";
   source: SourceSpec;
+  /**
+   * When set, chunk PUTs go to this https origin instead of the in-worker sink.
+   * Used only when R2 is unavailable and the Actions runner hosts the mock sink.
+   */
+  sinkBaseUrl?: string;
   interruptAfterChunks?: number;
   retryLimit?: number;
 }
 
-export function sinkUrl(sessionId: string): string {
-  return `${INTERNAL_ORIGIN}/sink/sessions/${sessionId}`;
+const YOUTUBE_HOST = /(^|\.)youtube\.com$|(^|\.)youtu\.be$|(^|\.)googlevideo\.com$|(^|\.)youtube-nocookie\.com$/;
+
+/** Rejects non-https URLs and any host that would send bytes to YouTube. */
+export function assertSafeRemoteUrl(raw: string): void {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("remote URL is not valid");
+  }
+  if (url.protocol !== "https:") throw new Error("remote URL must be https");
+  if (YOUTUBE_HOST.test(url.hostname.toLowerCase())) throw new Error("refusing to contact YouTube");
+}
+
+export function sinkUrl(plan: Pick<UploadPlan, "sessionId" | "sinkBaseUrl">): string {
+  if (plan.sinkBaseUrl) {
+    assertSafeRemoteUrl(plan.sinkBaseUrl);
+    const base = plan.sinkBaseUrl.replace(/\/$/, "");
+    return `${base}/sessions/${plan.sessionId}`;
+  }
+  return `${INTERNAL_ORIGIN}/sink/sessions/${plan.sessionId}`;
 }
 
 export function sourceUrl(plan: UploadPlan): string {

@@ -35,7 +35,7 @@ export async function uploadExactChunk(
   endInclusive: number,
 ): Promise<{ received: number; status: number; skipped: boolean }> {
   const fetcher = makeFetcher(env, plan);
-  const sink = sinkUrl(plan.sessionId);
+  const sink = sinkUrl(plan);
   const status = await queryStatus(fetcher, sink, plan.totalSize);
   if (status.complete || status.received > endInclusive) {
     return { received: status.received, status: status.complete ? 200 : 308, skipped: true };
@@ -84,7 +84,7 @@ export class UploadWorkflow extends WorkflowEntrypoint<Env, UploadPlan> {
     const fetcher = makeFetcher(this.env, plan);
     let used = 0;
     const status = await step.do<{ received: number; complete: boolean }>("status", config, async () => {
-      return queryStatus(fetcher, sinkUrl(plan.sessionId), plan.totalSize);
+      return queryStatus(fetcher, sinkUrl(plan), plan.totalSize);
     });
     used += 1;
     let offset = status.received;

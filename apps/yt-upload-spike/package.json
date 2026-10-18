@@ -8,7 +8,7 @@
     "build": "node -e \"process.exit(0)\"",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
-    "test": "vitest run && node --test scripts/deploy-and-measure.test.mjs",
+    "test": "vitest run && node --test scripts/deploy-and-measure.test.mjs scripts/measure-plan.test.mjs scripts/range-fixture-server.test.mjs",
     "measure": "node scripts/deploy-and-measure.mjs",
     "client-transfer": "node scripts/client-transfer.mjs"
   },

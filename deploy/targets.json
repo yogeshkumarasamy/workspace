@@ -45,5 +45,16 @@
     "kind": "cf-worker",
     "d1": "ib",
     "contract": "@contracts/innings-break"
+  },
+  "yt-scheduler-api": {
+    "package": "@apps/yt-scheduler-api",
+    "kind": "cf-worker",
+    "d1": "yt",
+    "workerNames": {
+      "dev": "yt-scheduler-api-dev",
+      "staging": "yt-scheduler-api-staging",
+      "production": "yt-scheduler-api-prod",
+      "previewPrefix": "yt-scheduler-api-pr-"
+    }
   }
 }

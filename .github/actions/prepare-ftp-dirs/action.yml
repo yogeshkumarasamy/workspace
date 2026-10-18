@@ -1,0 +1,58 @@
+name: Upload one app folder
+description: >-
+  Create the dist folders in the exact server-dir, list that directory, and
+  fail if a subdirectory such as assets/ is missing. Then mirror the dist
+  into that directory only. lftp MKD uses the control connection.
+  FTP-Deploy-Action is not used: its first publish opens a data socket and
+  Hostinger resets it while creating assets/.
+
+inputs:
+  server:
+    description: FTP host (IP or hostname)
+    required: true
+  username:
+    description: FTP username
+    required: true
+  password:
+    description: FTP password
+    required: true
+  server-dir:
+    description: Exact remote app folder, the same path files are uploaded into. Must end with /portfolio/, /yt-scheduler/, or those plus pr-<N>/.
+    required: true
+  local-dir:
+    description: Built dist directory
+    required: true
+  pause-seconds:
+    description: Seconds to wait before opening FTP
+    required: false
+    default: "30"
+
+runs:
+  using: composite
+  steps:
+    - name: Pause before FTP
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: |
+        case "${{ inputs.pause-seconds }}" in
+          ''|*[!0-9]*) echo "::error::pause-seconds must be a number"; exit 1 ;;
+        esac
+        sleep "${{ inputs.pause-seconds }}"
+
+    - name: Install lftp
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      run: sudo apt-get update && sudo apt-get install -y lftp
+
+    - name: Create, verify, and mirror the app folder
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        FTP_HOST: ${{ inputs.server }}
+        FTP_USERNAME: ${{ inputs.username }}
+        FTP_PASSWORD: ${{ inputs.password }}
+        SERVER_DIR: ${{ inputs.server-dir }}
+        LOCAL_DIR: ${{ inputs.local-dir }}
+        FTP_TLS_CHECK_HOSTNAME: "no"
+        MODE: all
+      run: bash .github/scripts/ftp-upload-dir.sh

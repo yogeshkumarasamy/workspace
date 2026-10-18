@@ -1,0 +1,4 @@
+# Local `wrangler dev` only. Mock YouTube. Not a production secret.
+API_KEY=dev
+ENCRYPTION_KEY=BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=
+YOUTUBE_MODE=mock

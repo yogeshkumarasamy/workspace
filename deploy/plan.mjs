@@ -224,7 +224,18 @@ function assertPrNumber(value) {
   return prNumber;
 }
 
-function workerName(targetName, ctx) {
+function workerName(targetName, ctx, targets) {
+  const named = targets?.[targetName]?.workerNames;
+  if (named && typeof named === "object") {
+    if (ctx.preview) {
+      const prefix = typeof named.previewPrefix === "string" && named.previewPrefix
+        ? named.previewPrefix
+        : `${targetName}-pr-`;
+      return `${prefix}${ctx.prNumber}`;
+    }
+    const namedEnv = named[ctx.env];
+    if (typeof namedEnv === "string" && namedEnv) return namedEnv;
+  }
   if (ctx.preview) return `${targetName}-pr-${ctx.prNumber}`;
   if (ctx.env === "production") return targetName;
   return `${targetName}-${ctx.env}`;
@@ -237,12 +248,14 @@ function databaseName(database, ctx) {
   return `${database}-${ctx.env}`;
 }
 
-function devApiUrl(apiTarget, workersSubdomain) {
-  return `https://${apiTarget}-dev.${workersSubdomain}.workers.dev`;
+function devApiUrl(apiTarget, workersSubdomain, targets) {
+  const named = targets?.[apiTarget]?.workerNames?.dev;
+  const name = typeof named === "string" && named ? named : `${apiTarget}-dev`;
+  return `https://${name}.${workersSubdomain}.workers.dev`;
 }
 
-function previewOrEnvApiUrl(apiTarget, ctx) {
-  return `https://${workerName(apiTarget, ctx)}.${ctx.workersSubdomain}.workers.dev`;
+function previewOrEnvApiUrl(apiTarget, ctx, targets) {
+  return `https://${workerName(apiTarget, ctx, targets)}.${ctx.workersSubdomain}.workers.dev`;
 }
 
 function emptyReport(ctx, skip) {
@@ -426,23 +439,25 @@ function materialize(targets, selected, schema, ctx) {
     const apiSelected = target.api ? selected.has(target.api) : false;
     let apiBaseUrl = null;
     if (target.api) {
-      if (ctx.preview && !apiSelected) apiBaseUrl = devApiUrl(target.api, ctx.workersSubdomain);
-      else apiBaseUrl = previewOrEnvApiUrl(target.api, ctx);
+      if (ctx.preview && !apiSelected) apiBaseUrl = devApiUrl(target.api, ctx.workersSubdomain, targets);
+      else apiBaseUrl = previewOrEnvApiUrl(target.api, ctx, targets);
     }
     const entry = {
       target: name,
       kind: target.kind,
       env: ctx.env,
       base: meta.base,
+      // T13: a static app is /<slug>/ on dev, staging, and production.
+      // Previews stay /preview/<slug>/pr-<N>/ on the dev host. Never the docroot.
       path:
         target.kind === "static"
           ? ctx.preview
-            ? `/previews/${target.slug}/pr-${ctx.prNumber}/`
+            ? `/preview/${target.slug}/pr-${ctx.prNumber}/`
             : `/${target.slug}/`
-          : workerName(name, ctx),
+          : workerName(name, ctx, targets),
       apiBaseUrl,
       reason: meta.reason,
-      host: target.kind === "static" ? ctx.host : `${workerName(name, ctx)}.${ctx.workersSubdomain}.workers.dev`,
+      host: target.kind === "static" ? ctx.host : `${workerName(name, ctx, targets)}.${ctx.workersSubdomain}.workers.dev`,
       d1: target.kind === "cf-worker" ? databaseName(target.d1, ctx) : null,
       freshDb: flags.freshDb,
       schemaChanged: flags.schemaChanged,

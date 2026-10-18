@@ -1,0 +1,65 @@
+{
+  // SPIKE ONLY. Not a production deploy target.
+  // Intentionally absent from deploy/targets.json.
+  // No cron triggers: Workers Free allows 5 account-wide, and check-ib-wrangler expects 3.
+  // Do not set limits.cpu_ms. A higher cap would hide the Free-plan 10 ms question.
+  "name": "yt-upload-spike",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-22",
+  "workers_dev": true,
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "SPIKE": "yt-upload-spike",
+    "PLAN": "workers-free"
+  },
+  "workflows": [
+    {
+      "name": "yt-upload-spike",
+      "binding": "UPLOAD_WORKFLOW",
+      "class_name": "UploadWorkflow"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "SESSIONS",
+        "class_name": "UploadSession"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["UploadSession"]
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "yt-upload-spike"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "UPLOAD_QUEUE",
+        "queue": "yt-upload-spike-chunks"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "yt-upload-spike-chunks",
+        "max_batch_size": 1
+      }
+    ]
+  },
+  "services": [
+    {
+      "binding": "API",
+      "service": "yt-upload-spike"
+    }
+  ]
+}

@@ -143,7 +143,7 @@ test("root render keeps the plan rules and drops noindex only on production", ()
     assert.match(text, /RewriteCond %\{HTTP_HOST\} \^www\\\.\(yogeshkumarasamy\\\.in\)\$ \[NC\]/);
     assert.match(text, /RewriteRule \^ https:\/\/%1%\{REQUEST_URI\} \[R=301,L\]/);
     assert.match(text, /RewriteRule \^\(dev\|staging\)\(\/\|\$\) - \[R=404,L\]/);
-    assert.match(text, /RewriteRule \^previews\(\/\|\$\) - \[R=404,L\]/);
+    assert.match(text, /RewriteRule \^previews\?\(\/\|\$\) - \[R=404,L\]/);
     assert.match(text, /RewriteRule \^\$ \/portfolio\/ \[R=302,L\]/);
     assert.match(text, /keeps #hash routes/);
     assert.match(text, /Strict-Transport-Security "max-age=31536000"/);
@@ -312,6 +312,16 @@ test("apex hides nested dev and staging folders; previews 404 off the dev host",
     assert.equal(header(hidden, "X-Robots-Tag"), env === "production" ? undefined : "noindex, nofollow");
     assert.equal(String(header(hidden, "X-Robots-Tag") ?? "").includes("noarchive"), false);
   }
+  const singular = request("production", "/preview/portfolio/pr-9/index.html");
+  assert.equal(singular.status, 404);
+  const singularStaging = request("staging", "/preview/yt-scheduler/pr-9/");
+  assert.equal(singularStaging.status, 404);
+  const onDevPreview = site("dev");
+  onDevPreview.files["/preview/portfolio/pr-9/index.html"] = HTML;
+  const livePreview = request("dev", "/preview/portfolio/pr-9/index.html", { tree: onDevPreview });
+  assert.equal(livePreview.status, 200);
+  assert.equal(livePreview.body, HTML);
+
   const listing = request("dev", "/previews/");
   assert.equal(listing.status, 404);
   assert.equal(header(listing, "X-Robots-Tag"), "noindex, nofollow, noarchive");

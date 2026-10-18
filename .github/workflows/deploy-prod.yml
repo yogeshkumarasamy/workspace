@@ -5,17 +5,50 @@ on:
     branches:
       - release/production
 
+# Portfolio and yt-scheduler share one FTP account.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
+  publish-host-root:
+    needs: deploy-yt-scheduler
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Write host root
+        run: >-
+          node deploy/host-root.mjs --env production --out host-root
+          --api-origins https://yt-scheduler-api-prod.coderdevelopment.workers.dev
+
+      - name: Install lftp
+        run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Upload host root
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          FTP_ROOT: ${{ secrets.FTP_TARGET_DIR }}
+          LOCAL_DIR: host-root
+        run: bash .github/scripts/ftp-put-files.sh
+
   build-and-deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
-    # Never cancel an FTP upload that is already running.
-    # GitHub drops any older pending run and keeps only the newest one.
-    concurrency:
-      group: deploy-production-portfolio
-      cancel-in-progress: false
 
     steps:
       - name: ⬇️ Checkout code
@@ -33,18 +66,83 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🛠️ Build Vite app
+        env:
+          APP_BASE: /portfolio/
         run: pnpm --filter @apps/portfolio... build
 
-      # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
-      # so the hostname does not match. protocol ftps keeps encryption.
-      # security loose is this action's only switch that skips the name check.
-      - name: 📤 Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Upload portfolio
+        uses: ./.github/actions/prepare-ftp-dirs
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}
+          server-dir: ${{ secrets.FTP_TARGET_DIR }}/portfolio/
+          local-dir: apps/portfolio/dist
+
+  # environment: production is only on this job, so PR and dev workflows
+  # cannot read GOOGLE_CLIENT_SECRET or the production API key.
+  deploy-yt-scheduler:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Wrangler 4 requires Node >= 22. The portfolio job stays on Node 20.
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Deploy yt-scheduler API Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          YT_API_KEY: ${{ secrets.YT_API_KEY }}
+          YT_ENCRYPTION_KEY: ${{ secrets.YT_ENCRYPTION_KEY }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          UPLOAD_CHUNK_BYTES: ${{ vars.UPLOAD_CHUNK_BYTES }}
+        run: node deploy/yt-worker.mjs deploy --env production
+
+      - name: Build yt-scheduler UI
+        env:
+          APP_BASE: /yt-scheduler/
+        run: pnpm --filter @apps/yt-scheduler... build
+
+      - name: Write app-config and history rewrite
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_PICKER_API_KEY: ${{ secrets.GOOGLE_PICKER_API_KEY }}
+        run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env production
+
+      - name: Upload yt-scheduler
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_TARGET_DIR }}/yt-scheduler/
+          local-dir: apps/yt-scheduler/dist
+
+      - name: Check Worker health
+        run: |
+          body=$(curl --fail --show-error --retry 5 --retry-all-errors --retry-delay 3 \
+            https://yt-scheduler-api-prod.coderdevelopment.workers.dev/api/health)
+          node -e 'const b=JSON.parse(process.argv[1]); if(!b.ok||b.youtubeMode!=="live"){console.error("expected live health"); process.exit(1)} console.log(b.youtubeMode)' "$body"
+
+      - name: Check published app-config
+        run: |
+          body=$(curl --fail --show-error --retry 8 --retry-all-errors --retry-delay 5 \
+            https://yogeshkumarasamy.in/yt-scheduler/app-config.json)
+          node -e 'const b=JSON.parse(process.argv[1]); if(b.apiKey||b.youtubeMode!=="live"||!String(b.apiBaseUrl).includes("yt-scheduler-api-prod")){console.error("production app-config is wrong"); process.exit(1)} console.log(b.apiBaseUrl)' "$body"

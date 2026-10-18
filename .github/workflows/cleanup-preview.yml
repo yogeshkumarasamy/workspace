@@ -1,6 +1,7 @@
 name: Cleanup Preview
 
-# Pull request close removes portfolio/pr-<N> and nothing else.
+# Pull request close removes portfolio/pr-<N> and yt-scheduler/pr-<N>,
+# plus the preview Worker, its D1 database, and its upload Workflow.
 # Legacy branch-named folders stay until someone reviews the list from
 # Actions → Cleanup Preview → Run workflow, then runs it again with
 # confirm set to delete-legacy. That dispatch is the only purge; do not
@@ -35,10 +36,17 @@ jobs:
       cancel-in-progress: true
     steps:
       - name: Checkout cleanup script
+        id: checkout
         uses: actions/checkout@v4
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Wrangler 4 requires Node >= 22. This job deletes the preview Worker.
+          node-version: "22"
 
       - name: Delete portfolio/pr-<N>
         env:
@@ -50,6 +58,25 @@ jobs:
           PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash .github/scripts/preview-cleanup.sh delete-pr
+
+      - name: Delete yt-scheduler/pr-<N>
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_TLS_CHECK_HOSTNAME: "no"
+          PREVIEW_ROOT: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          APP_SLUG: yt-scheduler
+        run: bash .github/scripts/preview-cleanup.sh delete-pr
+
+      - name: Delete preview Worker, D1, and Workflow
+        if: always() && steps.checkout.outcome == 'success'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node deploy/yt-worker.mjs delete-preview --pr "$PR_NUMBER"
 
   # Listing is the default. Deletion runs only when confirm is delete-legacy,
   # after the list has been reviewed in a previous job summary. FTP rm -r of

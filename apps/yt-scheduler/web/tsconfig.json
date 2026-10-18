@@ -1,0 +1,5 @@
+{
+  "extends": "@repo/typescript-config/vite.json",
+  "compilerOptions": { "jsx": "react-jsx", "types": ["vite/client", "vite-plugin-pwa/react", "vite-plugin-pwa/client"] },
+  "include": ["src"]
+}

@@ -37,10 +37,12 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
+      # wrangler 4.151.1 refuses Node < 22 (engines ">=22.0.0").
+      # .nvmrc stays 20 for CI and the FTP deploys, which do not run wrangler.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: "22"
           cache: pnpm
 
       - name: Install dependencies

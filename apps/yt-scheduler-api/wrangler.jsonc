@@ -1,0 +1,122 @@
+{
+  // Workers Free only. Do not set limits.cpu_ms (a higher cap would hide the 10 ms question).
+  // No cron triggers: the account cap is 5 and check-ib-wrangler expects exactly 3,
+  // all of them on cron-hub. A job starts a Workflow, which sleeps until runAt.
+  "name": "yt-scheduler-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-17",
+  "rules": [{ "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "vars": {
+    "ENVIRONMENT": "dev",
+    "YOUTUBE_MODE": "mock",
+    "DRIVE_SCOPE": "file",
+    "UPLOAD_CHUNK_BYTES": "67108864",
+    "CORS_ORIGIN": "http://localhost:5173",
+    "APP_PUBLIC_URL": "http://localhost:5173/yt-scheduler/",
+    "DAILY_QUOTA_UNITS": "10000"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "yt-local",
+      "database_id": "00000000-0000-4000-8000-000000000001",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "workflows": [
+    {
+      "name": "yt-scheduler-upload-local",
+      "binding": "UPLOAD",
+      "class_name": "UploadWorkflow"
+    }
+  ],
+  "env": {
+    "dev": {
+      "name": "yt-scheduler-api-dev",
+      "vars": {
+        "ENVIRONMENT": "dev",
+        "YOUTUBE_MODE": "mock",
+        "DRIVE_SCOPE": "file",
+        "UPLOAD_CHUNK_BYTES": "67108864",
+        "CORS_ORIGIN": "https://dev.yogeshkumarasamy.in",
+        "APP_PUBLIC_URL": "https://dev.yogeshkumarasamy.in/yt-scheduler/",
+        "DAILY_QUOTA_UNITS": "10000"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "yt-dev",
+          "database_id": "00000000-0000-4000-8000-0000000000d1",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "workflows": [
+        {
+          "name": "yt-scheduler-upload-dev",
+          "binding": "UPLOAD",
+          "class_name": "UploadWorkflow"
+        }
+      ],
+      "triggers": { "crons": [] }
+    },
+    "staging": {
+      "name": "yt-scheduler-api-staging",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "YOUTUBE_MODE": "mock",
+        "DRIVE_SCOPE": "file",
+        "UPLOAD_CHUNK_BYTES": "67108864",
+        "CORS_ORIGIN": "https://staging.yogeshkumarasamy.in",
+        "APP_PUBLIC_URL": "https://staging.yogeshkumarasamy.in/yt-scheduler/",
+        "DAILY_QUOTA_UNITS": "10000"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "yt-staging",
+          "database_id": "00000000-0000-4000-8000-0000000000d2",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "workflows": [
+        {
+          "name": "yt-scheduler-upload-staging",
+          "binding": "UPLOAD",
+          "class_name": "UploadWorkflow"
+        }
+      ],
+      "triggers": { "crons": [] }
+    },
+    "production": {
+      "name": "yt-scheduler-api-prod",
+      "vars": {
+        "ENVIRONMENT": "production",
+        "YOUTUBE_MODE": "live",
+        "DRIVE_SCOPE": "file",
+        "UPLOAD_CHUNK_BYTES": "67108864",
+        "CORS_ORIGIN": "https://yogeshkumarasamy.in",
+        "APP_PUBLIC_URL": "https://yogeshkumarasamy.in/yt-scheduler/",
+        "DAILY_QUOTA_UNITS": "10000",
+        "GOOGLE_REDIRECT_URI": "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "yt-prod",
+          "database_id": "00000000-0000-4000-8000-0000000000d3",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "workflows": [
+        {
+          "name": "yt-scheduler-upload-prod",
+          "binding": "UPLOAD",
+          "class_name": "UploadWorkflow"
+        }
+      ],
+      "triggers": { "crons": [] }
+    }
+  }
+}

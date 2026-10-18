@@ -28,7 +28,7 @@ Hostinger Single has FTP only (no SSH, SFTP, rsync, or symlinks) and one FTP acc
 
 Caller (T12) inputs match [issue #73](https://github.com/yogeshkumarasamy/workspace/issues/73): `env`, `target`, `slug_dir`, `base`, `sha`, `artifact`, plus optional `api_base_url`.
 
-`base` here is the **site path** (`/portfolio/` or `/previews/portfolio/pr-42/`). In [deploy/plan.mjs](file:///workspace/deploy/plan.mjs) the field named `base` is a git SHA. T12 must pass `plan.path` as this `base`, and the path with slashes stripped as `slug_dir`. The script rejects a pair that is not `base === "/" + slug_dir + "/"`.
+`base` here is the **site path** (`/portfolio/` or `/preview/portfolio/pr-42/`). `/previews/...` is still accepted. In [deploy/plan.mjs](file:///workspace/deploy/plan.mjs) the field named `base` is a git SHA. T12 must pass `plan.path` as this `base`, and the path with slashes stripped as `slug_dir`. The script rejects a pair that is not `base === "/" + slug_dir + "/"`.
 
 ## Layout
 
@@ -42,7 +42,7 @@ Unchanged from plan §6.1. For one app:
     <sha>.partial/                  upload in progress; never linked by the router
 ```
 
-`slug_dir` is `<slug>` or `previews/<slug>/pr-<N>`. Preview deploys use the dev docroot and the dev host. The script refuses any other shape, including `..`.
+`slug_dir` is `<slug>` or `preview/<slug>/pr-<N>` (`previews/` is still accepted). Preview deploys use the dev docroot and the dev host. The script refuses any other shape, including `..`.
 
 ## Publish sequence
 

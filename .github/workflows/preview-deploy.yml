@@ -39,6 +39,8 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: 🛠️ Build Vite app
+        env:
+          APP_BASE: /preview/portfolio/pr-${{ github.event.pull_request.number }}/
         run: pnpm --filter @apps/portfolio... build
 
       - name: 🧼 Preview folder from PR number
@@ -51,61 +53,16 @@ jobs:
           case "$PR" in (''|*[!0-9]*) echo "::error::bad PR number"; exit 1;; esac
           echo "dir=pr-${PR}" >> "$GITHUB_OUTPUT"
 
-      # Hostinger drops the FTP data socket (ECONNRESET) on the first MKD of a new
-      # preview folder. ftp-deploy swallows that error as "first publish" and then
-      # fails instantly because the client is already closed. A fresh connection retries.
-      # Each retry starts only after the previous step's outcome is failure, so
-      # this job does not open three FTP sessions at once.
-      #
-      # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
-      # so the hostname does not match. protocol ftps keeps encryption.
-      # security loose is this action's only switch that skips the name check.
-      - name: 📤 Upload preview to Hostinger
-        id: ftp1
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      # server-dir is this PR's portfolio folder only. The action lists that
+      # folder and mirrors into it. It does not use FTP-Deploy-Action.
+      - name: Upload portfolio preview
+        uses: ./.github/actions/prepare-ftp-dirs
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          local-dir: apps/portfolio/dist/
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
-
-      - name: ⏳ Wait before FTP retry
-        if: steps.ftp1.outcome == 'failure'
-        run: sleep 20
-
-      - name: 📤 Upload preview to Hostinger (retry)
-        id: ftp2
-        if: steps.ftp1.outcome == 'failure'
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
-
-      - name: ⏳ Wait before second FTP retry
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        run: sleep 20
-
-      - name: 📤 Upload preview to Hostinger (retry 2)
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
+          local-dir: apps/portfolio/dist
 
       - name: 💬 Comment preview URL on PR
         uses: marocchino/sticky-pull-request-comment@v2
@@ -113,3 +70,96 @@ jobs:
           message: |
             🚀 Preview ready:  
             [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)
+
+  # After the portfolio upload so the two apps do not open FTP at the same time.
+  preview-yt-scheduler:
+    needs: preview-deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          # Wrangler 4 requires Node >= 22. The portfolio preview job stays on Node 20.
+          node-version: "22"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Preview folder from PR number
+        id: slug
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          case "$PR" in (''|*[!0-9]*) echo "::error::bad PR number"; exit 1;; esac
+          echo "dir=pr-${PR}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy preview Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          UPLOAD_CHUNK_BYTES: ${{ vars.UPLOAD_CHUNK_BYTES }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node deploy/yt-worker.mjs deploy --env preview --pr "$PR_NUMBER"
+
+      - name: Build yt-scheduler UI
+        env:
+          # PREVIEW_DOMAIN is https://dev.yogeshkumarasamy.in/preview (singular).
+          # The portfolio sticky URL is /preview/portfolio/pr-<N>/. APP_BASE has
+          # to be that same prefix or the built assets 404.
+          APP_BASE: /preview/yt-scheduler/pr-${{ github.event.pull_request.number }}/
+          VITE_PWA: "off"
+        run: pnpm --filter @apps/yt-scheduler... build
+
+      - name: Write app-config and history rewrite
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env preview --pr "$PR_NUMBER"
+
+      - name: Upload yt-scheduler preview
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/yt-scheduler/${{ steps.slug.outputs.dir }}/
+          local-dir: apps/yt-scheduler/dist
+
+      - name: Check preview Worker health
+        env:
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          body=$(curl --fail --show-error --retry 5 --retry-all-errors --retry-delay 3 \
+            "https://yt-scheduler-api-pr-${PR}.coderdevelopment.workers.dev/api/health")
+          node -e 'const b=JSON.parse(process.argv[1]); if(!b.ok||b.youtubeMode!=="mock"){console.error("expected mock health"); process.exit(1)} console.log(b.youtubeMode)' "$body"
+
+      - name: Check published app-config
+        env:
+          PR: ${{ github.event.pull_request.number }}
+          PAGE: ${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/pr-${{ github.event.pull_request.number }}/app-config.json
+        run: |
+          body=$(curl --fail --show-error --retry 8 --retry-all-errors --retry-delay 5 "$PAGE")
+          node -e 'const b=JSON.parse(process.argv[1]); const pr=process.argv[2]; if(b.youtubeMode!=="mock"||b.apiKey!=="preview-pr-"+pr||!String(b.apiBaseUrl).includes("yt-scheduler-api-pr-"+pr)){console.error("preview app-config does not match this PR"); process.exit(1)} console.log(b.apiBaseUrl)' "$body" "$PR"
+
+      - name: Comment preview URLs on PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            🚀 Preview ready:
+
+            Portfolio: [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)
+
+            YT Scheduler (mock YouTube): [${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/)
+
+            API: https://yt-scheduler-api-pr-${{ github.event.pull_request.number }}.coderdevelopment.workers.dev
+
+            Sign-in key: `preview-pr-${{ github.event.pull_request.number }}` (also written into app-config.json, so the page signs in on its own).

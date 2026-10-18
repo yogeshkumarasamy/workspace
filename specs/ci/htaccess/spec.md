@@ -13,7 +13,7 @@ Hostinger Single serves `dev.yogeshkumarasamy.in`, `staging.yogeshkumarasamy.in`
 - Editing `.github/workflows`, `package.json`, or `turbo.json`. Those files belong to the open CI tickets.
 - Moving portfolio canonical, Open Graph, and sitemap URLs (T13). This ticket only reserves the host-root redirect and the production sitemap line.
 - Switching the apex `/` redirect from 302 to 301. That happens in T13 after the redirect has been verified. The template stays `R=302`.
-- Choosing yt-scheduler option A or B (plan Q1). The PHP front-controller rule and the `Require all denied` block ship in the template and are rendered only when the caller passes `phpApi: true`.
+- Porting the yt-scheduler API. Option A (Workers) is chosen (issue #89), so the static UI does not use the PHP front controller. The PHP rule and the `Require all denied` block still ship in the template and are rendered only when the caller passes `phpApi: true`.
 
 ## Files
 
@@ -22,12 +22,12 @@ Hostinger Single serves `dev.yogeshkumarasamy.in`, `staging.yogeshkumarasamy.in`
 | [root.htaccess.tpl](file:///workspace/deploy/htaccess/root.htaccess.tpl) | `<docroot>/.htaccess` on each host |
 | [router.htaccess.tpl](file:///workspace/deploy/htaccess/router.htaccess.tpl) | `<slug>/.htaccess`, replaced on every switch |
 | [release.htaccess.tpl](file:///workspace/deploy/htaccess/release.htaccess.tpl) | `<slug>/releases/<sha>/.htaccess`, immutable inside the release |
-| [previews.htaccess.tpl](file:///workspace/deploy/htaccess/previews.htaccess.tpl) | `previews/.htaccess` on the dev host only |
+| [previews.htaccess.tpl](file:///workspace/deploy/htaccess/previews.htaccess.tpl) | `preview/.htaccess` on the dev host (`previews/.htaccess` is still accepted) |
 | [robots.production.txt](file:///workspace/deploy/htaccess/robots.production.txt) | `robots.txt` on `yogeshkumarasamy.in` |
 | [robots.dev.txt](file:///workspace/deploy/htaccess/robots.dev.txt) | `robots.txt` on `dev.yogeshkumarasamy.in` |
 | [robots.staging.txt](file:///workspace/deploy/htaccess/robots.staging.txt) | `robots.txt` on `staging.yogeshkumarasamy.in` |
 
-[deploy/htaccess.mjs](file:///workspace/deploy/htaccess.mjs) reads those files. Slugs are `portfolio`, `ib-console`, `ib`, and `yt-scheduler`. A base is `/<slug>/` or `/previews/<slug>/pr-<N>/` with a trailing slash and a positive PR number.
+[deploy/htaccess.mjs](file:///workspace/deploy/htaccess.mjs) reads those files. Slugs are `portfolio`, `ib-console`, `ib`, and `yt-scheduler`. A base is `/<slug>/` or `/preview/<slug>/pr-<N>/` with a trailing slash and a positive PR number. `/previews/...` is still accepted.
 
 ## What CI substitutes
 
@@ -45,17 +45,17 @@ Host differences inside the one root template:
 
 - `X-Robots-Tag: noindex, nofollow` is kept for dev and staging and omitted for production.
 - `/dev/` and `/staging/` return 404 only when the host is `yogeshkumarasamy.in`, so the nested subdomain folders cannot leak through the apex.
-- `/previews` returns 404 unless the host is `dev.yogeshkumarasamy.in`.
+- `/preview` and `/previews` return 404 unless the host is `dev.yogeshkumarasamy.in`. The live prefix is `/preview/`.
 - `www.yogeshkumarasamy.in` redirects to the apex. The same rule is a no-op on the other hosts.
 - HTTP redirects to HTTPS with 301 unless `X-Forwarded-Proto` is already `https`.
 - `/` redirects to `/portfolio/` with 302. The `Location` has no fragment, so the browser keeps a `#hash` route across the redirect.
-- Worker origins are supplied by the deploy job. Dev uses `ib-console-api-dev.<acct>.workers.dev` and `ib-customer-api-dev.<acct>.workers.dev`. Staging uses the `-staging` names. Production uses the unsuffixed Worker names. `yt-scheduler-api` is not added until Q1 is decided. Same-origin option B is already covered by `'self'`.
+- Worker origins are supplied by the deploy job. Dev uses `ib-console-api-dev.<acct>.workers.dev` and `ib-customer-api-dev.<acct>.workers.dev`. Staging uses the `-staging` names. Production uses the unsuffixed Worker names. `yt-scheduler-api-<env>` is the option A origin the UI will call; the CSP allow-list for that host is added when the Worker deploy lands. Same-origin `'self'` stays in the policy.
 
 A sha is 7–40 hex characters. The previous sha must differ from the release sha. An API origin that is not `https`, or that contains a quote, space, or semicolon, is rejected.
 
 ## robots.txt
 
-Production allows `/` and publishes `Sitemap: https://yogeshkumarasamy.in/portfolio/sitemap.xml`. Dev and staging are `Disallow: /`. Previews add `X-Robots-Tag: noindex, nofollow, noarchive` and `Cache-Control: no-store` from `previews/.htaccess`, including on a 404 for `/previews/` and `/previews/<app>/`.
+Production allows `/` and publishes `Sitemap: https://yogeshkumarasamy.in/portfolio/sitemap.xml`. Dev and staging are `Disallow: /`. The portfolio app does not ship `robots.txt`; the host file is uploaded with the docroot `index.html` and `.htaccess`. Previews add `X-Robots-Tag: noindex, nofollow, noarchive` and `Cache-Control: no-store` from `preview/.htaccess` (the same template still applies at `previews/.htaccess`), including on a 404 for `/preview/` and `/preview/<app>/`.
 
 ## Request behaviour the rules encode
 

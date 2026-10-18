@@ -1,0 +1,73 @@
+name: Y0 Workers Free CPU measure
+
+# Manual only. Do not add other event triggers.
+# Deploys throwaway worker yt-spike-gha-throwaway, measures one ~500 MiB
+# upload, writes Workers Logs cpuTimeMs, then deletes the Worker, Workflow,
+# and R2 bucket. Does not call YouTube.
+on:
+  workflow_dispatch:
+    inputs:
+      bytes:
+        description: Fixture size in bytes. 500 MiB is 524288000. Larger values are rejected.
+        required: false
+        default: "524288000"
+        type: string
+      start_chunk_mib:
+        description: First chunk size in MiB. Smaller sizes run only when this one's per-chunk cpuTimeMs is 10 or higher.
+        required: false
+        default: "64"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: yt-spike-gha-throwaway
+  cancel-in-progress: false
+
+jobs:
+  measure:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # wrangler 4.151.1 refuses Node < 22 (engines ">=22.0.0").
+      # .nvmrc stays 20 for CI and the FTP deploys, which do not run wrangler.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Measure Workers Free CPU
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          MEASURE_OUT: ${{ runner.temp }}/yt-upload-spike-measure.json
+        run: node scripts/deploy-and-measure.mjs --sweep --bytes "${{ inputs.bytes }}" --chunk-mib "${{ inputs.start_chunk_mib }}"
+        working-directory: apps/yt-upload-spike
+
+      - name: Tear down throwaway Worker
+        if: always()
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/deploy-and-measure.mjs --teardown-only
+        working-directory: apps/yt-upload-spike
+
+      - name: Upload measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: yt-upload-spike-cpu
+          path: ${{ runner.temp }}/yt-upload-spike-measure.json
+          if-no-files-found: warn

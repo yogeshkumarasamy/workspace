@@ -212,6 +212,15 @@ test("validation accepts a preview slug and rejects a planner git SHA passed as 
       base: "/previews/ib-console/pr-42/",
     }),
   );
+  validateDeploy(
+    baseSettings({
+      ...templates,
+      env: "preview",
+      target: "portfolio",
+      slugDir: "preview/portfolio/pr-42",
+      base: "/preview/portfolio/pr-42/",
+    }),
+  );
   assert.throws(
     () => validateDeploy(baseSettings({ ...templates, base: "abc1234" })),
     /site path/,

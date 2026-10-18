@@ -33,7 +33,7 @@ export function personJsonLd(profile: Profile): Record<string, unknown> {
     name: profile.name,
     jobTitle,
     worksFor,
-    url: "https://yogeshkumarasamy.in",
+    url: "https://yogeshkumarasamy.in/portfolio/",
     email: profile.email ? `mailto:${profile.email}` : undefined,
     sameAs,
   };

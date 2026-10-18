@@ -1,0 +1,17 @@
+# Render Blueprint (free web service). Use a free Neon Postgres for DATABASE_URL.
+services:
+  - type: web
+    name: yt-scheduler
+    runtime: docker
+    plan: free
+    dockerfilePath: apps/yt-scheduler/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - { key: GOOGLE_CLIENT_ID, sync: false }
+      - { key: GOOGLE_CLIENT_SECRET, sync: false }
+      - { key: GOOGLE_REDIRECT_URI, sync: false }
+      - { key: DATABASE_URL, sync: false }
+      - { key: API_KEY, generateValue: true }
+      - { key: ENCRYPTION_KEY, sync: false }
+      - { key: APP_URL, sync: false }

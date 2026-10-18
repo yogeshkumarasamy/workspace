@@ -44,7 +44,7 @@ export const PUBLIC_ORIGINS = {
 
 const SHA_RE = /^[0-9a-f]{7,40}$/;
 const APP_SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const PREVIEW_SLUG_RE = /^previews\/[a-z0-9]+(?:-[a-z0-9]+)*\/pr-[1-9][0-9]*$/;
+const PREVIEW_SLUG_RE = /^previews?\/[a-z0-9]+(?:-[a-z0-9]+)*\/pr-[1-9][0-9]*$/;
 const LOCAL_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 const ENVS = new Set(["preview", "dev", "staging", "production"]);
 
@@ -169,7 +169,7 @@ export function validateDeploy(settings) {
   if (!ENVS.has(settings.env)) errors.push("env must be preview, dev, staging, or production");
   if (!APP_SLUG_RE.test(settings.target ?? "")) errors.push("target must be a slug");
   if (!(APP_SLUG_RE.test(settings.slugDir ?? "") || PREVIEW_SLUG_RE.test(settings.slugDir ?? ""))) {
-    errors.push("slug_dir must be <slug> or previews/<slug>/pr-<N>");
+    errors.push("slug_dir must be <slug> or preview/<slug>/pr-<N>");
   }
   if (settings.slugDir && settings.base !== `/${settings.slugDir}/`) {
     errors.push(`base must be /${settings.slugDir}/ (the site path, not the planner git SHA)`);

@@ -1,6 +1,7 @@
 /**
  * Fail the build when index.html or the web manifest still contains a
- * domain-root URL (`/icons/…`, `scope: "/"`) outside the configured APP_BASE.
+ * domain-root URL (`/icons/…`, `scope: "/"`) outside the configured APP_BASE,
+ * or when dist/privacy and dist/terms are missing or still need JavaScript.
  * CI runs this after `vite build` (see package.json and ci.yml).
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -35,6 +36,26 @@ export function checkDist(distDir, base) {
   return problems;
 }
 
+/** privacy/index.html and terms/index.html must be crawlable HTML under the app base. */
+export function checkLegalPages(distDir, base) {
+  const problems = [];
+  for (const name of ["privacy", "terms"]) {
+    const rel = `${name}/index.html`;
+    const file = path.join(distDir, rel);
+    if (!existsSync(file)) {
+      problems.push({ file: rel, urls: ["missing"] });
+      continue;
+    }
+    const html = readFileSync(file, "utf8");
+    const urls = [];
+    if (html.includes("__")) urls.push("unresolved placeholder");
+    if (/<script[\s>]/i.test(html)) urls.push("script tag");
+    urls.push(...urlsOutsideBase(html, base));
+    if (urls.length) problems.push({ file: rel, urls: [...new Set(urls)] });
+  }
+  return problems;
+}
+
 function isDirectRun() {
   const entry = process.argv[1];
   return Boolean(entry) && import.meta.url === pathToFileURL(entry).href;
@@ -43,9 +64,9 @@ function isDirectRun() {
 if (isDirectRun()) {
   const base = normalizeAppBase();
   const distDir = path.resolve(process.argv[2] ?? path.join(path.dirname(new URL(import.meta.url).pathname), "../dist"));
-  const problems = checkDist(distDir, base);
+  const problems = [...checkDist(distDir, base), ...checkLegalPages(distDir, base)];
   if (problems.length) {
-    console.error(`/-rooted URLs outside ${base}:`);
+    console.error(`static build check failed for ${base}:`);
     for (const problem of problems) {
       console.error(`  ${problem.file}`);
       for (const url of problem.urls) console.error(`    ${url}`);

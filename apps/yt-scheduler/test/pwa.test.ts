@@ -10,7 +10,10 @@ describe("PWA static serving", () => {
   it("serves sw.js no-cache, manifest with manifest mime, SPA fallback, never for /api", async () => {
     const dir = mkdtempSync(join(tmpdir(), "web-"));
     mkdirSync(join(dir, "assets")); mkdirSync(join(dir, "icons"));
+    mkdirSync(join(dir, "privacy")); mkdirSync(join(dir, "terms"));
     writeFileSync(join(dir, "index.html"), "<html>spa</html>");
+    writeFileSync(join(dir, "privacy", "index.html"), "<!doctype html><title>Privacy</title><p>privacy-body</p>");
+    writeFileSync(join(dir, "terms", "index.html"), "<!doctype html><title>Terms</title><p>terms-body</p>");
     writeFileSync(join(dir, "sw.js"), "self.x=1");
     writeFileSync(join(dir, "manifest.webmanifest"), "{}");
     writeFileSync(join(dir, "assets", "a.js"), "1");
@@ -39,6 +42,20 @@ describe("PWA static serving", () => {
     expect((await app.request("/yt-scheduler/icons/icon-192.png")).status).toBe(200);
     expect((await app.request("/yt-scheduler/sw.js")).headers.get("service-worker-allowed")).toBe("/yt-scheduler/");
     expect(await (await app.request("/yt-scheduler/jobs")).text()).toContain("spa");
+    for (const [url, marker] of [
+      ["/privacy", "privacy-body"],
+      ["/privacy/", "privacy-body"],
+      ["/yt-scheduler/privacy", "privacy-body"],
+      ["/yt-scheduler/privacy/", "privacy-body"],
+      ["/terms", "terms-body"],
+      ["/yt-scheduler/terms/", "terms-body"],
+    ] as const) {
+      const page = await app.request(url);
+      expect(page.status, url).toBe(200);
+      expect(page.headers.get("content-type"), url).toMatch(/text\/html/);
+      expect(await page.text(), url).toContain(marker);
+      expect(await (await app.request(url)).text(), url).not.toContain(">spa<");
+    }
     expect((await app.request("/yt-scheduler/")).headers.get("cache-control")).toBe("no-cache");
     expect((await app.request("/yt-scheduler/api/nope")).status).toBe(401);
     expect((await app.request("/yt-scheduler/api/config")).status).toBe(200);

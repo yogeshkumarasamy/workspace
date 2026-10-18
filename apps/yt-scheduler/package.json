@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json && tsc -p web/tsconfig.json && vite build && node scripts/check-base-urls.mjs",
+    "build": "tsc -p tsconfig.json && tsc -p web/tsconfig.json && vite build && node scripts/stamp-legal-pages.mjs && node scripts/check-base-urls.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
     "start": "node dist-server/index.js",
     "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\" \"test/**/*.tsx\" \"web/src/**/*.{ts,tsx}\" \"vite.config.ts\"",

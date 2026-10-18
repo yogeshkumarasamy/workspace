@@ -32,6 +32,11 @@ Before the first render the client fetches `app-config.json` with `cache: "no-st
 
 `deploy/targets.json` registers the UI as `yt-scheduler` and the Worker as `yt-scheduler-api` (`d1: "yt"`, `workerNames.production` = `yt-scheduler-api-prod`). Deploy writes `app-config.json` and a flat `.htaccess` into the dist. Mock environments may include `apiKey` so the page can sign in. Production does not.
 
+### Privacy policy and terms
+`web/public/privacy/index.html` and `web/public/terms/index.html` are plain HTML. The build stamps `__APP_BASE__` and `__CONTACT__` (`scripts/stamp-legal-pages.mjs`, after `vite build`) so the pages work at `/yt-scheduler/` and at `/preview/yt-scheduler/pr-<N>/`. They do not load JavaScript. The flat `.htaccess` (`deploy/yt-static.mjs`) rewrites `privacy` and `terms`, with or without a trailing slash, to that file before the SPA fallback. The service worker navigation fallback ignores those paths. The signed-out home page (`web/index.html` plus the React sign-in screen) says what the app does and links to both pages.
+
+Contact is `web/src/legal-contact.json`. `contactEmail` stays empty unless a real address is set there. The GitHub profile is the public contact until then. The pages name the OAuth scopes `youtube`, `youtube.upload`, `drive.file`, `openid`, and `email`, the encrypted refresh token in Cloudflare D1, job metadata, revocation at `https://myaccount.google.com/permissions`, the Google API Services User Data Policy (including Limited Use), the YouTube Terms of Service, and the Google Privacy Policy.
+
 ## Workers API (free plan)
 `apps/yt-scheduler-api` is the hosted API: Hono on a Worker, D1 instead of Postgres, WebCrypto for the refresh token. Dev, staging, and PR previews set `YOUTUBE_MODE=mock` and do not call Google. Production sets `YOUTUBE_MODE=live` and publishes publicly (a future `publishAt` is sent as private, which YouTube flips to public at that time). The default Drive scope is `drive.file`. `drive.readonly` is an explicit `DRIVE_SCOPE=readonly` opt-in.
 

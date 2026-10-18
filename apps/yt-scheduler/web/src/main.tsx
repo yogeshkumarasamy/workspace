@@ -4,6 +4,8 @@ import "./index.css";
 import { initApi } from "./api";
 import { App } from "./App";
 
+document.getElementById("about")?.remove();
+
 void initApi().then(() => {
   ReactDOM.createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);
 });

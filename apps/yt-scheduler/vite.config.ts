@@ -2,6 +2,7 @@ import { defineConfig, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { normalizeAppBase } from "./base-path.mjs";
+import { legalPagesPlugin } from "./legal-pages.mjs";
 
 const base = normalizeAppBase();
 const pwaEnabled = process.env.VITE_PWA !== "off";
@@ -27,6 +28,7 @@ export default defineConfig({
   root: "web",
   plugins: [
     react(),
+    legalPagesPlugin(base),
     VitePWA({
       disable: !pwaEnabled,
       registerType: "prompt",
@@ -49,7 +51,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"],
         navigateFallback: `${base}index.html`,
-        navigateFallbackDenylist: [/\/api\//, /\/oauth\//],
+        navigateFallbackDenylist: [/\/api\//, /\/oauth\//, /\/privacy(?:\/|$)/, /\/terms(?:\/|$)/],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {

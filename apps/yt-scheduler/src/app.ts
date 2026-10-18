@@ -51,6 +51,12 @@ function withoutUiPrefix(requestPath: string): string {
   return requestPath;
 }
 
+/** /privacy and /terms (optional trailing slash) map to their static index.html. */
+function legalIndex(rel: string): string | null {
+  const match = rel.match(/^\/(privacy|terms)\/?$/);
+  return match ? `/${match[1]}/index.html` : null;
+}
+
 const safeEq = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
 
 export function createApp(d: AppDeps) {
@@ -274,17 +280,19 @@ export function createApp(d: AppDeps) {
       const path = c.req.path;
       if (path.startsWith("/api") || path.startsWith("/oauth") || path.startsWith(`${UI_PREFIX}/api`) || path.startsWith(`${UI_PREFIX}/oauth`)) return next();
       const rel = withoutUiPrefix(decodeURIComponent(path));
-      if (!rel || rel === "/" || rel.endsWith("/")) return next();
-      const filePath = resolve(root, `.${rel.startsWith("/") ? rel : `/${rel}`}`);
+      const index = legalIndex(rel);
+      const target = index ?? rel;
+      if (!target || target === "/" || (!index && target.endsWith("/"))) return next();
+      const filePath = resolve(root, `.${target.startsWith("/") ? target : `/${target}`}`);
       if (!filePath.startsWith(root + sep) || filePath === root) return next();
       try {
         const body = await readFile(filePath);
         const name = filePath.split(sep).pop() ?? "";
         const cache = name === "app-config.json" || name === ".release.json" ? "no-cache, no-store, must-revalidate" : "public, max-age=3600";
-        const type = name.endsWith(".json") ? "application/json" : "application/octet-stream";
+        const type = name.endsWith(".html") ? "text/html; charset=utf-8" : name.endsWith(".json") ? "application/json" : "application/octet-stream";
         return new Response(body, { headers: { "content-type": type, "cache-control": cache } });
       } catch {
-        return next();
+        return index ? c.notFound() : next();
       }
     });
   }
@@ -292,6 +300,7 @@ export function createApp(d: AppDeps) {
   if (spa) app.get("*", (c) => {
     const path = c.req.path;
     if (path.startsWith("/api") || path.startsWith("/oauth") || path.startsWith(`${UI_PREFIX}/api`) || path.startsWith(`${UI_PREFIX}/oauth`)) return c.notFound();
+    if (legalIndex(withoutUiPrefix(path))) return c.notFound();
     if (/\.(js|mjs|css|map|json|webmanifest|png|jpe?g|gif|svg|webp|avif|ico|woff2?|txt|xml)$/i.test(path)) return c.notFound();
     c.header("cache-control", "no-cache");
     return c.html(spa);

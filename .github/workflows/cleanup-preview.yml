@@ -6,9 +6,17 @@ on:
       - main
     types: [closed]
 
+# Same group as preview-deploy.yml so closing the PR cancels an in-flight preview.
+concurrency:
+  group: preview-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   cleanup-preview:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
 
     steps:
       - name: 🧼 Preview folder from PR number

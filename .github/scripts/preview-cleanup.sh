@@ -463,13 +463,20 @@ cmd_delete_pr() {
     echo "::error::refusing to delete '$dir'" >&2
     exit 1
   fi
-  target=$(ftp_join "$PREVIEW_ROOT" "portfolio/${dir}")
+  # APP_SLUG defaults to portfolio so the existing call stays the same.
+  # Callers pass yt-scheduler to remove that app's preview folder.
+  local slug="${APP_SLUG:-portfolio}"
+  if [[ ! "$slug" =~ ^[a-z0-9-]+$ ]]; then
+    echo "::error::bad app slug" >&2
+    exit 1
+  fi
+  target=$(ftp_join "$PREVIEW_ROOT" "${slug}/${dir}")
   # cls first so a TLS or login failure cannot exit 0 before rm.
   lftp_run \
     "cls -1B --classify $(lftp_quote "$PREVIEW_ROOT")" \
     "rm -r -f $(lftp_quote "$target")" \
     >/dev/null
-  echo "removed portfolio/${dir}"
+  echo "removed ${slug}/${dir}"
 }
 
 cmd_purge() {

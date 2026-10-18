@@ -3,7 +3,7 @@ export const DEFAULT_APP_BASE = "/yt-scheduler/";
 
 /**
  * Vite `base` / PWA scope. Absolute path with a trailing slash.
- * Previews set APP_BASE to `/previews/yt-scheduler/pr-<N>/`.
+ * Previews set APP_BASE to `/preview/yt-scheduler/pr-<N>/`.
  */
 export function normalizeAppBase(value = process.env.APP_BASE) {
   const raw = (value ?? "").trim() || DEFAULT_APP_BASE;

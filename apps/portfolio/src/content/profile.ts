@@ -43,7 +43,7 @@ export const profile: Profile = {
     "TypeScript",
     "ESLint",
     "Prettier",
-    "pnpm",
+    "Package managers",
   ],
   skillGroups: [
     { label: "Monorepos", skills: ["Moonrepo", "Turborepo"] },

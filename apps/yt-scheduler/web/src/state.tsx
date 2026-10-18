@@ -1,0 +1,49 @@
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { api } from "./api";
+import type { Channel, Job, Quota } from "./api";
+
+interface Ctx {
+  channels: Channel[]; channelId: string; setChannelId(id: string): void; channel: Channel | null;
+  jobs: Job[]; quota: Quota | null; audited: boolean; tz: string;
+  refresh(): Promise<void>; toast(msg: string, kind?: "ok" | "err"): void;
+  channelById(id: string): Channel | undefined;
+}
+const C = createContext<Ctx>(null as unknown as Ctx);
+export const useApp = () => useContext(C);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [channelId, setChannelIdS] = useState(localStorage.getItem("ytch") ?? "");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [quota, setQuota] = useState<Quota | null>(null);
+  const [audited, setAudited] = useState(true);
+  const [toasts, setToasts] = useState<{ id: number; msg: string; kind: string }[]>([]);
+
+  const setChannelId = (id: string) => { localStorage.setItem("ytch", id); setChannelIdS(id); };
+  const refresh = useCallback(async () => {
+    const [chs, js, q, cfg] = await Promise.all([
+      api<Channel[]>("/channels"), api<Job[]>(`/jobs?limit=1000${channelId ? `&channel=${channelId}` : ""}`), api<Quota>("/quota"), api<{ audited: boolean }>("/config"),
+    ]);
+    setChannels(chs); setJobs(js); setQuota(q); setAudited(cfg.audited);
+  }, [channelId]);
+  useEffect(() => { refresh().catch(() => {}); const t = setInterval(() => refresh().catch(() => {}), 15000); return () => clearInterval(t); }, [refresh]);
+
+  const toast = (msg: string, kind: "ok" | "err" = "ok") => {
+    const id = Date.now() + Math.random();
+    setToasts((t) => [...t, { id, msg, kind }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 5000);
+  };
+  const channel = channels.find((c) => c.id === channelId) ?? null;
+  const tz = channel?.slots.timezone ?? channels[0]?.slots.timezone ?? "Asia/Kolkata";
+  return (
+    <C.Provider value={{ channels, channelId, setChannelId, channel, jobs, quota, audited, tz, refresh, toast, channelById: (id) => channels.find((c) => c.id === id) }}>
+      {children}
+      <div className="fixed bottom-4 right-4 z-[60] space-y-2">
+        {toasts.map((t) => (
+          <div key={t.id} className={`max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg ${t.kind === "err" ? "border-red-500/50 bg-red-950 text-red-200" : "border-emerald-500/40 bg-emerald-950 text-emerald-100"}`}>{t.msg}</div>
+        ))}
+      </div>
+    </C.Provider>
+  );
+}

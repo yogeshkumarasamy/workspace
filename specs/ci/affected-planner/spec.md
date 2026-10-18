@@ -11,7 +11,7 @@ Nothing in the repo declares which UI talks to which API, or where a target depl
 
 - Wiring the planner into `.github/workflows` (T06, T12, T14).
 - Editing `turbo.json` or the root `package.json` (T05, PR #97, owns those).
-- Adding the `yt-scheduler-api` target. That waits on the E5 A/B decision. The UI entry still names `api: "yt-scheduler-api"` so a UI-only change can point at the dev API.
+- Adding the `yt-scheduler-api` target. Option A (Workers) is chosen for that API (issue #89); the Worker package lands in a later ticket. The UI entry still names `api: "yt-scheduler-api"` so a UI-only change can point at the dev API.
 - Stacked pull requests. Previews exist only when the PR base is `main`.
 - Running `oasdiff` or applying D1 migrations. The planner only flags `contractCheck` and `freshDb`.
 
@@ -39,7 +39,7 @@ Base selection:
 - Pull request into any other branch: no preview. The plan is empty.
 - Push to `main`, `release/staging`, or `release/production`: each target uses the sha of the last **successful** Deployment named `<env>/<target>`.
 
-`yt-scheduler-api` is not a manifest target, so it is never deployed by this planner.
+`yt-scheduler-api` is not a manifest target, so it is never deployed by this planner. The static `yt-scheduler` UI is. Its screens read `apiBaseUrl` from `app-config.json` at runtime.
 
 ## Decision matrix (previews on dev)
 

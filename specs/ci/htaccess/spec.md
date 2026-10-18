@@ -13,7 +13,7 @@ Hostinger Single serves `dev.yogeshkumarasamy.in`, `staging.yogeshkumarasamy.in`
 - Editing `.github/workflows`, `package.json`, or `turbo.json`. Those files belong to the open CI tickets.
 - Moving portfolio canonical, Open Graph, and sitemap URLs (T13). This ticket only reserves the host-root redirect and the production sitemap line.
 - Switching the apex `/` redirect from 302 to 301. That happens in T13 after the redirect has been verified. The template stays `R=302`.
-- Choosing yt-scheduler option A or B (plan Q1). The PHP front-controller rule and the `Require all denied` block ship in the template and are rendered only when the caller passes `phpApi: true`.
+- Porting the yt-scheduler API. Option A (Workers) is chosen (issue #89), so the static UI does not use the PHP front controller. The PHP rule and the `Require all denied` block still ship in the template and are rendered only when the caller passes `phpApi: true`.
 
 ## Files
 
@@ -49,7 +49,7 @@ Host differences inside the one root template:
 - `www.yogeshkumarasamy.in` redirects to the apex. The same rule is a no-op on the other hosts.
 - HTTP redirects to HTTPS with 301 unless `X-Forwarded-Proto` is already `https`.
 - `/` redirects to `/portfolio/` with 302. The `Location` has no fragment, so the browser keeps a `#hash` route across the redirect.
-- Worker origins are supplied by the deploy job. Dev uses `ib-console-api-dev.<acct>.workers.dev` and `ib-customer-api-dev.<acct>.workers.dev`. Staging uses the `-staging` names. Production uses the unsuffixed Worker names. `yt-scheduler-api` is not added until Q1 is decided. Same-origin option B is already covered by `'self'`.
+- Worker origins are supplied by the deploy job. Dev uses `ib-console-api-dev.<acct>.workers.dev` and `ib-customer-api-dev.<acct>.workers.dev`. Staging uses the `-staging` names. Production uses the unsuffixed Worker names. `yt-scheduler-api-<env>` is the option A origin the UI will call; the CSP allow-list for that host is added when the Worker deploy lands. Same-origin `'self'` stays in the policy.
 
 A sha is 7–40 hex characters. The previous sha must differ from the release sha. An API origin that is not `https`, or that contains a quote, space, or semicolon, is rejected.
 

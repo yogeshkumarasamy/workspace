@@ -1,0 +1,18 @@
+# Tasks
+- [x] T1 zod job + sidecar schema, JSON Schema export. Verified by `pnpm --filter @apps/yt-scheduler test`
+- [x] T2 per-channel auto-slotting (tz/DST aware). Verified by tests
+- [x] T3 quota accounting + Pacific reset, backoff/error classification. Verified by tests
+- [x] T4 AES-GCM refresh-token encryption. Verified by tests
+- [x] T5 Memory + Postgres store, idempotency per channel. Memory store tested; Postgres SQL not yet run against a live DB (see README)
+- [x] T6 Worker: stream upload, thumbnail, playlist resolve/create, retries. Verified with a mocked client
+- [x] T7 Drive folder import. Verified with a mocked lister
+- [x] T8 HTTP API + multi-channel OAuth + UI. API key and bulk paths tested
+- [x] T9 Docker/compose/Render + README. `pnpm turbo run build lint test`
+- [x] T12 Management endpoints (edit, reschedule incl. videos.update, bulk, Drive list/preview, playlists). Verified by `test/manage.test.ts`
+- [x] T13 shadcn primitives in `@repo/ui/shadcn`
+- [x] T14 React SPA: login, channel switcher, calendar month/week drag-to-reschedule, jobs table + bulk, job form with Drive picker + preview + slot suggestion, detail/log, Drive import dry-run, channel settings. Verified by `pnpm build` and a headless Chrome run of the demo server (screenshots in `apps/yt-scheduler/docs/screenshots`)
+- [x] T15 PWA: manifest, icons, SW precache, NetworkOnly for API/OAuth, update toast, offline screen, install button and iOS hint, server headers. Verified by `test/pwa.test.ts` and headless Chrome (`Page.getInstallabilityErrors` returned `[]` in a persistent profile, SW active, no `/api` entries in the cache, offline reload shows the offline screen)
+- [x] T16 Mobile pass: agenda + Move to…, full-screen dialogs, card job list, compact header. Verified with iPhone 13 viewport screenshots
+- [x] T17 Static UI split (issue #89): Vite `APP_BASE` default `/yt-scheduler/`, build in `dist/`, history `basename`, PWA scope under that base, `VITE_PWA=off` for previews, API base from `app-config.json` or `new URL("api/", document.baseURI)`, CI grep of `index.html` and the manifest. Verified by `pnpm turbo run lint typecheck test build --filter=@apps/yt-scheduler --filter=@apps/portfolio --filter=@repo/ui` (10/10) and a preview build `APP_BASE=/previews/yt-scheduler/pr-23/ VITE_PWA=off` (no `sw.js`, base URLs under that path).
+- [ ] T10 First real upload to @meeyazhpirai after the Google Cloud setup (manual)
+- [ ] T11 Submit the YouTube API audit form (manual)

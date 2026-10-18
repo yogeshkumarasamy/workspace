@@ -1,8 +1,10 @@
-name: Prepare FTP directories
+name: Upload one app folder
 description: >-
-  Wait, then create the remote folders for one app upload so
-  FTP-Deploy-Action only stores files. Hostinger resets the data socket or
-  stalls the control socket when that action creates a new folder.
+  Create the dist folders in the exact server-dir, list that directory, and
+  fail if a subdirectory such as assets/ is missing. Then mirror the dist
+  into that directory only. lftp MKD uses the control connection.
+  FTP-Deploy-Action is not used: its first publish opens a data socket and
+  Hostinger resets it while creating assets/.
 
 inputs:
   server:
@@ -14,14 +16,11 @@ inputs:
   password:
     description: FTP password
     required: true
-  server-root:
-    description: Parent directory. Host docroot, or the /preview directory for a preview.
-    required: true
-  rel-dir:
-    description: App folder under the parent, <slug> or <slug>/pr-<N>
+  server-dir:
+    description: Exact remote app folder, the same path files are uploaded into. Must end with /portfolio/, /yt-scheduler/, or those plus pr-<N>/.
     required: true
   local-dir:
-    description: Built dist directory whose subfolders are created remotely
+    description: Built dist directory
     required: true
   pause-seconds:
     description: Seconds to wait before opening FTP
@@ -45,15 +44,15 @@ runs:
       working-directory: ${{ github.workspace }}
       run: sudo apt-get update && sudo apt-get install -y lftp
 
-    - name: Create remote app directories
+    - name: Create, verify, and mirror the app folder
       shell: bash
       working-directory: ${{ github.workspace }}
       env:
         FTP_HOST: ${{ inputs.server }}
         FTP_USERNAME: ${{ inputs.username }}
         FTP_PASSWORD: ${{ inputs.password }}
-        FTP_ROOT: ${{ inputs.server-root }}
-        REL_DIR: ${{ inputs.rel-dir }}
+        SERVER_DIR: ${{ inputs.server-dir }}
         LOCAL_DIR: ${{ inputs.local-dir }}
         FTP_TLS_CHECK_HOSTNAME: "no"
-      run: bash .github/scripts/preview-mkdir.sh
+        MODE: all
+      run: bash .github/scripts/ftp-upload-dir.sh

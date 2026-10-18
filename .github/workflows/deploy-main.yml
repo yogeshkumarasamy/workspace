@@ -12,9 +12,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Docroot files are not part of either app upload. FTP-Deploy-Action only
-  # sees /portfolio/ or /yt-scheduler/, so its state file cannot delete the
-  # other app or /preview/.
+  # Docroot files are not part of either app upload. Each upload mirrors
+  # into /portfolio/ or /yt-scheduler/ only, so it cannot delete the other
+  # app, /preview/, or the docroot.
   publish-host-root:
     needs: deploy-yt-scheduler
     runs-on: ubuntu-latest
@@ -87,70 +87,16 @@ jobs:
           APP_BASE: /portfolio/
         run: pnpm --filter @apps/portfolio... build
 
-      # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
-      # so the hostname does not match. protocol ftps keeps encryption.
-      # security loose is this action's only switch that skips the name check.
-      # server-dir is the portfolio folder. dangerous-clean-slate stays off,
-      # and the state file lives in that folder.
-      - name: Prepare portfolio FTP folders
+      # server-dir is the portfolio folder. The action creates that folder,
+      # lists it, and mirrors only into it.
+      - name: Upload portfolio
         uses: ./.github/actions/prepare-ftp-dirs
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-root: ${{ secrets.FTP_TARGET_DIR_DEV }}
-          rel-dir: portfolio
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/portfolio/
           local-dir: apps/portfolio/dist
-
-      - name: 📤 Deploy via FTP
-        id: ftp1
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/portfolio/
-
-      - name: Wait before FTP retry
-        if: steps.ftp1.outcome == 'failure'
-        run: sleep 20
-
-      - name: 📤 Deploy via FTP (retry)
-        id: ftp2
-        if: steps.ftp1.outcome == 'failure'
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/portfolio/
-
-      - name: Wait before second FTP retry
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        run: sleep 20
-
-      - name: 📤 Deploy via FTP (retry 2)
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/portfolio/
 
   deploy-yt-scheduler:
     needs: build-and-deploy
@@ -192,65 +138,14 @@ jobs:
           YT_API_KEY: ${{ secrets.YT_API_KEY }}
         run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env dev
 
-      - name: Prepare yt-scheduler FTP folders
+      - name: Upload yt-scheduler
         uses: ./.github/actions/prepare-ftp-dirs
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-root: ${{ secrets.FTP_TARGET_DIR_DEV }}
-          rel-dir: yt-scheduler
+          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/yt-scheduler/
           local-dir: apps/yt-scheduler/dist
-
-      - name: Upload yt-scheduler to Hostinger
-        id: ftp1
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/yt-scheduler/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/yt-scheduler/
-
-      - name: Wait before FTP retry
-        if: steps.ftp1.outcome == 'failure'
-        run: sleep 20
-
-      - name: Upload yt-scheduler to Hostinger (retry)
-        id: ftp2
-        if: steps.ftp1.outcome == 'failure'
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/yt-scheduler/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/yt-scheduler/
-
-      - name: Wait before second FTP retry
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        run: sleep 20
-
-      - name: Upload yt-scheduler to Hostinger (retry 2)
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/yt-scheduler/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV }}/yt-scheduler/
 
       - name: Check Worker health
         run: |

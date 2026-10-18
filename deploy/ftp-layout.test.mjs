@@ -31,11 +31,10 @@ test("each app upload stays inside its own folder", () => {
     for (const dir of dirs) {
       assert.match(dir, /\/(portfolio|yt-scheduler)\/$/, `${label} ${dir}`);
     }
-    assert.match(text, /rel-dir: portfolio\n/);
-    assert.match(text, /rel-dir: yt-scheduler\n/);
     assert.match(text, /uses: \.\/\.github\/actions\/prepare-ftp-dirs/);
-    assert.match(text, /dangerous-clean-slate: false/);
     assert.match(text, /bash \.github\/scripts\/ftp-put-files\.sh/);
+    assert.equal(text.includes("SamKirkland/FTP-Deploy-Action"), false, label);
+    assert.equal(text.includes("server-root:"), false, label);
   }
 
   const previewDirs = serverDirs(preview);
@@ -43,12 +42,35 @@ test("each app upload stays inside its own folder", () => {
     assert.match(dir, /FTP_TARGET_DIR_DEV_PREVIEW \}\}\/(portfolio|yt-scheduler)\//, dir);
     assert.match(dir, /steps\.slug\.outputs\.dir/);
   }
-  assert.match(preview, /rel-dir: portfolio\/\$\{\{ steps\.slug\.outputs\.dir \}\}/);
-  assert.match(preview, /rel-dir: yt-scheduler\/\$\{\{ steps\.slug\.outputs\.dir \}\}/);
   assert.match(preview, /APP_BASE: \/preview\/portfolio\/pr-/);
   assert.match(preview, /APP_BASE: \/preview\/yt-scheduler\/pr-/);
-  assert.equal(preview.includes("Pause before yt-scheduler FTP"), false);
+  assert.equal(preview.includes("SamKirkland/FTP-Deploy-Action"), false);
   assert.equal(preview.includes("preview-mkdir.sh"), false);
+});
+
+test("the upload action lists the server-dir before it mirrors", () => {
+  const action = readFileSync(path.join(root, ".github/actions/prepare-ftp-dirs/action.yml"), "utf8");
+  const script = readFileSync(path.join(root, ".github/scripts/ftp-upload-dir.sh"), "utf8");
+  assert.match(action, /server-dir:/);
+  assert.match(action, /ftp-upload-dir\.sh/);
+  assert.equal(action.includes("server-root"), false);
+  assert.match(script, /cls -1F --basename/);
+  assert.match(script, /mirror -R --delete/);
+  assert.match(script, /inside-server-dir-only/);
+  assert.match(script, /listing is missing/);
+});
+
+test("the dev path probe is dispatch-only and stays under _ftp-probe", () => {
+  const text = workflow("ftp-path-probe.yml");
+  assert.match(text, /workflow_dispatch:/);
+  assert.equal(text.includes("push:"), false);
+  assert.equal(text.includes("pull_request:"), false);
+  assert.match(text, /_ftp-probe\/portfolio/);
+  assert.match(text, /_ftp-probe\/yt-scheduler/);
+  assert.match(text, /FTP_TARGET_DIR_DEV/);
+  assert.equal(text.includes("FTP_TARGET_DIR_DEV }}/portfolio/"), false);
+  assert.equal(text.includes("SamKirkland/FTP-Deploy-Action"), false);
+  assert.match(text, /MODE: remove/);
 });
 
 test("legacy cleanup is dispatch-only and names the confirmation phrase", () => {

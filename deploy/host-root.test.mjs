@@ -123,28 +123,88 @@ function runBash(script, env) {
   });
 }
 
-test("ftp mkdir dry-run creates the app folder and dist subfolders", () => {
+test("ftp upload dry-run targets the exact app folder and refuses the docroot", () => {
   const local = mkdtempSync(path.join(tmpdir(), "dist-"));
-  spawnSync("mkdir", ["-p", path.join(local, "assets")]);
-  const release = runBash(".github/scripts/preview-mkdir.sh", {
+  spawnSync("mkdir", ["-p", path.join(local, "assets"), path.join(local, "fonts")]);
+  const release = runBash(".github/scripts/ftp-upload-dir.sh", {
     DRY_RUN: "1",
-    FTP_ROOT: "/public_html",
-    REL_DIR: "yt-scheduler",
+    SERVER_DIR: "/public_html/yt-scheduler/",
     LOCAL_DIR: local,
   });
   assert.equal(release.status, 0, release.stderr);
-  assert.match(release.stdout, /\/public_html\/yt-scheduler\n/);
-  assert.match(release.stdout, /\/public_html\/yt-scheduler\/assets\n/);
+  assert.match(release.stdout, /^server-dir: \/public_html\/yt-scheduler$/m);
+  assert.match(release.stdout, /^mkdir: \/public_html\/yt-scheduler\/assets$/m);
+  assert.match(release.stdout, /^mkdir: \/public_html\/yt-scheduler\/fonts$/m);
+  assert.match(release.stdout, /^require-dir: assets\/$/m);
+  assert.match(release.stdout, /^delete: inside-server-dir-only$/m);
 
-  const preview = runBash(".github/scripts/preview-mkdir.sh", {
+  const preview = runBash(".github/scripts/ftp-upload-dir.sh", {
     DRY_RUN: "1",
-    PREVIEW_ROOT: "preview",
-    REL_DIR: "portfolio/pr-12",
+    SERVER_DIR: "/public_html/preview/portfolio/pr-12/",
     LOCAL_DIR: local,
   });
   assert.equal(preview.status, 0, preview.stderr);
-  assert.match(preview.stdout, /^preview\/portfolio\/pr-12$/m);
-  assert.match(preview.stdout, /^preview\/portfolio\/pr-12\/assets$/m);
+  assert.match(preview.stdout, /^server-dir: \/public_html\/preview\/portfolio\/pr-12$/m);
+  assert.match(preview.stdout, /^require-dir: fonts\/$/m);
+
+  const docroot = runBash(".github/scripts/ftp-upload-dir.sh", {
+    DRY_RUN: "1",
+    SERVER_DIR: "/public_html",
+    LOCAL_DIR: local,
+  });
+  assert.equal(docroot.status, 1);
+  assert.match(docroot.stderr, /refusing server-dir that is not an app folder/);
+
+  const traversal = runBash(".github/scripts/ftp-upload-dir.sh", {
+    DRY_RUN: "1",
+    SERVER_DIR: "/public_html/portfolio/../yt-scheduler",
+    LOCAL_DIR: local,
+  });
+  assert.equal(traversal.status, 1);
+  assert.match(traversal.stderr, /refusing server-dir/);
+});
+
+test("ftp upload listing check fails when assets/ is missing", () => {
+  const local = mkdtempSync(path.join(tmpdir(), "dist-"));
+  spawnSync("mkdir", ["-p", path.join(local, "assets"), path.join(local, "fonts")]);
+  const fixture = path.join(local, "listing.txt");
+  spawnSync("bash", ["-c", `printf 'fonts/\\nindex.html\\n' > ${JSON.stringify(fixture)}`]);
+  const missing = runBash(".github/scripts/ftp-upload-dir.sh", {
+    MODE: "check",
+    SERVER_DIR: "/public_html/_ftp-probe/portfolio",
+    LOCAL_DIR: local,
+    LISTING_FIXTURE: fixture,
+  });
+  assert.equal(missing.status, 1);
+  assert.match(missing.stderr, /missing assets\//);
+
+  spawnSync("bash", ["-c", `printf 'assets/\\nfonts/\\nindex.html\\n' > ${JSON.stringify(fixture)}`]);
+  const ok = runBash(".github/scripts/ftp-upload-dir.sh", {
+    MODE: "check",
+    SERVER_DIR: "/public_html/_ftp-probe/portfolio",
+    LOCAL_DIR: local,
+    LISTING_FIXTURE: fixture,
+  });
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /Required directories are present: assets\/ fonts\//);
+});
+
+test("ftp probe removal refuses an app folder", () => {
+  const refused = runBash(".github/scripts/ftp-upload-dir.sh", {
+    DRY_RUN: "1",
+    MODE: "remove",
+    SERVER_DIR: "/public_html/portfolio",
+  });
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /_ftp-probe/);
+
+  const ok = runBash(".github/scripts/ftp-upload-dir.sh", {
+    DRY_RUN: "1",
+    MODE: "remove",
+    SERVER_DIR: "/public_html/_ftp-probe",
+  });
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /^remove: inside-probe-only$/m);
 });
 
 test("ftp put dry-run uploads only the host files", () => {

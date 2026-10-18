@@ -79,7 +79,7 @@ The cron hub has no D1 binding. It calls the console API over a service binding 
 | `production` | `ib-console-api-prod` |
 | `preview` | `ib-console-api-preview` (template only; previews are not given a cron) |
 
-No yt-scheduler binding. Option A vs option B is still open (issue #88). If option A is chosen later, yt is another service binding on this same cron, not a new cron trigger.
+No yt-scheduler binding yet. Option A (Workers) is chosen (issue #89). When the API is ported, yt is another service binding on this same cron, not a new cron trigger.
 
 ### 3.1 What the every-minute trigger runs
 
@@ -159,5 +159,5 @@ Local secrets later, never committed: `.dev.vars` (gitignored) for `CRON_SHARED_
 * API routes, Hono, schema, and migrations (T18, issue #84).
 * Deploy jobs (T19, issue #85). This change does not edit `.github/workflows`.
 * Per-PR Workers and `ib-pr-<N>` (T20, issue #86).
-* yt-scheduler on the cron hub (issue #88, option A is undecided).
+* yt-scheduler on the cron hub (option A is chosen in issue #89; the binding is a later ticket).
 * A constitution amendment. That waits until this spec is approved.

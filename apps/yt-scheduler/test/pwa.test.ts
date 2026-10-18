@@ -15,6 +15,7 @@ describe("PWA static serving", () => {
     writeFileSync(join(dir, "manifest.webmanifest"), "{}");
     writeFileSync(join(dir, "assets", "a.js"), "1");
     writeFileSync(join(dir, "icons", "icon-192.png"), "png");
+    writeFileSync(join(dir, "app-config.json"), JSON.stringify({ apiBaseUrl: "https://yt-scheduler-api-dev.acct.workers.dev" }));
     const { store } = await seeded();
     const app = createApp({
       store, apiKey: "k", encryptionKey: Buffer.alloc(32).toString("base64"), dailyQuota: 10000, audited: false, defaultSlots: DEFAULT_RULES, webDir: dir,
@@ -34,5 +35,20 @@ describe("PWA static serving", () => {
     expect(await (await app.request("/calendar/deep")).text()).toContain("spa");
     expect((await app.request("/")).headers.get("cache-control")).toBe("no-cache");
     expect((await app.request("/api/nope")).status).toBe(401);
+    expect((await app.request("/yt-scheduler/assets/a.js")).headers.get("cache-control")).toMatch(/immutable/);
+    expect((await app.request("/yt-scheduler/icons/icon-192.png")).status).toBe(200);
+    expect((await app.request("/yt-scheduler/sw.js")).headers.get("service-worker-allowed")).toBe("/yt-scheduler/");
+    expect(await (await app.request("/yt-scheduler/jobs")).text()).toContain("spa");
+    expect((await app.request("/yt-scheduler/")).headers.get("cache-control")).toBe("no-cache");
+    expect((await app.request("/yt-scheduler/api/nope")).status).toBe(401);
+    expect((await app.request("/yt-scheduler/api/config")).status).toBe(200);
+    expect((await app.request("/yt-scheduler/oauth/start")).status).toBe(401);
+    expect((await app.request("/oauth/start")).status).toBe(401);
+    const cfg = await app.request("/yt-scheduler/app-config.json");
+    expect(cfg.status).toBe(200);
+    expect(cfg.headers.get("content-type")).toMatch(/json/);
+    expect(cfg.headers.get("cache-control")).toMatch(/no-store/);
+    expect(await cfg.json()).toEqual({ apiBaseUrl: "https://yt-scheduler-api-dev.acct.workers.dev" });
+    expect((await app.request("/yt-scheduler/missing.json")).status).toBe(404);
   });
 });

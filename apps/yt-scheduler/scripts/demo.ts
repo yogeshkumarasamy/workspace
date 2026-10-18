@@ -37,7 +37,7 @@ const app = createApp({
   store, apiKey: "demo", encryptionKey: Buffer.alloc(32).toString("base64"), dailyQuota: 10000, audited: false, defaultSlots: DEFAULT_RULES,
   oauth: { authUrl: () => "/?connected=demo", exchange: async () => ({ refreshToken: "", email: null, channels: [] }) },
   worker: { store, apiFor: () => mock, dailyQuota: 10000 },
-  webDir: fileURLToPath(new URL("../dist/web", import.meta.url)),
+  webDir: fileURLToPath(new URL("../dist", import.meta.url)),
   driveFor: () => ({
     list: async (id) => id === "15UNBqiwoEZoNzJ8hl-U2HccZgFftwWsV" || id === "root"
       ? [1, 2, 3].map((n) => ({ id: `epfolder${n}xxxxx`, name: `Ep 0${n} - ${titles[n]}`, mimeType: FOLDER }))

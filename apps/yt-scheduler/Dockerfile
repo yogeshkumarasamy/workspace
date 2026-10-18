@@ -14,5 +14,6 @@ ENV NODE_ENV=production PORT=8787
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /out/package.json ./package.json
 COPY --from=build /repo/apps/yt-scheduler/dist ./dist
+COPY --from=build /repo/apps/yt-scheduler/dist-server ./dist-server
 EXPOSE 8787
-CMD ["node", "dist/index.js"]
+CMD ["node", "dist-server/index.js"]

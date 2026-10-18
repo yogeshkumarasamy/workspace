@@ -24,7 +24,7 @@ const worker: WorkerDeps = {
   apiFor: (ch) => googleYouTubeApi(authFor(ch.refreshTokenEnc), driveAuth(ch)),
 };
 
-const webDir = fileURLToPath(new URL("./web", import.meta.url));
+const webDir = fileURLToPath(new URL("../dist", import.meta.url));
 const app = createApp({
   webDir,
   store, apiKey: cfg.apiKey, encryptionKey: cfg.encryptionKey, dailyQuota: cfg.dailyQuota, audited: cfg.audited, defaultSlots: cfg.defaultSlots, worker,

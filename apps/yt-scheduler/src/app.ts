@@ -38,8 +38,17 @@ export interface AppDeps {
   oauth: OAuthPort;
   worker: WorkerDeps;
   driveFor(channel: Channel): DriveLister;
-  /** Built SPA directory (dist/web). Falls back to the minimal HTML page when absent. */
+  /** Built SPA directory (dist/). Falls back to the minimal HTML page when absent. */
   webDir?: string;
+}
+
+/** Local Node server also mounts the static UI here so a default APP_BASE build works. */
+const UI_PREFIX = "/yt-scheduler";
+
+function withoutUiPrefix(requestPath: string): string {
+  if (requestPath === UI_PREFIX) return "/";
+  if (requestPath.startsWith(`${UI_PREFIX}/`)) return requestPath.slice(UI_PREFIX.length);
+  return requestPath;
 }
 
 const safeEq = (a: string, b: string) => { const x = Buffer.from(a), y = Buffer.from(b); return x.length === y.length && timingSafeEqual(x, y); };
@@ -62,31 +71,44 @@ export function createApp(d: AppDeps) {
   });
 
   const spa = d.webDir && existsSync(join(d.webDir, "index.html")) ? readFileSync(join(d.webDir, "index.html"), "utf8") : null;
-  app.get("/", (c) => { c.header("cache-control", "no-cache"); return spa ? c.html(spa) : c.html(renderUi({ audited: d.audited })); });
-  app.get("/api/health", (c) => c.json({ ok: true }));
+  const staticRoot = spa ? resolve(d.webDir!) : null;
+  const uiHome = spa ? `${UI_PREFIX}/` : "/";
+  const shell = (c: Context) => { c.header("cache-control", "no-cache"); return spa ? c.html(spa) : c.html(renderUi({ audited: d.audited })); };
+  app.get("/", shell);
+  const health = (c: Context) => c.json({ ok: true });
   /** Public, non-secret flags for the SPA (shown before login). */
-  app.get("/api/config", (c) => c.json({ audited: d.audited, dailyQuota: d.dailyQuota }));
-  if (spa) {
-    const root = resolve(d.webDir!);
-    const MIME: Record<string, string> = { ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".html": "text/html; charset=utf-8", ".ico": "image/x-icon" };
+  const config = (c: Context) => c.json({ audited: d.audited, dailyQuota: d.dailyQuota });
+  app.get("/api/health", health);
+  app.get("/api/config", config);
+  app.get(`${UI_PREFIX}/api/health`, health);
+  app.get(`${UI_PREFIX}/api/config`, config);
+  if (spa && staticRoot) {
+    const root = staticRoot;
+    const MIME: Record<string, string> = { ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml", ".webmanifest": "application/manifest+json", ".html": "text/html; charset=utf-8", ".ico": "image/x-icon", ".json": "application/json" };
     const file = (cache: (p: string) => string) => async (c: Context) => {
-      const p = resolve(root, "." + decodeURIComponent(c.req.path));
+      const rel = withoutUiPrefix(decodeURIComponent(c.req.path));
+      const p = resolve(root, `.${rel.startsWith("/") ? rel : `/${rel}`}`);
       if (!p.startsWith(root + sep)) return c.notFound();
       try {
         const body = await readFile(p);
         const headers: Record<string, string> = { "content-type": MIME[extname(p)] ?? "application/octet-stream", "cache-control": cache(p) };
-        if (p.endsWith("/sw.js")) headers["service-worker-allowed"] = "/";
+        if (p.endsWith(`${sep}sw.js`)) headers["service-worker-allowed"] = c.req.path.startsWith(UI_PREFIX) ? `${UI_PREFIX}/` : "/";
         return new Response(body, { headers });
       } catch { return c.notFound(); }
     };
     // Service worker + manifest must always revalidate so updates roll out; hashed assets are immutable.
     const noCache = () => "no-cache, no-store, must-revalidate";
-    app.get("/sw.js", file(noCache));
-    app.get("/registerSW.js", file(noCache));
-    app.get("/manifest.webmanifest", file(noCache));
-    app.get("/assets/*", file(() => "public, max-age=31536000, immutable"));
-    app.get("/workbox-*", file(() => "public, max-age=31536000, immutable"));
-    app.get("/icons/*", file(() => "public, max-age=604800"));
+    const immutable = () => "public, max-age=31536000, immutable";
+    for (const prefix of ["", UI_PREFIX]) {
+      app.get(`${prefix}/sw.js`, file(noCache));
+      app.get(`${prefix}/registerSW.js`, file(noCache));
+      app.get(`${prefix}/manifest.webmanifest`, file(noCache));
+      app.get(`${prefix}/assets/*`, file(immutable));
+      app.get(`${prefix}/workbox-*`, file(immutable));
+      app.get(`${prefix}/icons/*`, file(() => "public, max-age=604800"));
+    }
+    app.get(UI_PREFIX, (c) => c.redirect(`${UI_PREFIX}/`));
+    app.get(`${UI_PREFIX}/`, shell);
   }
 
 
@@ -108,7 +130,7 @@ export function createApp(d: AppDeps) {
     const tokenEnc = encrypt(r.refreshToken, d.encryptionKey);
     if (st.purpose === "drive" && st.channelId) {
       await d.store.updateChannel(st.channelId, { driveRefreshTokenEnc: tokenEnc });
-      return c.redirect("/?connected=drive");
+      return c.redirect(`${uiHome}?connected=drive`);
     }
     if (!r.channels.length) return c.text("This Google account has no YouTube channel. Pick the brand account for the channel on the consent screen.", 400);
     for (const ch of r.channels) {
@@ -120,8 +142,10 @@ export function createApp(d: AppDeps) {
         slots: existing?.slots ?? d.defaultSlots,
       });
     }
-    return c.redirect(`/?connected=${encodeURIComponent(r.channels.map((x) => x.title).join(", "))}`);
+    return c.redirect(`${uiHome}?connected=${encodeURIComponent(r.channels.map((x) => x.title).join(", "))}`);
   });
+  app.get(`${UI_PREFIX}/oauth/start`, (c) => app.request(c.req.raw.url.replace(`${UI_PREFIX}/oauth/`, "/oauth/"), c.req.raw));
+  app.get(`${UI_PREFIX}/oauth/callback`, (c) => app.request(c.req.raw.url.replace(`${UI_PREFIX}/oauth/`, "/oauth/"), c.req.raw));
 
   const api = new Hono();
   api.use("*", requireKey);
@@ -241,8 +265,37 @@ export function createApp(d: AppDeps) {
   api.post("/tick", async (c) => c.json({ processed: await tick(d.worker) }));
 
   app.route("/api", api);
-  // SPA client-side routes
-  if (spa) app.get("*", (c) => { if (c.req.path.startsWith("/api") || c.req.path.startsWith("/oauth")) return c.notFound(); c.header("cache-control", "no-cache"); return c.html(spa); });
+  app.route(`${UI_PREFIX}/api`, api);
+  // Real files in the static build (app-config.json is written at deploy, next to index.html).
+  if (spa && staticRoot) {
+    const root = staticRoot;
+    app.use("*", async (c, next) => {
+      if (c.req.method !== "GET" && c.req.method !== "HEAD") return next();
+      const path = c.req.path;
+      if (path.startsWith("/api") || path.startsWith("/oauth") || path.startsWith(`${UI_PREFIX}/api`) || path.startsWith(`${UI_PREFIX}/oauth`)) return next();
+      const rel = withoutUiPrefix(decodeURIComponent(path));
+      if (!rel || rel === "/" || rel.endsWith("/")) return next();
+      const filePath = resolve(root, `.${rel.startsWith("/") ? rel : `/${rel}`}`);
+      if (!filePath.startsWith(root + sep) || filePath === root) return next();
+      try {
+        const body = await readFile(filePath);
+        const name = filePath.split(sep).pop() ?? "";
+        const cache = name === "app-config.json" || name === ".release.json" ? "no-cache, no-store, must-revalidate" : "public, max-age=3600";
+        const type = name.endsWith(".json") ? "application/json" : "application/octet-stream";
+        return new Response(body, { headers: { "content-type": type, "cache-control": cache } });
+      } catch {
+        return next();
+      }
+    });
+  }
+  // SPA client-side routes (history). Missing static files and API/OAuth stay real 404s.
+  if (spa) app.get("*", (c) => {
+    const path = c.req.path;
+    if (path.startsWith("/api") || path.startsWith("/oauth") || path.startsWith(`${UI_PREFIX}/api`) || path.startsWith(`${UI_PREFIX}/oauth`)) return c.notFound();
+    if (/\.(js|mjs|css|map|json|webmanifest|png|jpe?g|gif|svg|webp|avif|ico|woff2?|txt|xml)$/i.test(path)) return c.notFound();
+    c.header("cache-control", "no-cache");
+    return c.html(spa);
+  });
   return app;
 }
 

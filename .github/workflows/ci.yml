@@ -45,6 +45,29 @@ jobs:
           TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
         run: pnpm turbo run lint typecheck test build --affected
 
+      - name: Reject /-rooted URLs in the yt-scheduler build
+        run: |
+          dist=apps/yt-scheduler/dist
+          if [ ! -f "$dist/index.html" ]; then
+            echo "yt-scheduler was not built; nothing to grep"
+            exit 0
+          fi
+          node apps/yt-scheduler/scripts/check-base-urls.mjs "$dist"
+          base="${APP_BASE:-/yt-scheduler/}"
+          case "$base" in
+            */) ;;
+            *) base="$base/" ;;
+          esac
+          suffix="${base#/}"
+          shopt -s nullglob
+          files=("$dist/index.html" "$dist"/*.webmanifest)
+          shopt -u nullglob
+          echo "grep index.html and manifest for /-rooted URLs outside /${suffix}"
+          if grep -nP "(href|src)=\"/(?!${suffix})|\"(?:src|scope|start_url|id)\"[[:space:]]*:[[:space:]]*\"/(?!${suffix})" "${files[@]}"; then
+            echo "found a /-rooted URL outside ${base}" >&2
+            exit 1
+          fi
+
       - name: Upload affected dists and plan
         uses: actions/upload-artifact@v4
         with:

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Alert, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Progress, Select, Tabs } from "@repo/ui/shadcn";
 import { api, connectUrl, getKey, setKey } from "./api";
 import type { Job } from "./api";
+import { routerBasename } from "./runtime";
 import { AppProvider, useApp } from "./state";
 import { fmt } from "./time";
 import { Calendar } from "./components/Calendar";
@@ -12,7 +14,12 @@ import { ImportPanel } from "./components/ImportPanel";
 import { Settings } from "./components/Settings";
 import { InstallButton, OfflineScreen, UpdateToast, useOnline } from "./pwa";
 
-type Page = "calendar" | "jobs" | "import" | "settings";
+const PAGES = ["calendar", "jobs", "import", "settings"] as const;
+type Page = (typeof PAGES)[number];
+
+function isPage(value: string): value is Page {
+  return (PAGES as readonly string[]).includes(value);
+}
 
 export function App() {
   const [authed, setAuthed] = useState<boolean | "offline" | null>(null);
@@ -22,13 +29,13 @@ export function App() {
   };
   useEffect(check, []);
   return (
-    <>
+    <BrowserRouter basename={routerBasename(import.meta.env.BASE_URL)}>
       <UpdateToast />
       {authed === "offline" ? <OfflineScreen onRetry={check} />
         : authed === null ? null
         : !authed ? <Login onOk={() => setAuthed(true)} />
         : <AppProvider><Shell onLogout={() => { setKey(""); setAuthed(false); }} /></AppProvider>}
-    </>
+    </BrowserRouter>
   );
 }
 
@@ -52,12 +59,15 @@ function Login({ onOk }: { onOk(): void }) {
 
 function Shell({ onLogout }: { onLogout(): void }) {
   const { channels, channelId, setChannelId, quota, audited, jobs, tz } = useApp();
-  const [page, setPage] = useState<Page>((location.hash.slice(1) as Page) || "calendar");
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [params] = useSearchParams();
+  const segment = pathname.replace(/^\//, "").split("/")[0] ?? "";
+  const page: Page = isPage(segment) ? segment : "calendar";
   const [form, setForm] = useState<{ open: boolean; job?: Job | null; at?: string }>({ open: false });
   const [detail, setDetail] = useState<Job | null>(null);
-  useEffect(() => { location.hash = page; }, [page]);
   useEffect(() => { if (detail) setDetail(jobs.find((j) => j.id === detail.id) ?? null); }, [jobs]); // eslint-disable-line
-  const connected = new URLSearchParams(location.search).get("connected");
+  const connected = params.get("connected");
   const online = useOnline();
   const counts = jobs.reduce<Record<string, number>>((a, j) => ({ ...a, [j.status]: (a[j.status] ?? 0) + 1 }), {});
 
@@ -71,7 +81,7 @@ function Shell({ onLogout }: { onLogout(): void }) {
             {channels.map((c) => <option key={c.id} value={c.id}>{c.title} {c.handle ?? ""}</option>)}
           </Select>
           <Button size="sm" variant="outline" className="max-sm:hidden" onClick={() => (location.href = connectUrl())}>+ Connect channel</Button>
-          <Tabs className="order-last w-full sm:order-none sm:w-auto [&>button]:flex-1" value={page} onValueChange={setPage} items={[{ value: "calendar", label: "Calendar" }, { value: "jobs", label: "Jobs" }, { value: "import", label: "Import" }, { value: "settings", label: "Channels" }]} />
+          <Tabs className="order-last w-full sm:order-none sm:w-auto [&>button]:flex-1" value={page} onValueChange={(next) => navigate(next === "calendar" ? "/" : `/${next}`)} items={[{ value: "calendar", label: "Calendar" }, { value: "jobs", label: "Jobs" }, { value: "import", label: "Import" }, { value: "settings", label: "Channels" }]} />
           <span className="flex-1 max-sm:hidden" />
           {quota && (
             <div className="w-40 text-xs max-md:hidden lg:w-52" title={`${quota.note} Resets ${fmt(quota.resetsAt, tz)}`}>
@@ -90,10 +100,14 @@ function Shell({ onLogout }: { onLogout(): void }) {
         {!audited && <Alert variant="warning"><b>Unverified API project:</b> until Google approves the YouTube API audit, uploads from this app are locked to <b>Private</b> and scheduled publishing will not go public. See README → “API audit”.</Alert>}
         {connected && <Alert>Connected: {connected}</Alert>}
         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">{Object.entries(counts).map(([s, n]) => <span key={s} className="rounded-md border px-2 py-0.5">{s}: {n}</span>)}</div>
-        {page === "calendar" && <Calendar onOpen={setDetail} onCreateAt={(at) => setForm({ open: true, job: null, at })} />}
-        {page === "jobs" && <JobsTable onOpen={setDetail} />}
-        {page === "import" && <ImportPanel />}
-        {page === "settings" && <Settings />}
+        <Routes>
+          <Route path="/" element={<Calendar onOpen={setDetail} onCreateAt={(at) => setForm({ open: true, job: null, at })} />} />
+          <Route path="/calendar" element={<Calendar onOpen={setDetail} onCreateAt={(at) => setForm({ open: true, job: null, at })} />} />
+          <Route path="/jobs" element={<JobsTable onOpen={setDetail} />} />
+          <Route path="/import" element={<ImportPanel />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
       <JobForm open={form.open} job={form.job} initialPublishAt={form.at} onOpenChange={(o) => setForm({ open: o })} />
       <JobDetail job={detail} onClose={() => setDetail(null)} onEdit={(j) => { setDetail(null); setForm({ open: true, job: j }); }} />

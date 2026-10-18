@@ -1,3 +1,9 @@
+import { apiUrl, initRuntime, oauthStartUrl } from "./client";
+import type { AppConfig } from "./runtime";
+
+export type { AppConfig };
+export { loadAppConfig, resolveApiBase, resolveOauthStart, routerBasename } from "./runtime";
+
 export type JobStatus = "queued" | "uploading" | "processing" | "scheduled" | "published" | "failed" | "cancelled";
 export type Source = { kind: "url"; url: string } | { kind: "drive"; fileId: string };
 export interface Metadata {
@@ -24,9 +30,12 @@ export class ApiError extends Error { constructor(msg: string, public status: nu
 export const getKey = () => localStorage.getItem("ytkey") ?? "";
 export const setKey = (k: string) => (k ? localStorage.setItem("ytkey", k) : localStorage.removeItem("ytkey"));
 
+export const initApi = initRuntime;
+
 export async function api<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
   const { json, ...rest } = init;
-  const res = await fetch(`/api${path}`, {
+  const root = await initRuntime();
+  const res = await fetch(apiUrl(root, path), {
     ...rest,
     body: json !== undefined ? JSON.stringify(json) : rest.body,
     headers: { "content-type": "application/json", "x-api-key": getKey(), ...(rest.headers ?? {}) },
@@ -42,9 +51,10 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
 
 /** Fetch an authenticated image (Drive) as an object URL. */
 export async function driveImageUrl(fileId: string, channel: string): Promise<string> {
-  const res = await fetch(`/api/drive/file/${fileId}?channel=${encodeURIComponent(channel)}`, { headers: { "x-api-key": getKey() } });
+  const root = await initRuntime();
+  const res = await fetch(apiUrl(root, `/drive/file/${fileId}?channel=${encodeURIComponent(channel)}`), { headers: { "x-api-key": getKey() } });
   if (!res.ok) throw new Error("preview failed");
   return URL.createObjectURL(await res.blob());
 }
 
-export const connectUrl = (extra = "") => `/oauth/start?key=${encodeURIComponent(getKey())}${extra}`;
+export const connectUrl = (extra = "") => oauthStartUrl(getKey(), extra);

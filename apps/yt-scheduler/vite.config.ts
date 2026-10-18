@@ -1,17 +1,39 @@
-import { defineConfig } from "vite";
+import { defineConfig, type ProxyOptions } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { normalizeAppBase } from "./base-path.mjs";
+
+const base = normalizeAppBase();
+const pwaEnabled = process.env.VITE_PWA !== "off";
+
+function nodeProxy(prefix: string): ProxyOptions {
+  const stripped = prefix.replace(/\/$/, "");
+  return {
+    target: "http://localhost:8787",
+    changeOrigin: true,
+    rewrite: (requestPath) => requestPath.replace(new RegExp(`^${stripped}`), "") || "/",
+  };
+}
+
+const icons = [
+  { src: "icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" as const },
+  { src: "icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" as const },
+  { src: "icons/maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" as const },
+  { src: "icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" as const },
+];
 
 export default defineConfig({
+  base,
   root: "web",
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt", // we show our own "Update available" toast and also check hourly
+      disable: !pwaEnabled,
+      registerType: "prompt",
       injectRegister: false,
       includeAssets: ["icons/apple-touch-icon.png", "icons/favicon-32.png"],
       manifest: {
-        id: "/",
+        id: base,
         name: "YT Scheduler",
         short_name: "YT Sched",
         description: "Schedule and manage YouTube uploads for your channels",
@@ -19,29 +41,31 @@ export default defineConfig({
         background_color: "#0a0a0c",
         display: "standalone",
         orientation: "any",
-        start_url: "/?source=pwa",
-        scope: "/",
+        start_url: base,
+        scope: base,
         categories: ["productivity", "video"],
-        icons: [
-          { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-          { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icons/maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
-          { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-        ],
+        icons,
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"],
-        navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//, /^\/oauth\//],
+        navigateFallback: `${base}index.html`,
+        navigateFallbackDenylist: [/\/api\//, /\/oauth\//],
         cleanupOutdatedCaches: true,
         runtimeCaching: [
-          // Never cache API or OAuth: always live, fail when offline.
-          { urlPattern: ({ url }) => url.pathname.startsWith("/api/") || url.pathname.startsWith("/oauth/"), handler: "NetworkOnly" },
+          {
+            urlPattern: ({ url }) => url.pathname.includes("/api/") || url.pathname.includes("/oauth/"),
+            handler: "NetworkOnly",
+          },
         ],
       },
     }),
   ],
   css: { postcss: __dirname },
-  build: { outDir: "../dist/web", emptyOutDir: true },
-  server: { port: 5173, proxy: { "/api": "http://localhost:8787", "/oauth": "http://localhost:8787" } },
+  build: { outDir: "../dist", emptyOutDir: true },
+  server: {
+    port: 5173,
+    proxy: base === "/"
+      ? { "/api": "http://localhost:8787", "/oauth": "http://localhost:8787" }
+      : { [`${base}api`]: nodeProxy(base), [`${base}oauth`]: nodeProxy(base) },
+  },
 });

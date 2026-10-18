@@ -107,6 +107,8 @@ test("database id parsers accept wrangler list and create output", () => {
   const toml = '[[d1_databases]]\nbinding = "DB"\ndatabase_name = "yt-dev"\ndatabase_id = "22222222-2222-4222-8222-222222222222"\n';
   assert.equal(parseCreatedDatabaseId(toml), "22222222-2222-4222-8222-222222222222");
   assert.equal(parseCreatedDatabaseId(JSON.stringify({ uuid: "33333333-3333-4333-8333-333333333333" })), "33333333-3333-4333-8333-333333333333");
+  const snippet = `✅ Successfully created DB 'yt-pr-121'\n\n{\n  "d1_databases": [\n    {\n      "binding": "DB",\n      "database_name": "yt-pr-121",\n      "database_id": "55555555-5555-4555-8555-555555555555"\n    }\n  ]\n}\n`;
+  assert.equal(parseCreatedDatabaseId(snippet), "55555555-5555-4555-8555-555555555555");
 });
 
 test("deploy creates a missing database, applies migrations, and puts secrets without printing them", async () => {
@@ -130,6 +132,7 @@ test("deploy creates a missing database, applies migrations, and puts secrets wi
     assert.equal(result.worker, "yt-scheduler-api-dev");
     assert.equal(calls[0].args.slice(0, 3).join(" "), "d1 list --json");
     assert.equal(calls[1].args[1], "create");
+    assert.equal(calls[1].args.includes("--json"), false);
     assert.equal(calls[2].args[1], "migrations");
     assert.deepEqual(calls[2].args.slice(-2), ["--env", "dev"]);
     assert.deepEqual(

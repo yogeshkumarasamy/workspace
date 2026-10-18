@@ -192,13 +192,15 @@ export function findDatabaseId(listJson, name) {
 export function parseCreatedDatabaseId(stdout) {
   const text = String(stdout ?? "");
   try {
-    const parsed = JSON.parse(text);
+    const parsed = parseJsonOutput(text);
     const id = parsed.uuid ?? parsed.database_id ?? parsed?.d1_databases?.[0]?.database_id;
     if (typeof id === "string") return id;
   } catch {
-    /* Wrangler also prints a TOML snippet. */
+    /* Wrangler 4.151 prints a config snippet after a few log lines, or TOML. */
   }
-  const match = /database_id\s*=\s*"([0-9a-f-]{36})"/i.exec(text) ?? /"uuid"\s*:\s*"([0-9a-f-]{36})"/i.exec(text);
+  const match = /database_id\s*=\s*"([0-9a-f-]{36})"/i.exec(text)
+    ?? /"database_id"\s*:\s*"([0-9a-f-]{36})"/i.exec(text)
+    ?? /"uuid"\s*:\s*"([0-9a-f-]{36})"/i.exec(text);
   return match?.[1] ?? null;
 }
 
@@ -236,7 +238,7 @@ export async function deployWorker({
   const listed = exec(["d1", "list", "--json"]);
   let databaseId = findDatabaseId(parseJsonOutput(listed), names.database);
   if (!databaseId) {
-    databaseId = parseCreatedDatabaseId(exec(["d1", "create", names.database, "--json"]));
+    databaseId = parseCreatedDatabaseId(exec(["d1", "create", names.database]));
   }
   if (!databaseId) throw new Error(`could not resolve D1 database id for ${names.database}`);
   const config = renderWrangler({

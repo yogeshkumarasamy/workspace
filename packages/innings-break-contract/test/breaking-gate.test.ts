@@ -67,7 +67,7 @@ test("breaking-ack waives OpenAPI and migration breaks", () => {
     openApiBreaking: true,
     migrationViolations: [
       {
-        file: "services/ib-console-api/migrations/0002.sql",
+        file: "apps/innings-break-console-api/migrations/0002.sql",
         rule: "drop-column",
         message: "DROP COLUMN",
         statement: "ALTER TABLE orders DROP COLUMN status",
@@ -87,7 +87,7 @@ test("an app edit does not waive a destructive migration", () => {
     openApiBreaking: false,
     migrationViolations: [
       {
-        file: "services/ib-console-api/migrations/0002.sql",
+        file: "apps/innings-break-console-api/migrations/0002.sql",
         rule: "drop-table",
         message: "DROP TABLE",
         statement: "DROP TABLE orders",
@@ -197,7 +197,7 @@ test("both apps and both APIs depend on the contract", () => {
   const consumers = discoverContractConsumers(repoRoot);
   assert.deepEqual(consumers.uiRoots, uiRoots);
   assert.deepEqual(consumers.apiRoots, [
-    "services/ib-console-api",
-    "services/ib-customer-api",
+    "apps/innings-break-console-api",
+    "apps/innings-break-customer-api",
   ]);
 });

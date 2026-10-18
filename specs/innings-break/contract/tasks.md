@@ -12,7 +12,7 @@
   - Target persona: Team Manager, Business Owner, Operations Manager
   - [x] Add `@contracts/innings-break` with Zod schemas, route types, and a generated `openapi.json`
   - [x] Depend on it from both apps and both APIs with `workspace:*`
-  - **Verification**: `pnpm --filter @contracts/innings-break test` — affected-graph test passed. `turbo run build --filter=...@contracts/innings-break --dry-run=json` lists `@apps/innings-break`, `@apps/innings-break-console`, `@services/ib-console-api`, and `@services/ib-customer-api`.
+  - **Verification**: `pnpm --filter @contracts/innings-break test` — affected-graph test passed. `turbo run build --filter=...@contracts/innings-break --dry-run=json` lists `@apps/innings-break`, `@apps/innings-break-console`, `@apps/innings-break-console-api`, and `@apps/innings-break-customer-api`.
 
 - [x] **Task 2: Drift check**
 

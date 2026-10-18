@@ -115,24 +115,22 @@ export function discoverContractConsumers(repoRoot: string): {
 } {
   const uiRoots: string[] = [];
   const apiRoots: string[] = [];
-  for (const top of ["apps", "services"] as const) {
-    const dir = path.join(repoRoot, top);
-    if (!existsSync(dir)) continue;
-    for (const name of readdirSync(dir)) {
-      const packagePath = path.join(dir, name, "package.json");
-      if (!existsSync(packagePath)) continue;
-      const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as {
-        dependencies?: Record<string, string>;
-        devDependencies?: Record<string, string>;
-      };
-      const version =
-        pkg.dependencies?.[CONTRACT_PACKAGE_NAME] ??
-        pkg.devDependencies?.[CONTRACT_PACKAGE_NAME];
-      if (!version) continue;
-      const rel = `${top}/${name}`;
-      if (top === "apps") uiRoots.push(rel);
-      else apiRoots.push(rel);
-    }
+  const appsDir = path.join(repoRoot, "apps");
+  if (!existsSync(appsDir)) return { uiRoots, apiRoots };
+  for (const name of readdirSync(appsDir)) {
+    const packagePath = path.join(appsDir, name, "package.json");
+    if (!existsSync(packagePath)) continue;
+    const pkg = JSON.parse(readFileSync(packagePath, "utf8")) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const version =
+      pkg.dependencies?.[CONTRACT_PACKAGE_NAME] ??
+      pkg.devDependencies?.[CONTRACT_PACKAGE_NAME];
+    if (!version) continue;
+    const rel = `apps/${name}`;
+    if (name.endsWith("-api")) apiRoots.push(rel);
+    else uiRoots.push(rel);
   }
   uiRoots.sort();
   apiRoots.sort();

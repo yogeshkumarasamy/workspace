@@ -126,10 +126,10 @@ export function collectMigrationFiles(
     for (const dir of migrationDirs) walkSql(dir, files);
     return files.sort();
   }
-  const services = path.join(repoRoot, "services");
-  if (existsSync(services)) {
-    for (const service of readdirSync(services)) {
-      walkSql(path.join(services, service, "migrations"), files);
+  const apps = path.join(repoRoot, "apps");
+  if (existsSync(apps)) {
+    for (const app of readdirSync(apps)) {
+      walkSql(path.join(apps, app, "migrations"), files);
     }
   }
   walkSql(

@@ -9,8 +9,8 @@ const EXPECTED = [
   "@contracts/innings-break",
   "@apps/innings-break",
   "@apps/innings-break-console",
-  "@services/ib-console-api",
-  "@services/ib-customer-api",
+  "@apps/innings-break-console-api",
+  "@apps/innings-break-customer-api",
 ] as const;
 
 test(
@@ -22,8 +22,8 @@ test(
       "@contracts/innings-break": "packages/innings-break-contract",
       "@apps/innings-break": "apps/innings-break",
       "@apps/innings-break-console": "apps/innings-break-console",
-      "@services/ib-console-api": "services/ib-console-api",
-      "@services/ib-customer-api": "services/ib-customer-api",
+      "@apps/innings-break-console-api": "apps/innings-break-console-api",
+      "@apps/innings-break-customer-api": "apps/innings-break-customer-api",
     };
     for (const name of EXPECTED) {
       if (name === "@contracts/innings-break") continue;

@@ -46,12 +46,12 @@ test("comments and string literals do not count as destructive", () => {
   assert.deepEqual(lintSql(sql), []);
 });
 
-test("service and contract migration trees are both linted", () => {
+test("app and contract migration trees are both linted", () => {
   const root = mkdtempSync(path.join(tmpdir(), "ib-migrations-"));
   const serviceMigration = path.join(
     root,
-    "services",
-    "ib-console-api",
+    "apps",
+    "innings-break-console-api",
     "migrations",
   );
   const contractMigration = path.join(
@@ -77,7 +77,7 @@ test("service and contract migration trees are both linted", () => {
   assert.equal(violations[0]?.rule, "drop-table");
   assert.match(
     violations[0]?.file ?? "",
-    /services\/ib-console-api\/migrations\/0002_drop\.sql$/,
+    /apps\/innings-break-console-api\/migrations\/0002_drop\.sql$/,
   );
 });
 

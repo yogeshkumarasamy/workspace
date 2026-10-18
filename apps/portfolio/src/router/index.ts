@@ -4,17 +4,48 @@ import type { AppId } from "../contracts/apps";
 
 export type { Route };
 
+/**
+ * Classic sections that have a desktop window. Bare hashes such as `#projects`
+ * used to fall through to the desktop route, which always selected About.txt.
+ */
+const SECTION_APP: Record<string, AppId> = {
+  about: "about",
+  experience: "experience",
+  projects: "projects",
+  writing: "writing",
+  contact: "contact",
+  terminal: "terminal",
+};
+
+/** In-page classic anchors. These must stay on the classic view. */
+const CLASSIC_ANCHORS = new Set([
+  "skills",
+  "education",
+  "certifications",
+  "classic-content",
+]);
+
 export function parseHash(hash: string): Route {
   const cleanHash = hash.startsWith("#") ? hash.slice(1) : hash;
   const path = cleanHash.startsWith("/") ? cleanHash : `/${cleanHash}`;
 
-  if (path === "/classic") {
+  if (path === "/classic" || path.startsWith("/classic/")) {
     return { view: "classic" };
   }
 
   const appMatch = path.match(/^\/app\/([a-zA-Z0-9_-]+)$/);
   if (appMatch && appMatch[1]) {
     return { view: "app", appId: appMatch[1] as AppId };
+  }
+
+  const bare = path.slice(1);
+  if (CLASSIC_ANCHORS.has(bare)) {
+    return { view: "classic" };
+  }
+
+  const sectionApp = SECTION_APP[bare];
+  if (sectionApp) {
+    return { view: "app", appId: sectionApp };
   }
 
   return { view: "desktop" };

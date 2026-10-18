@@ -88,7 +88,7 @@ it("shows verified profile facts and no invented bio, phone, or achievements", (
   }
 
   assert.equal(view.getAllByRole("heading", { name: "Trimble Inc." }).length, 2);
-  assert.equal(view.getAllByRole("heading", { name: "BI WORLDWIDE" }).length, 2);
+  assert.equal(view.getAllByRole("heading", { name: "BI WORLDWIDE" }).length, 3);
   assert.match(view.html, /Jul 2024/);
   assert.match(view.html, /Present/);
   assert.equal(view.getByRole("link", { name: "FULL Creative" }).href, "https://full.io/");
@@ -96,10 +96,29 @@ it("shows verified profile facts and no invented bio, phone, or achievements", (
   const designFactory = view.html.slice(view.html.indexOf("Front end web developer"));
   assert.equal(designFactory.includes("Chennai"), false);
 
-  const project = view.getByRole("link", { name: "vitest-portfolio" });
-  assert.equal(project.href, "https://github.com/yogeshkumarasamy/vitest-portfolio");
-  assert.match(view.html, /volume of browser test files to stress Vitest test runs and performance/);
-  assert.match(view.html, /TypeScript/);
+  assert.equal(view.html.toLowerCase().includes("vitest-portfolio"), false);
+  assert.equal(
+    view.getByRole("link", { name: "Booking page" }).href,
+    "https://anywhere.setmore.com/kevin-payne",
+  );
+  assert.equal(view.getByRole("link", { name: "BaseApp" }).href, "https://go.setmore.com/");
+  assert.equal(
+    view.getByRole("link", { name: "ChatSupport" }).href,
+    "https://chatsupport.co/",
+  );
+  assert.equal(view.getByRole("heading", { level: 3, name: "Full Creative" }).name, "Full Creative");
+  assert.equal(view.getByRole("heading", { level: 3, name: "Trimble" }).name, "Trimble");
+  assert.equal(view.getByRole("heading", { level: 3, name: "Pearson English" }).name, "Pearson English");
+  assert.match(view.html, /Kuebix/);
+  assert.equal(view.queryByRole("link", { name: "Kuebix" }), null);
+  assert.equal(
+    view.getByRole("link", { name: "Open Projects on desktop" }).href,
+    "#/app/projects",
+  );
+  assert.equal(
+    view.getByRole("link", { name: "Open Experience on desktop" }).href,
+    "#/app/experience",
+  );
 
   const article = view.getByRole("link", {
     name: "How SSH Makes Managing Multiple Git Accounts Easy and Secure",
@@ -114,6 +133,13 @@ it("shows verified profile facts and no invented bio, phone, or achievements", (
   for (const skill of verifiedProfile.skills) {
     assert.equal(view.getByRole("listitem", { name: skill }).name, skill);
   }
+  for (const group of verifiedProfile.skillGroups ?? []) {
+    assert.equal(view.getByRole("heading", { level: 3, name: group.label }).name, group.label);
+    for (const skill of group.skills) {
+      assert.equal(view.getByRole("listitem", { name: skill }).name, skill);
+    }
+  }
+  assert.equal(view.getByRole("link", { name: "Projects" }).href, "#/classic/projects");
 
   assert.equal(
     view.getByRole("heading", { name: "RVS College of Engineering and Technology" }).name,

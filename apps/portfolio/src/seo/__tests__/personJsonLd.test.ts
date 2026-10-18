@@ -29,7 +29,8 @@ describe("personJsonLd", () => {
 
     const skills = jsonLd.knowsAbout as string[];
     expect(skills).toContain("Vitest");
-    expect(skills).toContain("Continuous Integration and Continuous Delivery (CI/CD)");
+    expect(skills).toContain("React.js");
+    expect(skills).toContain("CI/CD");
 
     const alumni = jsonLd.alumniOf as Array<{ name: string }>;
     expect(alumni?.some((a) => a.name === "RVS College of Engineering and Technology")).toBe(true);

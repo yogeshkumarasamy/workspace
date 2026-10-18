@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { profile } from "./content/profile";
 import { apps } from "./apps/registry";
 import {
@@ -23,17 +23,17 @@ import { ClassicView } from "./classic";
 
 const RouteWindowOpener: React.FC<{ route: Route }> = ({ route }) => {
   const os = useWindowOS();
-  const openedRef = useRef<string | null>(null);
+  const appId = route.view === "app" ? route.appId : null;
+  const open = os.open;
 
   useEffect(() => {
-    if (route.view === "app") {
-      const alreadyOpen = os.windows.some((w) => w.appId === route.appId);
-      if (!alreadyOpen || openedRef.current !== route.appId) {
-        os.open(route.appId);
-        openedRef.current = route.appId;
-      }
-    }
-  }, [route, os]);
+    if (!appId) return;
+    // `open` focuses an existing window. Keying this on the app id — not the
+    // OS object — keeps the hashed app in front instead of About.txt, which
+    // is the first desktop icon and used to win whenever the hash was not an
+    // `/app/<id>` route.
+    open(appId);
+  }, [appId, open]);
 
   return null;
 };
@@ -62,6 +62,7 @@ const DesktopWorkspace: React.FC<{ route: Route }> = ({ route }) => {
           os={os}
           prefs={prefs}
           banner={<MobileBanner />}
+          initialSelectedId={route.view === "app" ? route.appId : undefined}
           onNavigate={(target) => navigate(target)}
         >
           <WindowLayer apps={apps} />

@@ -14,11 +14,7 @@ export const testProfile: Profile = {
     github: "https://github.com/yogeshkumarasamy",
     medium: "https://medium.com/@yogeshkumarasamy",
   },
-  skills: [
-    "Continuous Integration and Continuous Delivery (CI/CD)",
-    "CSS-in-JS",
-    "Vitest",
-  ],
+  skills: ["HTML5", "CSS3", "JavaScript", "React.js", "TypeScript", "Vitest"],
   experience: [],
   projects: [],
   writing: [],

@@ -1,0 +1,110 @@
+name: FTP path probe
+
+# Proves the dev docroot upload path on a branch. Writes only
+# <dev docroot>/_ftp-probe/<app>/ and deletes that folder after the HTTP
+# check. Does not upload /portfolio/, /yt-scheduler/, or the docroot files.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ftp-path-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build probe trees
+        run: |
+          for app in portfolio yt-scheduler; do
+            mkdir -p "probe-${app}/assets"
+            printf 'ftp-probe-marker-ff0f\n' > "probe-${app}/index.html"
+            printf 'assets-ok\n' > "probe-${app}/assets/marker.txt"
+            printf 'RewriteEngine Off\n' > "probe-${app}/.htaccess"
+          done
+          mkdir -p probe-portfolio/fonts probe-yt-scheduler/icons
+          printf 'fonts-ok\n' > probe-portfolio/fonts/marker.txt
+          printf 'icons-ok\n' > probe-yt-scheduler/icons/marker.txt
+
+      - name: Refuse any path outside the probe folder
+        env:
+          DOCROOT: ${{ secrets.FTP_TARGET_DIR_DEV }}
+        run: |
+          root="${DOCROOT%/}"
+          case "$root" in
+            ''|'/'|*'..'*|*' '* ) echo "::error::refusing docroot"; exit 1 ;;
+          esac
+          probe="${root}/_ftp-probe"
+          case "$probe" in
+            */_ftp-probe) ;;
+            *) echo "::error::probe path escaped"; exit 1 ;;
+          esac
+          {
+            echo "PROBE_PORTFOLIO=${probe}/portfolio/"
+            echo "PROBE_YT=${probe}/yt-scheduler/"
+            echo "PROBE_ROOT=${probe}"
+          } >> "$GITHUB_ENV"
+
+      - name: Upload portfolio probe
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ env.PROBE_PORTFOLIO }}
+          local-dir: probe-portfolio
+          pause-seconds: "10"
+
+      - name: Upload yt-scheduler probe
+        uses: ./.github/actions/prepare-ftp-dirs
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ env.PROBE_YT }}
+          local-dir: probe-yt-scheduler
+          pause-seconds: "10"
+
+      - name: Check the probe URLs and the live root
+        run: |
+          check() {
+            local url="$1" needle="$2" body code
+            code=$(curl -sS -o /tmp/probe-body.txt -w '%{http_code}' --max-time 30 "$url")
+            body=$(cat /tmp/probe-body.txt)
+            echo "$url -> $code"
+            if [[ "$code" != "200" || "$body" != *"$needle"* ]]; then
+              echo "::error::$url did not return the probe file"
+              exit 1
+            fi
+          }
+          check https://dev.yogeshkumarasamy.in/_ftp-probe/portfolio/index.html ftp-probe-marker-ff0f
+          check https://dev.yogeshkumarasamy.in/_ftp-probe/portfolio/assets/marker.txt assets-ok
+          check https://dev.yogeshkumarasamy.in/_ftp-probe/portfolio/fonts/marker.txt fonts-ok
+          check https://dev.yogeshkumarasamy.in/_ftp-probe/yt-scheduler/index.html ftp-probe-marker-ff0f
+          check https://dev.yogeshkumarasamy.in/_ftp-probe/yt-scheduler/assets/marker.txt assets-ok
+          check https://dev.yogeshkumarasamy.in/_ftp-probe/yt-scheduler/icons/marker.txt icons-ok
+          code=$(curl -sS -o /tmp/live-root.txt -w '%{http_code}' --max-time 30 https://dev.yogeshkumarasamy.in/)
+          echo "live root -> $code"
+          if grep -q ftp-probe-marker-ff0f /tmp/live-root.txt; then
+            echo "::error::probe marker is on the live root"
+            exit 1
+          fi
+          echo "Live root does not contain the probe marker"
+
+      - name: Remove the probe folder
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SERVER_DIR: ${{ env.PROBE_ROOT }}
+          MODE: remove
+          FTP_TLS_CHECK_HOSTNAME: "no"
+        run: |
+          sudo apt-get update && sudo apt-get install -y lftp
+          bash .github/scripts/ftp-upload-dir.sh

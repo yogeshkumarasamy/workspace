@@ -70,68 +70,14 @@ jobs:
           APP_BASE: /portfolio/
         run: pnpm --filter @apps/portfolio... build
 
-      # FTP_HOST is Hostinger's IP. The FTPS certificate is for *.hstgr.io only,
-      # so the hostname does not match. protocol ftps keeps encryption.
-      # security loose is this action's only switch that skips the name check.
-      - name: Prepare portfolio FTP folders
+      - name: Upload portfolio
         uses: ./.github/actions/prepare-ftp-dirs
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-root: ${{ secrets.FTP_TARGET_DIR }}
-          rel-dir: portfolio
+          server-dir: ${{ secrets.FTP_TARGET_DIR }}/portfolio/
           local-dir: apps/portfolio/dist
-
-      - name: 📤 Deploy via FTP
-        id: ftp1
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/portfolio/
-
-      - name: Wait before FTP retry
-        if: steps.ftp1.outcome == 'failure'
-        run: sleep 20
-
-      - name: 📤 Deploy via FTP (retry)
-        id: ftp2
-        if: steps.ftp1.outcome == 'failure'
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/portfolio/
-
-      - name: Wait before second FTP retry
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        run: sleep 20
-
-      - name: 📤 Deploy via FTP (retry 2)
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/portfolio/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/portfolio/
 
   # environment: production is only on this job, so PR and dev workflows
   # cannot read GOOGLE_CLIENT_SECRET or the production API key.
@@ -180,65 +126,14 @@ jobs:
           GOOGLE_PICKER_API_KEY: ${{ secrets.GOOGLE_PICKER_API_KEY }}
         run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env production
 
-      - name: Prepare yt-scheduler FTP folders
+      - name: Upload yt-scheduler
         uses: ./.github/actions/prepare-ftp-dirs
         with:
           server: ${{ secrets.FTP_HOST }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          server-root: ${{ secrets.FTP_TARGET_DIR }}
-          rel-dir: yt-scheduler
+          server-dir: ${{ secrets.FTP_TARGET_DIR }}/yt-scheduler/
           local-dir: apps/yt-scheduler/dist
-
-      - name: Upload yt-scheduler to Hostinger
-        id: ftp1
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/yt-scheduler/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/yt-scheduler/
-
-      - name: Wait before FTP retry
-        if: steps.ftp1.outcome == 'failure'
-        run: sleep 20
-
-      - name: Upload yt-scheduler to Hostinger (retry)
-        id: ftp2
-        if: steps.ftp1.outcome == 'failure'
-        continue-on-error: true
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/yt-scheduler/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/yt-scheduler/
-
-      - name: Wait before second FTP retry
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        run: sleep 20
-
-      - name: Upload yt-scheduler to Hostinger (retry 2)
-        if: steps.ftp1.outcome == 'failure' && steps.ftp2.outcome == 'failure'
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          security: loose
-          dangerous-clean-slate: false
-          local-dir: apps/yt-scheduler/dist/
-          server-dir: ${{ secrets.FTP_TARGET_DIR }}/yt-scheduler/
 
       - name: Check Worker health
         run: |

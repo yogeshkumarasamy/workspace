@@ -3,8 +3,8 @@
  * Infrastructure files for a host docroot (T13).
  *
  * These files are not part of the portfolio or yt-scheduler dist. An app
- * upload must not publish them: FTP-Deploy-Action's state file would then
- * sit on the docroot and could delete the other app or /preview.
+ * upload must not publish them: a mirror of the docroot would delete the
+ * other app or /preview.
  *
  *   node deploy/host-root.mjs --env dev --out host-root [--api-origins <urls>]
  *   node deploy/host-root.mjs --preview-htaccess --out preview-root

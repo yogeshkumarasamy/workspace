@@ -16,11 +16,18 @@ export function driveScopeValue(raw: string | undefined): DriveScope {
   return raw === "readonly" ? "readonly" : "file";
 }
 
-export function oauthScopes(drive: DriveScope): string[] {
-  return [...YOUTUBE_SCOPES, drive === "readonly" ? DRIVE_READONLY_SCOPE : DRIVE_FILE_SCOPE];
+export type OAuthPurpose = "youtube" | "drive";
+
+export function oauthScopes(purpose: OAuthPurpose, drive: DriveScope): string[] {
+  if (purpose === "drive") {
+    // Google rejects YouTube scopes requested together with other scopes in one
+    // authorization request, so Drive gets its own consent screen.
+    return ["openid", "email", drive === "readonly" ? DRIVE_READONLY_SCOPE : DRIVE_FILE_SCOPE];
+  }
+  return [...YOUTUBE_SCOPES];
 }
 
-export function authUrl(input: { clientId: string; redirectUri: string; state: string; drive: DriveScope }): string {
+export function authUrl(input: { clientId: string; redirectUri: string; state: string; purpose: OAuthPurpose; drive: DriveScope }): string {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", input.clientId);
   url.searchParams.set("redirect_uri", input.redirectUri);
@@ -28,7 +35,7 @@ export function authUrl(input: { clientId: string; redirectUri: string; state: s
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent select_account");
   url.searchParams.set("include_granted_scopes", "true");
-  url.searchParams.set("scope", oauthScopes(input.drive).join(" "));
+  url.searchParams.set("scope", oauthScopes(input.purpose, input.drive).join(" "));
   url.searchParams.set("state", input.state);
   return url.href;
 }

@@ -16,9 +16,16 @@ export interface YouTubeApi {
   updateSchedule(videoId: string, meta: Metadata, publishAt: Date): Promise<void>;
 }
 
-export const SCOPES = [
+// Google rejects YouTube scopes requested together with other scopes in one
+// authorization request, so each connect flow gets its own consent screen.
+export const YOUTUBE_SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
   "https://www.googleapis.com/auth/youtube",
+  "openid",
+  "email",
+];
+
+export const DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
   "openid",
   "email",

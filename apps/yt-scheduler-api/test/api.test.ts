@@ -73,13 +73,25 @@ describe("chunk size", () => {
 });
 
 describe("oauth scopes", () => {
-  it("requests drive.file unless DRIVE_SCOPE=readonly", () => {
-    expect(oauthScopes("file")).toContain(DRIVE_FILE_SCOPE);
-    expect(oauthScopes("file")).not.toContain(DRIVE_READONLY_SCOPE);
-    expect(oauthScopes("readonly")).toContain(DRIVE_READONLY_SCOPE);
-    const url = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", drive: "file" }));
-    expect(url.searchParams.get("scope")).toContain(DRIVE_FILE_SCOPE);
+  it("keeps youtube and drive scopes on separate consent screens", () => {
+    // Google rejects YouTube scopes requested together with other scopes.
+    const youtube = oauthScopes("youtube", "file");
+    expect(youtube).toContain("https://www.googleapis.com/auth/youtube.upload");
+    expect(youtube).toContain("https://www.googleapis.com/auth/youtube");
+    expect(youtube).not.toContain(DRIVE_FILE_SCOPE);
+    expect(youtube).not.toContain(DRIVE_READONLY_SCOPE);
+    const drive = oauthScopes("drive", "file");
+    expect(drive).toContain(DRIVE_FILE_SCOPE);
+    expect(drive).not.toContain("https://www.googleapis.com/auth/youtube.upload");
+    expect(drive).not.toContain("https://www.googleapis.com/auth/youtube");
+    expect(oauthScopes("drive", "readonly")).toContain(DRIVE_READONLY_SCOPE);
+    expect(oauthScopes("drive", "readonly")).not.toContain(DRIVE_FILE_SCOPE);
+    const url = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", purpose: "youtube", drive: "file" }));
+    expect(url.searchParams.get("scope")).not.toContain(DRIVE_FILE_SCOPE);
     expect(url.searchParams.get("redirect_uri")).toBe("https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback");
+    const driveUrl = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", purpose: "drive", drive: "file" }));
+    expect(driveUrl.searchParams.get("scope")).toContain(DRIVE_FILE_SCOPE);
+    expect(driveUrl.searchParams.get("scope")).not.toContain("https://www.googleapis.com/auth/youtube");
   });
 });
 

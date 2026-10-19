@@ -48,6 +48,7 @@ const ENTRY_KEYS = [
   "base",
   "path",
   "apiBaseUrl",
+  "pairedWith",
   "reason",
   "host",
   "d1",
@@ -438,9 +439,15 @@ function materialize(targets, selected, schema, ctx) {
     const flags = schemaFlags(name, target, targets, schema, ctx);
     const apiSelected = target.api ? selected.has(target.api) : false;
     let apiBaseUrl = null;
+    let pairedWith = null;
     if (target.api) {
-      if (ctx.preview && !apiSelected) apiBaseUrl = devApiUrl(target.api, ctx.workersSubdomain, targets);
-      else apiBaseUrl = previewOrEnvApiUrl(target.api, ctx, targets);
+      if (ctx.preview && !apiSelected) {
+        apiBaseUrl = devApiUrl(target.api, ctx.workersSubdomain, targets);
+        pairedWith = "dev-api";
+      } else {
+        apiBaseUrl = previewOrEnvApiUrl(target.api, ctx, targets);
+        pairedWith = ctx.preview ? "preview-api" : null;
+      }
     }
     const entry = {
       target: name,
@@ -456,6 +463,7 @@ function materialize(targets, selected, schema, ctx) {
             : `/${target.slug}/`
           : workerName(name, ctx, targets),
       apiBaseUrl,
+      pairedWith,
       reason: meta.reason,
       host: target.kind === "static" ? ctx.host : `${workerName(name, ctx, targets)}.${ctx.workersSubdomain}.workers.dev`,
       d1: target.kind === "cf-worker" ? databaseName(target.d1, ctx) : null,
@@ -565,8 +573,74 @@ export function toStrategyMatrix(deploy) {
   return { include: deploy };
 }
 
-function readJsonFlag(file) {
-  return JSON.parse(readFileSync(file, "utf8"));
+export function renderPreviewTable(reportOrPlan, options = {}) {
+  const targets = options.targets ?? loadTargets(options.targetsPath ?? DEFAULT_TARGETS);
+  const deploy = Array.isArray(reportOrPlan)
+    ? reportOrPlan
+    : Array.isArray(reportOrPlan?.deploy)
+      ? reportOrPlan.deploy
+      : [];
+
+  const staticEntries = deploy.filter((entry) => entry.kind === "static");
+  if (staticEntries.length === 0) return "";
+
+  const header = "| App | Preview | API | DB |\n|---|---|---|---|";
+  const rows = staticEntries.map((ui) => {
+    const target = targets[ui.target];
+    const previewUrl =
+      ui.previewUrl ??
+      (options.formatUrl
+        ? options.formatUrl(ui)
+        : `https://${ui.host || "dev.yogeshkumarasamy.in"}${ui.path}`);
+
+    let apiCol = "–";
+    let dbCol = "–";
+
+    if (target?.api) {
+      const apiTargetName = target.api;
+      const apiInPlan =
+        deploy.some((entry) => entry.target === apiTargetName) ||
+        ui.pairedWith === "preview-api";
+
+      if (apiInPlan) {
+        const apiEntry = deploy.find((entry) => entry.target === apiTargetName);
+        const pr = options.prNumber ?? extractPrNumber(ui.path);
+        const apiWorker = apiEntry?.path || `${apiTargetName}-pr-${pr}`;
+        apiCol = `preview \`${apiWorker}\``;
+        const d1Name =
+          apiEntry?.d1 ||
+          (targets[apiTargetName]?.d1
+            ? `${targets[apiTargetName].d1}-pr-${pr}`
+            : null);
+        dbCol = d1Name ? `\`${d1Name}\`` : "–";
+      } else {
+        apiCol = "dev API";
+        dbCol = "–";
+      }
+    }
+
+    return `| ${ui.target} | ${previewUrl} | ${apiCol} | ${dbCol} |`;
+  });
+
+  return [header, ...rows].join("\n");
+}
+
+export function renderPreviewComment(reportOrPlan, options = {}) {
+  return renderPreviewTable(reportOrPlan, options);
+}
+
+function extractPrNumber(pathStr) {
+  if (!pathStr || typeof pathStr !== "string") return "";
+  const match = pathStr.match(/\/pr-(\d+)\//);
+  return match ? match[1] : "";
+}
+
+function readJsonFlag(fileOrJson) {
+  const trimmed = fileOrJson.trim();
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    return JSON.parse(trimmed);
+  }
+  return JSON.parse(readFileSync(fileOrJson, "utf8"));
 }
 
 export function parseArgs(argv) {
@@ -644,6 +718,12 @@ export function parseArgs(argv) {
         break;
       case "--dry-run":
         args.dryRun = true;
+        break;
+      case "--comment":
+        args.comment = true;
+        break;
+      case "--comment-out":
+        args.commentOut = next();
         break;
       case "--help":
       case "-h":
@@ -781,6 +861,13 @@ export async function main(argv = process.argv.slice(2), io = {}) {
   }
 
   const report = createReport(input);
+  if (args.commentOut) {
+    writeFileSync(path.resolve(cwd, args.commentOut), `${renderPreviewComment(report, { targets })}\n`);
+  }
+  if (args.comment) {
+    stdout.write(`${renderPreviewComment(report, { targets })}\n`);
+    return 0;
+  }
   const payload = args.matrix && !args.dryRun ? report.matrix : args.dryRun ? report : report.deploy;
   const text = `${JSON.stringify(payload, null, 2)}\n`;
   if (args.out || !args.dryRun) {

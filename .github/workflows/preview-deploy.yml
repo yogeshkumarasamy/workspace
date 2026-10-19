@@ -64,12 +64,14 @@ jobs:
           server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
           local-dir: apps/portfolio/dist
 
-      - name: 💬 Comment preview URL on PR
+      - name: 💬 Comment preview table on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          header: pr-preview
           message: |
-            🚀 Preview ready:  
-            [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)
+            | App | Preview | API | DB |
+            |---|---|---|---|
+            | portfolio | ${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/ | – | – |
 
   # After the portfolio upload so the two apps do not open FTP at the same time.
   preview-yt-scheduler:
@@ -153,13 +155,12 @@ jobs:
       - name: Comment preview URLs on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          header: pr-preview
           message: |
-            🚀 Preview ready:
-
-            Portfolio: [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)
-
-            YT Scheduler (mock YouTube): [${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/)
+            | App | Preview | API | DB |
+            |---|---|---|---|
+            | portfolio | ${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/ | – | – |
+            | yt-scheduler | ${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/ | preview `yt-scheduler-api-pr-${{ github.event.pull_request.number }}` | `yt-pr-${{ github.event.pull_request.number }}` |
 
             API: https://yt-scheduler-api-pr-${{ github.event.pull_request.number }}.coderdevelopment.workers.dev
-
             Sign-in key: `preview-pr-${{ github.event.pull_request.number }}` (also written into app-config.json, so the page signs in on its own).

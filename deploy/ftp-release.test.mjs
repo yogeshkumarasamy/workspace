@@ -331,6 +331,30 @@ test("an older SHA does not replace a newer live release in the memory transport
   assert.equal(memoryText(transport, `portfolio/releases/${newer}/marker.txt`).toString(), newer);
 });
 
+test("stageDist writes pairedWith into app-config.json when present", async () => {
+  const repo = makeRepo(1);
+  const templates = writeTemplates(mkdtempSync(path.join(tmpdir(), "tpl-")));
+  const transport = createMemoryTransport();
+  const options = releaseOptions(repo.dir, templates, repo.shas[0], {
+    env: "preview",
+    target: "ib-console",
+    slugDir: "preview/ib-console/pr-42",
+    base: "/preview/ib-console/pr-42/",
+    apiBaseUrl: "https://ib-console-api-pr-42.acct.workers.dev",
+    pairedWith: "preview-api",
+  });
+  const res = await publishRelease(options, { transport });
+  assert.equal(res.result, "deployed");
+  const raw = memoryText(transport, `preview/ib-console/pr-42/releases/${repo.shas[0]}/app-config.json`);
+  const config = JSON.parse(raw);
+  assert.deepEqual(config, {
+    env: "preview",
+    apiBaseUrl: "https://ib-console-api-pr-42.acct.workers.dev",
+    sha: repo.shas[0],
+    pairedWith: "preview-api",
+  });
+});
+
 const ftpReady = ftpToolsAvailable();
 
 test(

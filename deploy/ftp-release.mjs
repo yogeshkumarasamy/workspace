@@ -241,6 +241,7 @@ function resolveSettings(options = {}) {
     base: options.base ?? env.SITE_BASE ?? "",
     sha: (options.sha ?? env.DEPLOY_SHA ?? "").trim(),
     apiBaseUrl: options.apiBaseUrl ?? env.API_BASE_URL ?? "",
+    pairedWith: (options.pairedWith ?? env.PAIRED_WITH ?? "").trim(),
     publicOrigin: options.publicOrigin ?? env.PUBLIC_ORIGIN ?? "",
     dist: path.resolve(options.dist ?? env.DIST_DIR ?? "dist"),
     keep,
@@ -499,13 +500,17 @@ function stageDist(settings, releaseTemplate, previousSha, builtAt) {
     path.join(settings.dist, ".release.json"),
     `${JSON.stringify({ sha: settings.sha, target: settings.target, builtAt }, null, 2)}\n`,
   );
+  const appConfig = {
+    env: settings.env,
+    apiBaseUrl: settings.apiBaseUrl,
+    sha: settings.sha,
+  };
+  if (settings.pairedWith) {
+    appConfig.pairedWith = settings.pairedWith;
+  }
   writeFileSync(
     path.join(settings.dist, "app-config.json"),
-    `${JSON.stringify(
-      { env: settings.env, apiBaseUrl: settings.apiBaseUrl, sha: settings.sha },
-      null,
-      2,
-    )}\n`,
+    `${JSON.stringify(appConfig, null, 2)}\n`,
   );
   const legacyState = path.join(settings.dist, ".ftp-deploy-sync-state.json");
   if (existsSync(legacyState)) rmSync(legacyState);

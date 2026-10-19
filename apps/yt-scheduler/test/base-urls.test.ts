@@ -76,6 +76,31 @@ describe("API base", () => {
     });
   });
 
+  it("loads env, sha, and pairedWith from app-config.json", async () => {
+    const body = {
+      env: "preview",
+      apiBaseUrl: "https://yt-scheduler-api-pr-42.acct.workers.dev",
+      sha: "abc1234",
+      pairedWith: "preview-api",
+    };
+    const fetchImpl = (async () => new Response(JSON.stringify(body), { status: 200 })) as typeof fetch;
+    const config = await loadAppConfig(PAGE, fetchImpl);
+    expect(config).toEqual({
+      env: "preview",
+      apiBaseUrl: body.apiBaseUrl,
+      sha: "abc1234",
+      pairedWith: "preview-api",
+    });
+  });
+
+  it("falls back to VITE_API_BASE_URL when app-config.json is absent or has no apiBaseUrl", async () => {
+    const fetch404 = (async () => new Response("Not Found", { status: 404 })) as typeof fetch;
+    const fallbackUrl = "https://mock-api.local";
+    const config = await loadAppConfig(PAGE, fetch404, fallbackUrl);
+    expect(config).toEqual({ apiBaseUrl: fallbackUrl });
+    expect(resolveApiBase(null, PAGE, fallbackUrl)).toBe("https://mock-api.local/api/");
+  });
+
   it("strips the trailing slash for the history basename", () => {
     expect(routerBasename("/yt-scheduler/")).toBe("/yt-scheduler");
     expect(routerBasename("/preview/yt-scheduler/pr-9/")).toBe("/preview/yt-scheduler/pr-9");

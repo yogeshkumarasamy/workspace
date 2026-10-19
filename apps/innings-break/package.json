@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/**/*.ts\""
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@contracts/innings-break": "workspace:*"
@@ -15,7 +16,9 @@
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
+    "@types/node": "^22.20.5",
     "eslint": "^8.57.0",
+    "tsx": "^4.23.15",
     "typescript": "5.5.4"
   }
 }

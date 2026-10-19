@@ -8,9 +8,22 @@ export interface AppConfig {
   googleClientId?: string;
   pickerApiKey?: string;
   driveScope?: string;
+  env?: string;
+  sha?: string;
+  pairedWith?: string;
 }
 
-const CONFIG_FIELDS = ["apiBaseUrl", "apiKey", "youtubeMode", "googleClientId", "pickerApiKey", "driveScope"] as const;
+const CONFIG_FIELDS = [
+  "apiBaseUrl",
+  "apiKey",
+  "youtubeMode",
+  "googleClientId",
+  "pickerApiKey",
+  "driveScope",
+  "env",
+  "sha",
+  "pairedWith",
+] as const;
 
 export function routerBasename(baseUrl: string): string {
   if (!baseUrl || baseUrl === "/" || baseUrl === "./") return "/";
@@ -22,10 +35,21 @@ export function routerBasename(baseUrl: string): string {
  * A Workers `apiBaseUrl` is used as given. An origin with no path
  * (`https://yt-scheduler-api-dev.example.workers.dev`) means the current
  * `/api` routes, so `/api/` is appended. When `apiBaseUrl` is absent, the
- * base is `new URL("api/", baseURI)` (same-origin, under the page base).
+ * fallback is `import.meta.env.VITE_API_BASE_URL`, then `new URL("api/", baseURI)`
+ * (same-origin, under the page base).
  */
-export function resolveApiBase(config: AppConfig | null | undefined, baseURI: string): string {
-  const configured = config?.apiBaseUrl?.trim();
+export function resolveApiBase(
+  config: AppConfig | null | undefined,
+  baseURI: string,
+  fallbackUrl?: string,
+): string {
+  const envFallback =
+    fallbackUrl ??
+    (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL
+      ? String(import.meta.env.VITE_API_BASE_URL).trim()
+      : undefined);
+
+  const configured = config?.apiBaseUrl?.trim() || envFallback?.trim();
   if (!configured) return new URL("api/", baseURI).href;
   const url = new URL(configured);
   const path = url.pathname.replace(/\/+$/, "");
@@ -53,19 +77,37 @@ export function resolveOauthStart(config: AppConfig | null | undefined, baseURI:
   return start.href;
 }
 
-export async function loadAppConfig(baseURI: string, fetchImpl: typeof fetch = fetch): Promise<AppConfig | null> {
+export async function loadAppConfig(
+  baseURI: string,
+  fetchImpl: typeof fetch = fetch,
+  envFallback?: string,
+): Promise<AppConfig | null> {
+  let config: AppConfig | null = null;
   try {
     const res = await fetchImpl(new URL("app-config.json", baseURI), { cache: "no-store" });
-    if (!res.ok) return null;
-    const body = (await res.json()) as Record<string, unknown>;
-    if (!body || typeof body !== "object") return null;
-    const config: AppConfig = {};
-    for (const field of CONFIG_FIELDS) {
-      const value = body[field];
-      if (typeof value === "string" && value.trim()) config[field] = value.trim();
+    if (res.ok) {
+      const body = (await res.json()) as Record<string, unknown>;
+      if (body && typeof body === "object") {
+        config = {};
+        for (const field of CONFIG_FIELDS) {
+          const value = body[field];
+          if (typeof value === "string" && value.trim()) config[field] = value.trim();
+        }
+      }
     }
-    return config;
   } catch {
-    return null;
+    // ignore
   }
+
+  const fallback =
+    envFallback ??
+    (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_BASE_URL
+      ? String(import.meta.env.VITE_API_BASE_URL).trim()
+      : undefined);
+
+  if (fallback && (!config || !config.apiBaseUrl)) {
+    config = { ...(config ?? {}), apiBaseUrl: fallback };
+  }
+
+  return config;
 }

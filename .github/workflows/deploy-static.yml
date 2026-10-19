@@ -47,6 +47,11 @@ on:
         required: false
         type: string
         default: ""
+      paired_with:
+        description: Pairing status written to app-config.json (e.g. preview-api, dev-api).
+        required: false
+        type: string
+        default: ""
     outputs:
       result:
         description: deployed, superseded, rolled-back, or failed.
@@ -118,5 +123,6 @@ jobs:
           SITE_BASE: ${{ inputs.base }}
           DEPLOY_SHA: ${{ inputs.sha }}
           API_BASE_URL: ${{ inputs.api_base_url }}
+          PAIRED_WITH: ${{ inputs.paired_with }}
           DIST_DIR: dist
         run: node deploy/ftp-release.mjs

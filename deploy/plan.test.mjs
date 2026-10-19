@@ -12,6 +12,8 @@ import {
   githubLastSuccessfulSha,
   loadTargets,
   normalizeAffected,
+  renderPreviewComment,
+  renderPreviewTable,
   resolvePushBase,
   toStrategyMatrix,
 } from "./plan.mjs";
@@ -665,3 +667,98 @@ test("a preview without a PR number is refused", () => {
     /prNumber/,
   );
 });
+
+test("pairedWith tracks preview-api vs dev-api pairing", () => {
+  const row1 = preview({ affected: [{ name: "@apps/innings-break-console", reason: "FileChanged" }] });
+  assert.equal(entry(row1, "ib-console").pairedWith, "dev-api");
+
+  const row2 = preview({ affected: [{ name: "@apps/innings-break-console-api", reason: "FileChanged" }] });
+  assert.equal(entry(row2, "ib-console").pairedWith, "preview-api");
+  assert.equal(entry(row2, "ib-console-api").pairedWith, null);
+
+  const port = preview({ affected: [{ name: "@apps/portfolio", reason: "FileChanged" }] });
+  assert.equal(entry(port, "portfolio").pairedWith, null);
+
+  const pushReport = createReport({
+    targets,
+    event: "push",
+    ref: "main",
+    bases: { "ib-console": BASE },
+    affectedByBase: { [BASE]: [{ name: "@apps/innings-break-console", reason: "FileChanged" }] },
+  });
+  assert.equal(entry(pushReport, "ib-console").pairedWith, null);
+});
+
+test("renderPreviewComment formats sticky PR comment table with row 1 dev API and row 2/3/4 preview API", () => {
+  // Row 1: UI only -> dev API, DB –
+  const row1 = preview({ affected: [{ name: "@apps/innings-break-console", reason: "FileChanged" }] });
+  const row1Table = renderPreviewComment(row1);
+  assert.match(row1Table, /\| App \| Preview \| API \| DB \|/);
+  assert.match(
+    row1Table,
+    /\| ib-console \| https:\/\/dev\.yogeshkumarasamy\.in\/preview\/ib-console\/pr-42\/ \| dev API \| – \|/,
+  );
+
+  // Row 2: API only -> pairs UI with preview API and preview DB
+  const row2 = preview({ affected: [{ name: "@apps/innings-break-console-api", reason: "FileChanged" }] });
+  const row2Table = renderPreviewComment(row2);
+  assert.match(
+    row2Table,
+    /\| ib-console \| https:\/\/dev\.yogeshkumarasamy\.in\/preview\/ib-console\/pr-42\/ \| preview `ib-console-api-pr-42` \| `ib-pr-42` \|/,
+  );
+
+  // Portfolio: no API, no DB
+  const port = preview({ affected: [{ name: "@apps/portfolio", reason: "FileChanged" }] });
+  const portTable = renderPreviewComment(port);
+  assert.match(
+    portTable,
+    /\| portfolio \| https:\/\/dev\.yogeshkumarasamy\.in\/preview\/portfolio\/pr-42\/ \| – \| – \|/,
+  );
+
+  // Multi-app: ib-console and portfolio
+  const multi = preview({
+    affected: [
+      { name: "@apps/innings-break-console-api", reason: "FileChanged" },
+      { name: "@apps/portfolio", reason: "FileChanged" },
+    ],
+  });
+  const multiTable = renderPreviewComment(multi);
+  assert.match(
+    multiTable,
+    /\| ib-console \| https:\/\/dev\.yogeshkumarasamy\.in\/preview\/ib-console\/pr-42\/ \| preview `ib-console-api-pr-42` \| `ib-pr-42` \|/,
+  );
+  assert.match(
+    multiTable,
+    /\| portfolio \| https:\/\/dev\.yogeshkumarasamy\.in\/preview\/portfolio\/pr-42\/ \| – \| – \|/,
+  );
+});
+
+test("CLI --comment prints the markdown table to stdout", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      path.join(root, "plan.mjs"),
+      "--event",
+      "pull_request",
+      "--ref",
+      "feature/test",
+      "--base-ref",
+      "main",
+      "--pr",
+      "42",
+      "--base",
+      BASE,
+      "--affected-json",
+      JSON.stringify([{ name: "@apps/innings-break-console", reason: "FileChanged" }]),
+      "--comment",
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /\| App \| Preview \| API \| DB \|/);
+  assert.match(
+    result.stdout,
+    /\| ib-console \| https:\/\/dev\.yogeshkumarasamy\.in\/preview\/ib-console\/pr-42\/ \| dev API \| – \|/,
+  );
+});
+

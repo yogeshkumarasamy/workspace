@@ -8,7 +8,7 @@ import { PgStore } from "./store.js";
 import type { Channel } from "./types.js";
 import { tick } from "./worker.js";
 import type { WorkerDeps } from "./worker.js";
-import { SCOPES, googleYouTubeApi, oauthClient } from "./youtube.js";
+import { DRIVE_SCOPES, YOUTUBE_SCOPES, googleYouTubeApi, oauthClient } from "./youtube.js";
 
 const cfg = loadConfig();
 const store = new PgStore(cfg.databaseUrl);
@@ -29,7 +29,7 @@ const app = createApp({
   webDir,
   store, apiKey: cfg.apiKey, encryptionKey: cfg.encryptionKey, dailyQuota: cfg.dailyQuota, audited: cfg.audited, defaultSlots: cfg.defaultSlots, worker,
   oauth: {
-    authUrl: (state) => oauthClient(cfg.google).generateAuthUrl({ access_type: "offline", prompt: "consent select_account", scope: SCOPES, state, include_granted_scopes: true }),
+    authUrl: (state, purpose) => oauthClient(cfg.google).generateAuthUrl({ access_type: "offline", prompt: "consent select_account", scope: purpose === "drive" ? DRIVE_SCOPES : YOUTUBE_SCOPES, state, include_granted_scopes: true }),
     async exchange(code) {
       const a = oauthClient(cfg.google);
       const { tokens } = await a.getToken(code);

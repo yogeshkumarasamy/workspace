@@ -23,7 +23,7 @@ import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 
 export interface OAuthPort {
-  authUrl(state: string): string;
+  authUrl(state: string, purpose: "youtube" | "drive"): string;
   /** Exchange code; return refresh token, email and the channels this login can manage. */
   exchange(code: string): Promise<{ refreshToken: string; email: string | null; channels: { id: string; title: string; handle: string | null }[] }>;
 }
@@ -124,7 +124,7 @@ export function createApp(d: AppDeps) {
     const state = randomBytes(16).toString("hex");
     const purpose = c.req.query("purpose") === "drive" ? "drive" : "youtube";
     pending.set(state, { purpose, channelId: c.req.query("channelId"), at: Date.now() });
-    return c.redirect(d.oauth.authUrl(state));
+    return c.redirect(d.oauth.authUrl(state, purpose));
   });
   app.get("/oauth/callback", async (c) => {
     const st = pending.get(c.req.query("state") ?? "");

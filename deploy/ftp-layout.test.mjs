@@ -37,15 +37,16 @@ test("each app upload stays inside its own folder", () => {
     assert.equal(text.includes("server-root:"), false, label);
   }
 
-  const previewDirs = serverDirs(preview);
-  for (const dir of previewDirs) {
-    assert.match(dir, /FTP_TARGET_DIR_DEV_PREVIEW \}\}\/(portfolio|yt-scheduler)\//, dir);
-    assert.match(dir, /steps\.slug\.outputs\.dir/);
-  }
-  assert.match(preview, /APP_BASE: \/preview\/portfolio\/pr-/);
-  assert.match(preview, /APP_BASE: \/preview\/yt-scheduler\/pr-/);
   assert.equal(preview.includes("SamKirkland/FTP-Deploy-Action"), false);
-  assert.equal(preview.includes("preview-mkdir.sh"), false);
+  assert.match(preview, /workflows:\s*\["CI"\]/);
+  assert.match(preview, /uses:\s*\.\/\.github\/workflows\/deploy-static\.yml/);
+  assert.match(preview, /slug_dir:\s*previews\/\$\{\{\s*matrix\.slug\s*\}\}\/pr-\$\{\{\s*needs\.ctx\.outputs\.pr\s*\}\}/);
+  assert.match(preview, /group:\s*preview-pr-\$\{\{\s*needs\.ctx\.outputs\.pr\s*\}\}/);
+
+  const ci = workflow("ci.yml");
+  assert.match(ci, /APP_BASE:\s*\/previews\/<app>\/pr-\$\{\{\s*github\.event\.pull_request\.number\s*\}\}\//);
+  assert.match(ci, /VITE_PWA:\s*"off"/);
+  assert.match(ci, /node deploy\/plan\.mjs/);
 });
 
 test("the upload action lists the server-dir before it mirrors", () => {
@@ -90,9 +91,7 @@ test("wrangler jobs stay on Node 22", () => {
     const yt = text.slice(text.indexOf("deploy-yt-scheduler"));
     assert.match(yt, /node-version:\s*"22"/, name);
   }
-  const preview = workflow("preview-deploy.yml");
-  const yt = preview.slice(preview.indexOf("preview-yt-scheduler"));
-  assert.match(yt, /node-version:\s*"22"/);
+  const cleanup = workflow("cleanup-preview.yml");
+  assert.match(cleanup, /node-version:\s*"22"/);
   assert.match(workflow("deploy-main.yml"), /node-version:\s*"20"/);
-  assert.match(preview, /node-version:\s*"20"/);
 });

@@ -1,165 +1,266 @@
-name: Preview Deploy for PRs to Main
+name: Preview Deploy
 
 on:
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-
-# Same group as cleanup-preview.yml so closing the PR cancels an in-flight preview.
-concurrency:
-  group: preview-pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
 
 jobs:
-  preview-deploy:
+  ctx:
+    # Resolve the PR number from the workflow_run payload; skip forks; skip if base != main; skip unless conclusion == success
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     permissions:
       contents: read
-      pull-requests: write
-
+      actions: read
+    outputs:
+      pr: ${{ steps.resolve.outputs.pr }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      plan: ${{ steps.plan.outputs.plan }}
+      should_deploy: ${{ steps.plan.outputs.should_deploy }}
     steps:
-      - name: ⛔ Skip if PR is closed or merged
-        if: ${{ github.event.pull_request.merged == true || github.event.pull_request.state == 'closed' }}
-        run: echo "PR is merged or closed. Skipping preview deploy." && exit 0
-
-      - name: ⬇️ Checkout PR branch
-        uses: actions/checkout@v4
-
-      - name: 🟢 Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: 📦 Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: 📦 Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: 🛠️ Build Vite app
+      - name: Resolve PR context
+        id: resolve
         env:
-          APP_BASE: /preview/portfolio/pr-${{ github.event.pull_request.number }}/
-        run: pnpm --filter @apps/portfolio... build
-
-      - name: 🧼 Preview folder from PR number
-        id: slug
-        env:
-          # Passed via env so the value is never interpolated into the script.
-          PR: ${{ github.event.pull_request.number }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # pr-<N> is unique per PR. Digits only, so a branch name cannot collide or inject a path.
-          case "$PR" in (''|*[!0-9]*) echo "::error::bad PR number"; exit 1;; esac
-          echo "dir=pr-${PR}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
 
-      # server-dir is this PR's portfolio folder only. The action lists that
-      # folder and mirrors into it. It does not use FTP-Deploy-Action.
-      - name: Upload portfolio preview
-        uses: ./.github/actions/prepare-ftp-dirs
+          PR_JSON='${{ toJson(github.event.workflow_run.pull_requests) }}'
+          PR_COUNT=$(echo "$PR_JSON" | jq 'length')
+
+          if [ "$PR_COUNT" -eq 0 ]; then
+            echo "No pull requests attached to workflow_run payload. Fetching from API..."
+            RUN_DATA=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${RUN_ID}")
+            PR_JSON=$(echo "$RUN_DATA" | jq '.pull_requests')
+            PR_COUNT=$(echo "$PR_JSON" | jq 'length')
+          fi
+
+          if [ "$PR_COUNT" -eq 0 ]; then
+            echo "No pull request found for run ${RUN_ID}. Skipping."
+            {
+              echo "should_deploy=false"
+              echo "pr="
+              echo "sha="
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PR_NUMBER=$(echo "$PR_JSON" | jq -r '.[0].number')
+          IS_FORK=$(echo "$PR_JSON" | jq -r '.[0].head.repo.fork // false')
+          HEAD_REPO=$(echo "$PR_JSON" | jq -r '.[0].head.repo.full_name // empty')
+          BASE_REPO=$(echo "$PR_JSON" | jq -r '.[0].base.repo.full_name // empty')
+          BASE_REF=$(echo "$PR_JSON" | jq -r '.[0].base.ref')
+
+          echo "PR Number: $PR_NUMBER"
+          echo "Base Ref: $BASE_REF"
+          echo "Is Fork: $IS_FORK (Head: $HEAD_REPO, Base: $BASE_REPO)"
+
+          if [ "$IS_FORK" = "true" ] || [ "$HEAD_REPO" != "$BASE_REPO" ]; then
+            echo "Fork PRs get CI but no preview. Skipping."
+            {
+              echo "should_deploy=false"
+              echo "pr=${PR_NUMBER}"
+              echo "sha=${HEAD_SHA}"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "$BASE_REF" != "main" ]; then
+            echo "PR base is not main ($BASE_REF). Previews appear only for PRs whose base is main. Skipping."
+            {
+              echo "should_deploy=false"
+              echo "pr=${PR_NUMBER}"
+              echo "sha=${HEAD_SHA}"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          {
+            echo "should_deploy=true"
+            echo "pr=${PR_NUMBER}"
+            echo "sha=${HEAD_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download CI artifact
+        if: steps.resolve.outputs.should_deploy == 'true'
+        uses: actions/download-artifact@v4
         with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/portfolio/${{ steps.slug.outputs.dir }}/
-          local-dir: apps/portfolio/dist
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: ci-artifacts
 
-      - name: 💬 Comment preview URL on PR
-        uses: marocchino/sticky-pull-request-comment@v2
+      - name: Extract plan and unpack target dists
+        if: steps.resolve.outputs.should_deploy == 'true'
+        id: plan
+        run: |
+          set -euo pipefail
+
+          PLAN_FILE=$(find ci-artifacts -name "plan.json" | head -n 1)
+          if [ -z "$PLAN_FILE" ] || [ ! -f "$PLAN_FILE" ]; then
+            echo "No plan.json found in artifacts. Skipping deploy."
+            {
+              echo "should_deploy=false"
+              echo "plan=[]"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Found plan file at $PLAN_FILE"
+          cat "$PLAN_FILE"
+
+          PR="${{ steps.resolve.outputs.pr }}"
+
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+            const planFile = process.argv[1];
+            const pr = process.argv[2];
+            const plan = JSON.parse(fs.readFileSync(planFile, "utf8"));
+
+            const staticTargets = plan.filter(item => item.kind === "static" && item.env === "preview");
+
+            const deployPlan = [];
+            for (const item of staticTargets) {
+              const target = item.target;
+              const slug = item.target;
+
+              let foundDist = null;
+              function search(dir) {
+                for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                  const full = path.join(dir, entry.name);
+                  if (entry.isDirectory()) {
+                    if (full.endsWith(path.join("apps", target, "dist"))) {
+                      foundDist = full;
+                      return;
+                    }
+                    search(full);
+                    if (foundDist) return;
+                  }
+                }
+              }
+              search("ci-artifacts");
+
+              if (foundDist) {
+                const outDir = path.join("dist-packages", target);
+                fs.mkdirSync(outDir, { recursive: true });
+                fs.cpSync(foundDist, outDir, { recursive: true });
+                deployPlan.push({
+                  target: target,
+                  slug: slug,
+                  artifact: "preview-dist-" + target + "-pr-" + pr,
+                  path: item.path,
+                  base: item.path,
+                  apiBaseUrl: item.apiBaseUrl || ""
+                });
+              }
+            }
+
+            fs.writeFileSync("filtered-plan.json", JSON.stringify(deployPlan));
+            console.log("Filtered deploy plan:", JSON.stringify(deployPlan, null, 2));
+          ' "$PLAN_FILE" "$PR"
+
+          COUNT=$(jq 'length' filtered-plan.json)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "No static preview targets with dist found to deploy."
+            {
+              echo "should_deploy=false"
+              echo "plan=[]"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "should_deploy=true"
+              echo "plan=$(jq -c . filtered-plan.json)"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload portfolio dist if built
+        if: steps.plan.outputs.should_deploy == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          message: |
-            🚀 Preview ready:  
-            [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)
+          name: preview-dist-portfolio-pr-${{ steps.resolve.outputs.pr }}
+          path: dist-packages/portfolio
+          if-no-files-found: ignore
 
-  # After the portfolio upload so the two apps do not open FTP at the same time.
-  preview-yt-scheduler:
-    needs: preview-deploy
+      - name: Upload yt-scheduler dist if built
+        if: steps.plan.outputs.should_deploy == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-dist-yt-scheduler-pr-${{ steps.resolve.outputs.pr }}
+          path: dist-packages/yt-scheduler
+          if-no-files-found: ignore
+
+      - name: Upload ib-console dist if built
+        if: steps.plan.outputs.should_deploy == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-dist-ib-console-pr-${{ steps.resolve.outputs.pr }}
+          path: dist-packages/ib-console
+          if-no-files-found: ignore
+
+      - name: Upload ib dist if built
+        if: steps.plan.outputs.should_deploy == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-dist-ib-pr-${{ steps.resolve.outputs.pr }}
+          path: dist-packages/ib
+          if-no-files-found: ignore
+
+  deploy:
+    needs: ctx
+    if: needs.ctx.outputs.should_deploy == 'true'
+    concurrency:
+      group: preview-pr-${{ needs.ctx.outputs.pr }}
+      cancel-in-progress: true
+    strategy:
+      matrix:
+        include: ${{ fromJSON(needs.ctx.outputs.plan) }}
+      max-parallel: 2
+    uses: ./.github/workflows/deploy-static.yml
+    with:
+      env: preview
+      target: ${{ matrix.target }}
+      slug_dir: previews/${{ matrix.slug }}/pr-${{ needs.ctx.outputs.pr }}
+      base: ${{ matrix.base }}
+      sha: ${{ needs.ctx.outputs.sha }}
+      artifact: ${{ matrix.artifact }}
+      api_base_url: ${{ matrix.apiBaseUrl }}
+
+  comment:
+    needs: [ctx, deploy]
+    if: always() && needs.ctx.outputs.should_deploy == 'true' && needs.deploy.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     permissions:
-      contents: read
       pull-requests: write
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          # Wrangler 4 requires Node >= 22. The portfolio preview job stays on Node 20.
-          node-version: "22"
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Preview folder from PR number
-        id: slug
+      - name: Format preview comment
+        id: msg
         env:
-          PR: ${{ github.event.pull_request.number }}
+          PLAN_JSON: ${{ needs.ctx.outputs.plan }}
+          PR_NUMBER: ${{ needs.ctx.outputs.pr }}
+          SHA: ${{ needs.ctx.outputs.sha }}
         run: |
-          case "$PR" in (''|*[!0-9]*) echo "::error::bad PR number"; exit 1;; esac
-          echo "dir=pr-${PR}" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy preview Worker
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          UPLOAD_CHUNK_BYTES: ${{ vars.UPLOAD_CHUNK_BYTES }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: node deploy/yt-worker.mjs deploy --env preview --pr "$PR_NUMBER"
-
-      - name: Build yt-scheduler UI
-        env:
-          # PREVIEW_DOMAIN is https://dev.yogeshkumarasamy.in/preview (singular).
-          # The portfolio sticky URL is /preview/portfolio/pr-<N>/. APP_BASE has
-          # to be that same prefix or the built assets 404.
-          APP_BASE: /preview/yt-scheduler/pr-${{ github.event.pull_request.number }}/
-          VITE_PWA: "off"
-        run: pnpm --filter @apps/yt-scheduler... build
-
-      - name: Write app-config and history rewrite
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: node deploy/yt-static.mjs --dist apps/yt-scheduler/dist --env preview --pr "$PR_NUMBER"
-
-      - name: Upload yt-scheduler preview
-        uses: ./.github/actions/prepare-ftp-dirs
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          server-dir: ${{ secrets.FTP_TARGET_DIR_DEV_PREVIEW }}/yt-scheduler/${{ steps.slug.outputs.dir }}/
-          local-dir: apps/yt-scheduler/dist
-
-      - name: Check preview Worker health
-        env:
-          PR: ${{ github.event.pull_request.number }}
-        run: |
-          body=$(curl --fail --show-error --retry 5 --retry-all-errors --retry-delay 3 \
-            "https://yt-scheduler-api-pr-${PR}.coderdevelopment.workers.dev/api/health")
-          node -e 'const b=JSON.parse(process.argv[1]); if(!b.ok||b.youtubeMode!=="mock"){console.error("expected mock health"); process.exit(1)} console.log(b.youtubeMode)' "$body"
-
-      - name: Check published app-config
-        env:
-          PR: ${{ github.event.pull_request.number }}
-          PAGE: ${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/pr-${{ github.event.pull_request.number }}/app-config.json
-        run: |
-          body=$(curl --fail --show-error --retry 8 --retry-all-errors --retry-delay 5 "$PAGE")
-          node -e 'const b=JSON.parse(process.argv[1]); const pr=process.argv[2]; if(b.youtubeMode!=="mock"||b.apiKey!=="preview-pr-"+pr||!String(b.apiBaseUrl).includes("yt-scheduler-api-pr-"+pr)){console.error("preview app-config does not match this PR"); process.exit(1)} console.log(b.apiBaseUrl)' "$body" "$PR"
+          node -e '
+            const plan = JSON.parse(process.env.PLAN_JSON || "[]");
+            const pr = process.env.PR_NUMBER;
+            const sha = process.env.SHA ? process.env.SHA.slice(0, 7) : "";
+            const tick = String.fromCharCode(96);
+            const lines = ["🚀 **Preview ready** for PR #" + pr + " (" + tick + sha + tick + "):\n"];
+            for (const item of plan) {
+              const url = "https://dev.yogeshkumarasamy.in" + item.path;
+              lines.push("- **" + item.target + "**: [" + url + "](" + url + ")");
+            }
+            const body = lines.join("\n");
+            const fs = require("fs");
+            fs.writeFileSync("comment.md", body);
+          '
 
       - name: Comment preview URLs on PR
         uses: marocchino/sticky-pull-request-comment@v2
         with:
-          message: |
-            🚀 Preview ready:
-
-            Portfolio: [${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/portfolio/${{ steps.slug.outputs.dir }}/)
-
-            YT Scheduler (mock YouTube): [${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/](${{ secrets.PREVIEW_DOMAIN }}/yt-scheduler/${{ steps.slug.outputs.dir }}/)
-
-            API: https://yt-scheduler-api-pr-${{ github.event.pull_request.number }}.coderdevelopment.workers.dev
-
-            Sign-in key: `preview-pr-${{ github.event.pull_request.number }}` (also written into app-config.json, so the page signs in on its own).
+          number: ${{ needs.ctx.outputs.pr }}
+          header: preview-deploy
+          path: comment.md

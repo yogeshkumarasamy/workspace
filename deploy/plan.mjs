@@ -448,11 +448,11 @@ function materialize(targets, selected, schema, ctx) {
       env: ctx.env,
       base: meta.base,
       // T13: a static app is /<slug>/ on dev, staging, and production.
-      // Previews stay /preview/<slug>/pr-<N>/ on the dev host. Never the docroot.
+      // Previews stay /previews/<slug>/pr-<N>/ on the dev host. Never the docroot.
       path:
         target.kind === "static"
           ? ctx.preview
-            ? `/preview/${target.slug}/pr-${ctx.prNumber}/`
+            ? `/previews/${target.slug}/pr-${ctx.prNumber}/`
             : `/${target.slug}/`
           : workerName(name, ctx, targets),
       apiBaseUrl,
@@ -693,6 +693,7 @@ function applyGithubEnv(args) {
   if (!eventPath || !existsSync(eventPath)) return;
   const payload = JSON.parse(readFileSync(eventPath, "utf8"));
   if (!args.prNumber) args.prNumber = payload.pull_request?.number ?? payload.number;
+  if (!args.baseSha && payload.pull_request?.base?.sha) args.baseSha = payload.pull_request.base.sha;
   const payloadLabels = payload.pull_request?.labels ?? payload.labels ?? [];
   for (const label of payloadLabels) {
     const name = typeof label === "string" ? label : label?.name;

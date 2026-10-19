@@ -6,7 +6,10 @@ export const DEFAULT_APP_BASE = "/portfolio/";
  * Previews set APP_BASE to `/preview/portfolio/pr-<N>/`.
  */
 export function normalizeAppBase(value = process.env.APP_BASE) {
-  const raw = (value ?? "").trim() || DEFAULT_APP_BASE;
+  let raw = (value ?? "").trim() || DEFAULT_APP_BASE;
+  if (raw.includes("<app>") || raw.includes("<slug>")) {
+    raw = raw.replace(/<(app|slug)>/g, "portfolio");
+  }
   if (!raw.startsWith("/")) {
     throw new Error(`APP_BASE must be an absolute path starting with /, got ${raw}`);
   }

@@ -6,7 +6,7 @@
  */
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { normalizeAppBase } from "../base-path.mjs";
 
 /** Quoted path-absolute URLs. Ignores HTML `/>` and protocol-relative `//`. */
@@ -63,7 +63,7 @@ function isDirectRun() {
 
 if (isDirectRun()) {
   const base = normalizeAppBase();
-  const distDir = path.resolve(process.argv[2] ?? path.join(path.dirname(new URL(import.meta.url).pathname), "../dist"));
+  const distDir = path.resolve(process.argv[2] ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "../dist"));
   const problems = [...checkDist(distDir, base), ...checkLegalPages(distDir, base)];
   if (problems.length) {
     console.error(`static build check failed for ${base}:`);

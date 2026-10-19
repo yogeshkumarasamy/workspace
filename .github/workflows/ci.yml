@@ -43,6 +43,8 @@ jobs:
           # local ref. Turbo 2.11 then assumes every file changed. The base SHA
           # is the first parent of the merge commit fetch-depth: 0 already has.
           TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+          APP_BASE: /previews/<app>/pr-${{ github.event.pull_request.number }}/
+          VITE_PWA: "off"
         run: pnpm turbo run lint typecheck test build --affected
 
       - name: Reject /-rooted URLs in the yt-scheduler build
@@ -54,6 +56,8 @@ jobs:
           fi
           node apps/yt-scheduler/scripts/check-base-urls.mjs "$dist"
           base="${APP_BASE:-/yt-scheduler/}"
+          base="${base//<app>/yt-scheduler}"
+          base="${base//<slug>/yt-scheduler}"
           case "$base" in
             */) ;;
             *) base="$base/" ;;
@@ -67,6 +71,9 @@ jobs:
             echo "found a /-rooted URL outside ${base}" >&2
             exit 1
           fi
+
+      - name: Plan affected targets for preview deploy
+        run: node deploy/plan.mjs --base ${{ github.event.pull_request.base.sha }}
 
       - name: Upload affected dists and plan
         uses: actions/upload-artifact@v4

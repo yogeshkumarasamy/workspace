@@ -92,7 +92,7 @@ export function createApi(deps: ApiDeps) {
     const state = crypto.randomUUID().replace(/-/g, "");
     const purpose = c.req.query("purpose") === "drive" ? "drive" : "youtube";
     await oauthStore(deps).putOauthState(state, purpose, c.req.query("channelId"));
-    return c.redirect(authUrl({ clientId: deps.google.clientId, redirectUri: deps.google.redirectUri, state, drive: deps.driveScope }));
+    return c.redirect(authUrl({ clientId: deps.google.clientId, redirectUri: deps.google.redirectUri, state, purpose, drive: deps.driveScope }));
   });
 
   app.get("/oauth/callback", async (c) => {

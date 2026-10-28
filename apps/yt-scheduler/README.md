@@ -95,6 +95,16 @@ Tests, lint and build: `pnpm turbo run test lint build --filter=@apps/yt-schedul
 6. Open the UI, click **Connect channel**, and pick the **brand account / channel** on Google's screen. Repeat this for every channel you add.
    - If the Drive files live under a different Google account, click "use separate Drive account" on the channel.
 7. In YouTube Studio, make sure the channel is **phone-verified**. Custom thumbnails need this.
+8. **Google Picker API key** (browser key shown in `app-config.json` as `pickerApiKey`):
+   - APIs & Services → Library → enable **Google Picker API** (and Drive API).
+   - Credentials → Create credentials → **API key** → restrict it.
+   - Application restrictions → **HTTP referrers**, and include at least:
+     - `https://yt-scheduler.yogeshkumarasamy.in/*`
+     - `http://localhost:5173/*` and `http://localhost:8788/*` for local UI
+   - Do **not** restrict only to `/yt-scheduler/*`. Incognito and tracking prevention often send a bare origin Referer (`https://yt-scheduler.yogeshkumarasamy.in/`) or an empty Referer; a path-only allowlist then fails with "The API developer key is invalid".
+   - Empty Referer can never match an HTTP-referrer allowlist. For a personal tool whose key is already public in `app-config.json`, **Application restrictions → None** is the reliable fix when Picker fails only in private windows.
+   - API restrictions → restrict to Google Picker API (and Drive API if the key is reused).
+
 
 ### API audit
 To lift the private-lock, and to get more than the default 10,000 units/day, fill in the **YouTube API Services Audit and Quota Extension Form**: https://support.google.com/youtube/contact/yt_api_form

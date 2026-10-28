@@ -1,4 +1,4 @@
-/** Shared Google Picker view plan for Drive file/folder selection (drive.file-safe). */
+/** Shared Google Picker view plan + accept matching for Drive file/folder selection. */
 
 export const FOLDER_MIME = "application/vnd.google-apps.folder";
 
@@ -7,12 +7,20 @@ export const VIDEO_MIME_TYPES = [
   "video/mp4",
   "video/quicktime",
   "video/x-msvideo",
+  "video/avi",
   "video/webm",
   "video/x-matroska",
   "video/mpeg",
   "video/3gpp",
   "video/x-flv",
+  "video/x-m4v",
+  "video/mp2t",
+  "video/x-ms-wmv",
+  "video/ogg",
 ].join(",");
+
+/** Filename extensions treated as videos when Drive MIME is missing or octet-stream. */
+export const VIDEO_NAME_RE = /\.(mp4|m4v|mov|avi|mkv|webm|mpeg|mpg|3gp|flv|wmv|ts|mts|m2ts|ogv)$/i;
 
 /** Common image MIME types for thumbnails. */
 export const IMAGE_MIME_TYPES = [
@@ -25,6 +33,8 @@ export const IMAGE_MIME_TYPES = [
   "image/heif",
 ].join(",");
 
+export const IMAGE_NAME_RE = /\.(jpe?g|png|gif|webp|bmp|heic|heif)$/i;
+
 export type PickerAccept = "video/" | "image/" | "folder";
 
 export type PickerViewPlan =
@@ -36,11 +46,17 @@ export type PickerViewPlan =
     }
   | {
       kind: "files";
-      /** Primary: My Drive / all docs with folders + MIME filter (works with drive.file). */
+      /**
+       * Primary: My Drive / all docs with folders. MIME filter is intentionally
+       * omitted — Drive often stores episode files as application/octet-stream
+       * (or other non-video/* types), and setMimeTypes then disables Select for
+       * every file except the few with a real video/* MIME.
+       */
       primary: {
         viewId: "DOCS";
         includeFolders: true;
-        mimeTypes: string;
+        /** When set, applied to DocsView; undefined means no MIME gate. */
+        mimeTypes?: string;
       };
       /** Optional Videos/Images tab; do not rely on it alone under drive.file. */
       secondary: {
@@ -49,9 +65,9 @@ export type PickerViewPlan =
     };
 
 /**
- * Prefer ViewId.DOCS + folders + MIME filter so Picker can browse My Drive and
- * grant drive.file on pick. DOCS_VIDEOS / DOCS_IMAGES alone often only list
- * already-authorized files under drive.file scope.
+ * Prefer ViewId.DOCS + folders (no MIME gate) so every video in the library is
+ * selectable; filter on pick via matchesPickerAccept. DOCS_VIDEOS / DOCS_IMAGES
+ * alone often only list already-authorized files under drive.file scope.
  */
 export function pickerViewPlan(accept: PickerAccept): PickerViewPlan {
   if (accept === "folder") {
@@ -68,7 +84,7 @@ export function pickerViewPlan(accept: PickerAccept): PickerViewPlan {
       primary: {
         viewId: "DOCS",
         includeFolders: true,
-        mimeTypes: IMAGE_MIME_TYPES,
+        // No mimeTypes — same octet-stream issue as videos; filter in callback.
       },
       secondary: { viewId: "DOCS_IMAGES" },
     };
@@ -78,8 +94,19 @@ export function pickerViewPlan(accept: PickerAccept): PickerViewPlan {
     primary: {
       viewId: "DOCS",
       includeFolders: true,
-      mimeTypes: VIDEO_MIME_TYPES,
     },
     secondary: { viewId: "DOCS_VIDEOS" },
   };
+}
+
+/** True when a Drive file/folder matches the picker accept mode (MIME or extension). */
+export function matchesPickerAccept(
+  accept: PickerAccept,
+  file: { name: string; mimeType: string },
+): boolean {
+  if (accept === "folder") return file.mimeType === FOLDER_MIME;
+  if (accept === "video/") {
+    return file.mimeType.startsWith("video/") || VIDEO_NAME_RE.test(file.name);
+  }
+  return file.mimeType.startsWith("image/") || IMAGE_NAME_RE.test(file.name);
 }

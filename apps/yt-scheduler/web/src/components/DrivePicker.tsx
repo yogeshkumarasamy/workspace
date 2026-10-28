@@ -3,7 +3,7 @@ import { Button, Dialog, Input } from "@repo/ui/shadcn";
 import { api, getRuntimeConfig } from "../api";
 import type { DriveFile } from "../api";
 import { useApp } from "../state";
-import { FOLDER_MIME, pickerViewPlan, type PickerAccept } from "../picker-views";
+import { FOLDER_MIME, matchesPickerAccept, pickerViewPlan, type PickerAccept } from "../picker-views";
 
 const FOLDER = FOLDER_MIME;
 /** Default browse root: user's production episode library folder. */
@@ -79,11 +79,13 @@ function addPickerViews(
       .setEnableDrives(true);
     return builder.addView(view);
   }
-  const primary = new picker.DocsView(picker.ViewId.DOCS)
+  // Do not setMimeTypes on the Docs view: Drive often labels episode files as
+  // application/octet-stream, which disables Google Picker's Select for them.
+  let primary = new picker.DocsView(picker.ViewId.DOCS)
     .setIncludeFolders(true)
-    .setMimeTypes(plan.primary.mimeTypes)
     .setParent(DEFAULT_DRIVE_FOLDER)
     .setEnableDrives(true);
+  if (plan.primary.mimeTypes) primary = primary.setMimeTypes(plan.primary.mimeTypes);
   let next = builder.addView(primary);
   const secondaryId =
     plan.secondary.viewId === "DOCS_IMAGES" ? picker.ViewId.DOCS_IMAGES : picker.ViewId.DOCS_VIDEOS;
@@ -116,7 +118,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
     api<DriveFile[]>(`/drive/list?folderId=${encodeURIComponent(cur.id)}${channel ? `&channel=${channel}` : ""}`)
       .then(setFiles).catch((e) => setErr(e.message)).finally(() => setLoading(false));
   }, [open, cur.id, channel, browse]);
-  const ok = (f: DriveFile) => (accept === "folder" ? f.mimeType === FOLDER : f.mimeType.startsWith(accept));
+  const ok = (f: DriveFile) => matchesPickerAccept(accept, f);
   async function openGooglePicker() {
     const clientId = runtime?.googleClientId;
     const pickerKey = runtime?.pickerApiKey;
@@ -136,7 +138,12 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
       builder.setCallback((data) => {
         const doc = data.docs?.[0];
         if (data.action === picker.Action.PICKED && doc) {
-          onPick({ id: doc.id, name: doc.name, mimeType: doc.mimeType || (accept === "folder" ? FOLDER : accept) });
+          const mimeType = doc.mimeType || (accept === "folder" ? FOLDER : accept);
+          if (!matchesPickerAccept(accept, { name: doc.name, mimeType })) {
+            setErr(accept === "folder" ? "Please pick a folder." : accept === "video/" ? "Please pick a video file." : "Please pick an image file.");
+            return;
+          }
+          onPick({ id: doc.id, name: doc.name, mimeType });
           onOpenChange(false);
         }
       }).build().setVisible(true);
@@ -163,7 +170,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
             {!loading && files.length === 0 && <p className="p-3 text-sm text-muted-foreground">Empty folder</p>}
             {files.map((f) => (
               <div key={f.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span>{f.mimeType === FOLDER ? "📁" : f.mimeType.startsWith("video/") ? "🎬" : f.mimeType.startsWith("image/") ? "🖼️" : "📄"}</span>
+                <span>{f.mimeType === FOLDER ? "📁" : matchesPickerAccept("video/", f) ? "🎬" : matchesPickerAccept("image/", f) ? "🖼️" : "📄"}</span>
                 {f.mimeType === FOLDER ? <button className="flex-1 text-left hover:underline" onClick={() => setStack([...stack, { id: f.id, name: f.name }])}>{f.name}</button> : <span className="flex-1">{f.name}</span>}
                 {f.size && <span className="text-xs text-muted-foreground">{(Number(f.size) / 1e6).toFixed(1)} MB</span>}
                 {ok(f) && <Button size="sm" onClick={() => { onPick(f); onOpenChange(false); }}>Select</Button>}

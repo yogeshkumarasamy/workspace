@@ -18,6 +18,17 @@ export function driveScopeValue(raw: string | undefined): DriveScope {
 
 export type OAuthPurpose = "youtube" | "drive";
 
+export type AccessTokenPurpose = "youtube" | "drive";
+
+/** Drive Picker and Drive API calls use the Drive refresh token when the channel has connected Drive. YouTube calls stay on the channel token. */
+export function refreshTokenEncFor(
+  channel: { refreshTokenEnc: string; driveRefreshTokenEnc: string | null },
+  purpose: AccessTokenPurpose,
+): string {
+  if (purpose === "drive" && channel.driveRefreshTokenEnc) return channel.driveRefreshTokenEnc;
+  return channel.refreshTokenEnc;
+}
+
 export function oauthScopes(purpose: OAuthPurpose, drive: DriveScope): string[] {
   if (purpose === "drive") {
     // Google rejects YouTube scopes requested together with other scopes in one

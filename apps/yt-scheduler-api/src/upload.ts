@@ -11,7 +11,7 @@ import {
   type SubrequestSpend,
 } from "./budget.ts";
 import type { UploadProgress } from "./d1-store.ts";
-import { driveFileMeta, driveMediaUrl, openResumableUpload, refreshAccessToken } from "./google.ts";
+import { driveFileMeta, driveMediaUrl, openResumableUpload, refreshAccessToken, refreshTokenEncFor, type AccessTokenPurpose } from "./google.ts";
 import { MOCK_MEDIA_BYTES, videoResource } from "./publish.ts";
 import { queryStatus, transferChunk, type ChunkFetcher } from "./transfer.ts";
 
@@ -284,8 +284,7 @@ export async function finishUpload(env: UploadEnv, jobId: string): Promise<void>
   const log = [...job.log];
   if (channel && env.youtubeMode === "live" && job.thumbnail) {
     try {
-      const token = await accessToken(env, channel);
-      await uploadThumbnail(token, videoId, job);
+      await uploadThumbnail(env, channel, videoId, job);
       await env.store.addQuota(channel.id, quotaDay(now), COST.thumbnailsSet);
       log.push({ at: now.toISOString(), msg: "thumbnail set" });
     } catch (error) {
@@ -334,11 +333,12 @@ async function openSession(env: UploadEnv, job: Job, channel: Channel, now: Date
     return { total, sessionUri: `mock://upload/${job.id}` };
   }
   const token = await accessToken(env, channel, spent);
-  const total = await liveSize(token, job, spent);
+  const driveToken = job.video.kind === "drive" ? await accessToken(env, channel, spent, "drive") : token;
+  const total = await liveSize(driveToken, job, spent);
   let mime = "video/mp4";
   if (job.video.kind === "drive") {
     spent.external += 1;
-    mime = (await driveFileMeta(token, job.video.fileId)).mimeType;
+    mime = (await driveFileMeta(driveToken, job.video.fileId)).mimeType;
   }
   spent.external += 1;
   const sessionUri = await openResumableUpload({
@@ -375,7 +375,7 @@ function sourceUrl(env: UploadEnv, job: Job): string {
 
 async function sourceHeaders(env: UploadEnv, channel: Channel, job: Job): Promise<HeadersInit | undefined> {
   if (env.youtubeMode === "mock" || job.video.kind !== "drive") return undefined;
-  return { authorization: `Bearer ${await accessToken(env, channel)}` };
+  return { authorization: `Bearer ${await accessToken(env, channel, undefined, "drive")}` };
 }
 
 async function sinkHeaders(env: UploadEnv, channel: Channel): Promise<HeadersInit | undefined> {
@@ -481,22 +481,26 @@ async function discard(body: ReadableStream | null) {
   }
 }
 
-async function accessToken(env: UploadEnv, channel: Channel, spent?: SubrequestSpend): Promise<string> {
+async function accessToken(env: UploadEnv, channel: Channel, spent?: SubrequestSpend, purpose: AccessTokenPurpose = "youtube"): Promise<string> {
   if (!env.google) throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required when YOUTUBE_MODE=live");
-  const hit = tokens.get(channel.id);
+  const usingDrive = purpose === "drive" && !!channel.driveRefreshTokenEnc;
+  const cacheKey = `${channel.id}:${usingDrive ? "drive" : "youtube"}`;
+  const hit = tokens.get(cacheKey);
   if (hit && hit.exp > Date.now() + 30_000) return hit.token;
   const { decrypt } = await import("./crypto.ts");
-  const refreshToken = await decrypt(channel.refreshTokenEnc, env.encryptionKey);
+  const refreshToken = await decrypt(refreshTokenEncFor(channel, purpose), env.encryptionKey);
   if (spent) spent.external += 1;
   const token = await refreshAccessToken({ refreshToken, clientId: env.google.clientId, clientSecret: env.google.clientSecret });
-  tokens.set(channel.id, { token: token.accessToken, exp: Date.now() + token.expiresIn * 1000 });
+  tokens.set(cacheKey, { token: token.accessToken, exp: Date.now() + token.expiresIn * 1000 });
   return token.accessToken;
 }
 
-async function uploadThumbnail(token: string, videoId: string, job: Job) {
+async function uploadThumbnail(env: UploadEnv, channel: Channel, videoId: string, job: Job) {
   if (!job.thumbnail) return;
+  const youtubeToken = await accessToken(env, channel);
+  const sourceToken = job.thumbnail.kind === "drive" ? await accessToken(env, channel, undefined, "drive") : youtubeToken;
   const source = job.thumbnail.kind === "drive" ? driveMediaUrl(job.thumbnail.fileId) : job.thumbnail.url;
-  const headers: HeadersInit = job.thumbnail.kind === "drive" ? { authorization: `Bearer ${token}` } : {};
+  const headers: HeadersInit = job.thumbnail.kind === "drive" ? { authorization: `Bearer ${sourceToken}` } : {};
   const file = await fetch(source, { headers });
   if (!file.ok) throw new Error(`thumbnail source ${file.status}`);
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -510,7 +514,7 @@ async function uploadThumbnail(token: string, videoId: string, job: Job) {
   body.set(new TextEncoder().encode(tail), head.length + bytes.byteLength);
   const response = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(videoId)}`, {
     method: "POST",
-    headers: { authorization: `Bearer ${token}`, "content-type": `multipart/related; boundary=${boundary}` },
+    headers: { authorization: `Bearer ${youtubeToken}`, "content-type": `multipart/related; boundary=${boundary}` },
     body,
   });
   if (!response.ok) throw new Error(`thumbnails.set ${response.status}: ${(await response.text()).slice(0, 200)}`);

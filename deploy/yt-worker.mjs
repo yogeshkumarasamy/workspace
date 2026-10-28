@@ -128,7 +128,7 @@ export function buildAppConfig({ env, pr, processEnv }) {
   const config = {
     apiBaseUrl: workerOrigin(names.worker),
     youtubeMode: names.youtubeMode,
-    driveScope: "file",
+    driveScope: env === "production" ? "readonly" : "file",
   };
   if (env === "production") {
     if (!processEnv.GOOGLE_CLIENT_ID) {
@@ -160,7 +160,7 @@ export function renderWrangler(input) {
         vars: {
           ENVIRONMENT: input.env,
           YOUTUBE_MODE: input.youtubeMode,
-          DRIVE_SCOPE: "file",
+          DRIVE_SCOPE: input.env === "production" ? "readonly" : "file",
           UPLOAD_CHUNK_BYTES: String(input.chunkBytes),
           CORS_ORIGIN: input.corsOrigin,
           APP_PUBLIC_URL: input.appPublicUrl,

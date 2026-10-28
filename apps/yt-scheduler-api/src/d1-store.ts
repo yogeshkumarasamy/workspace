@@ -225,6 +225,10 @@ export class D1Store implements Store {
     await this.run(`UPDATE jobs SET ${sets.join(", ")}, updated_at = ? WHERE id = ?`, values);
   }
 
+  async deleteJob(id: string) {
+    return (await this.run("DELETE FROM jobs WHERE id = ?", [id])) > 0;
+  }
+
   async claimJob(id: string, now: Date) {
     return (await this.run("UPDATE jobs SET status = 'uploading', updated_at = ? WHERE id = ? AND status = 'queued'", [now.toISOString(), id])) > 0;
   }

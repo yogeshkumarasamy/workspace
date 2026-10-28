@@ -568,6 +568,43 @@ async function runMockUpload(options: { chunks: number; chunkBytes: number; budg
   };
 }
 
+describe("delete job", () => {
+  const headers = { "x-api-key": "preview-pr-1" };
+
+  it("deletes a queued job and refuses while uploading", async () => {
+    const store = new MemoryStore();
+    const channel = await seedChannel(store, "drive-enc");
+    const app = liveApi({ store, driveScope: "readonly" });
+    const { job } = await store.insertJob(queuedJob(channel.id, "to-delete"));
+    const deleted = await app.request(`/api/jobs/${job.id}`, { method: "DELETE", headers });
+    expect(deleted.status).toBe(200);
+    expect(await store.getJob(job.id)).toBeNull();
+
+    const { job: uploading } = await store.insertJob({ ...queuedJob(channel.id, "uploading-delete"), status: "uploading" });
+    const refused = await app.request(`/api/jobs/${uploading.id}`, { method: "DELETE", headers });
+    expect(refused.status).toBe(409);
+    expect(await store.getJob(uploading.id)).not.toBeNull();
+  });
+
+  it("bulk-deletes selected jobs", async () => {
+    const store = new MemoryStore();
+    const channel = await seedChannel(store, "drive-enc");
+    const app = liveApi({ store, driveScope: "readonly" });
+    const a = await store.insertJob(queuedJob(channel.id, "bulk-a"));
+    const b = await store.insertJob(queuedJob(channel.id, "bulk-b"));
+    const res = await app.request("/api/jobs/bulk", {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({ ids: [a.job.id, b.job.id], action: "delete" }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json() as { results: { ok: boolean }[] };
+    expect(body.results.every((r) => r.ok)).toBe(true);
+    expect(await store.getJob(a.job.id)).toBeNull();
+    expect(await store.getJob(b.job.id)).toBeNull();
+  });
+});
+
 describe("crypto", () => {
   it("round-trips a refresh token", async () => {
     const blob = await encrypt("refresh-token", KEY);

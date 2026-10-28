@@ -24,6 +24,11 @@ export function JobDetail({ job, onClose, onEdit }: { job: Job | null; onClose()
     try { await api(`/jobs/${job.id}/${a}`, { method: "POST" }); toast(`Job ${a === "cancel" ? "cancelled" : "re-queued"}`); await refresh(); onClose(); }
     catch (e) { toast((e as Error).message, "err"); }
   };
+  const remove = async () => {
+    if (!confirm("Delete this job from the scheduler? The YouTube video (if any) is not deleted.")) return;
+    try { await api(`/jobs/${job.id}`, { method: "DELETE" }); toast("Job deleted"); await refresh(); onClose(); }
+    catch (e) { toast((e as Error).message, "err"); }
+  };
   const src = (s: Job["video"]) => (s.kind === "drive" ? <a className="text-blue-400 hover:underline" target="_blank" rel="noreferrer" href={`https://drive.google.com/file/d/${s.fileId}/view`}>Drive {s.fileId}</a> : <a className="break-all text-blue-400 hover:underline" href={s.url} target="_blank" rel="noreferrer">{s.url}</a>);
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()} title={job.metadata.title}>
@@ -56,6 +61,7 @@ export function JobDetail({ job, onClose, onEdit }: { job: Job | null; onClose()
             {canMove(job.status) && job.publishAt && <Button variant="outline" onClick={() => setMoving(true)}>Move to…</Button>}
             {["queued", "failed"].includes(job.status) && <Button variant="outline" onClick={() => act("cancel")}>Cancel job</Button>}
             {["failed", "cancelled"].includes(job.status) && <Button onClick={() => act("retry")}>Retry</Button>}
+            {job.status !== "uploading" && <Button variant="destructive" onClick={remove}>Delete</Button>}
           </div>
         </div>
       </div>

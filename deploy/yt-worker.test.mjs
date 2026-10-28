@@ -52,6 +52,7 @@ test("app-config points at the matching worker and never includes the client sec
   assert.equal(preview.apiBaseUrl, "https://yt-scheduler-api-pr-9.coderdevelopment.workers.dev");
   assert.equal(preview.apiKey, "preview-pr-9");
   assert.equal(preview.youtubeMode, "mock");
+  assert.equal(preview.driveScope, "file");
   assert.equal(preview.googleClientId, "123-abc.apps.googleusercontent.com");
   assert.equal("GOOGLE_CLIENT_SECRET" in preview, false);
   assert.equal(preview.clientSecret, undefined);
@@ -69,6 +70,7 @@ test("app-config points at the matching worker and never includes the client sec
   assert.equal(production.youtubeMode, "live");
   assert.equal(production.apiKey, undefined);
   assert.equal(production.pickerApiKey, "picker-key");
+  assert.equal(production.driveScope, "readonly");
   assert.equal(JSON.stringify(production).includes("super-secret"), false);
   assert.equal(JSON.stringify(production).includes("prod-key"), false);
 });
@@ -95,6 +97,7 @@ test("generated wrangler config has the real database id, empty crons, and no cp
   assert.equal(config.env.preview.d1_databases[0].database_id, "11111111-1111-4111-8111-111111111111");
   assert.equal(config.env.preview.vars.UPLOAD_CHUNK_BYTES, String(32 * 1024 * 1024));
   assert.equal(config.env.preview.vars.YOUTUBE_MODE, "mock");
+  assert.equal(config.env.preview.vars.DRIVE_SCOPE, "file");
   assert.equal(config.env.preview.workflows[0].name, "yt-scheduler-upload-pr-3");
   assert.equal(config.rules[0].type, "Text");
   assert.deepEqual(config.rules[0].globs, ["**/*.sql"]);
@@ -201,7 +204,7 @@ test("production static config needs only the public client id and optional pick
     assert.equal(file.apiBaseUrl, written.config.apiBaseUrl);
     assert.match(file.apiBaseUrl, /yt-scheduler-api-prod/);
     assert.equal(file.apiKey, undefined);
-    assert.equal(file.driveScope, "file");
+    assert.equal(file.driveScope, "readonly");
     for (const marker of ["apiKey", "YT_API_KEY", "YT_ENCRYPTION_KEY", "GOOGLE_CLIENT_SECRET"]) {
       assert.equal(raw.includes(marker), false, marker);
     }

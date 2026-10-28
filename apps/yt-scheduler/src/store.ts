@@ -14,6 +14,8 @@ export interface Store {
   getJob(id: string): Promise<Job | null>;
   listJobs(f: { channelId?: string; status?: JobStatus; limit?: number }): Promise<Job[]>;
   updateJob(id: string, patch: Partial<Job>): Promise<void>;
+  /** Remove a job row. Does not delete the YouTube video if one was uploaded. */
+  deleteJob(id: string): Promise<boolean>;
   /** Atomically claim the next due queued job. */
   claimDue(now: Date): Promise<Job | null>;
   takenPublishSlots(channelId: string, type: "short" | "long"): Promise<Date[]>;
@@ -53,6 +55,7 @@ export class MemoryStore implements Store {
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, f.limit ?? 200);
   }
   async updateJob(id: string, patch: Partial<Job>) { const j = this.jobs.get(id); if (j) this.jobs.set(id, { ...j, ...patch, updatedAt: new Date() }); }
+  async deleteJob(id: string) { return this.jobs.delete(id); }
   async claimDue(now: Date) {
     const j = [...this.jobs.values()].filter((x) => x.status === "queued" && x.runAt <= now).sort((a, b) => a.runAt.getTime() - b.runAt.getTime())[0];
     if (!j) return null;
@@ -133,6 +136,10 @@ export class PgStore implements Store {
     const sets: string[] = []; const vals: unknown[] = [id];
     for (const [k, v] of Object.entries(patch)) { const col = jobCols[k]; if (!col) continue; vals.push(k === "warnings" || k === "log" ? JSON.stringify(v) : v); sets.push(`${col}=$${vals.length}`); }
     if (sets.length) await this.pool.query(`update jobs set ${sets.join(",")}, updated_at=now() where id=$1`, vals);
+  }
+  async deleteJob(id: string) {
+    const r = await this.pool.query("delete from jobs where id::text=$1", [id]);
+    return (r.rowCount ?? 0) > 0;
   }
   async claimDue(now: Date) {
     const r = await this.pool.query(`update jobs set status='uploading', updated_at=now() where id = (

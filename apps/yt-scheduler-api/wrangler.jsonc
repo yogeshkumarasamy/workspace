@@ -96,10 +96,10 @@
         "YOUTUBE_MODE": "live",
         "DRIVE_SCOPE": "file",
         "UPLOAD_CHUNK_BYTES": "67108864",
-        "CORS_ORIGIN": "https://yogeshkumarasamy.in",
-        "APP_PUBLIC_URL": "https://yogeshkumarasamy.in/yt-scheduler/",
+        "CORS_ORIGIN": "https://yt-scheduler.yogeshkumarasamy.in",
+        "APP_PUBLIC_URL": "https://yt-scheduler.yogeshkumarasamy.in/",
         "DAILY_QUOTA_UNITS": "10000",
-        "GOOGLE_REDIRECT_URI": "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback"
+        "GOOGLE_REDIRECT_URI": "https://yt-scheduler-api.yogeshkumarasamy.in/oauth/callback"
       },
       "d1_databases": [
         {

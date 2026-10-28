@@ -1,4 +1,4 @@
-/** Default public path for the static UI on dev, staging, and production. */
+/** Default public path for dev, staging, and local. Production sets APP_BASE=/. */
 export const DEFAULT_APP_BASE = "/yt-scheduler/";
 
 /**

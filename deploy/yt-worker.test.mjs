@@ -95,6 +95,10 @@ test("generated wrangler config has the real database id, empty crons, and no cp
   assert.equal(config.env.preview.d1_databases[0].database_id, "11111111-1111-4111-8111-111111111111");
   assert.equal(config.env.preview.vars.UPLOAD_CHUNK_BYTES, String(32 * 1024 * 1024));
   assert.equal(config.env.preview.vars.YOUTUBE_MODE, "mock");
+  assert.equal(
+    config.env.preview.vars.GOOGLE_REDIRECT_URI,
+    "https://yt-scheduler-api-pr-3.coderdevelopment.workers.dev/oauth/callback",
+  );
   assert.equal(config.env.preview.workflows[0].name, "yt-scheduler-upload-pr-3");
   assert.equal(config.rules[0].type, "Text");
   assert.deepEqual(config.rules[0].globs, ["**/*.sql"]);
@@ -171,6 +175,28 @@ test("preview public path matches the served /preview/ prefix", () => {
   assert.equal(urls.pageBase, "/preview/yt-scheduler/pr-121/");
   assert.equal(urls.appPublicUrl, "https://dev.yogeshkumarasamy.in/preview/yt-scheduler/pr-121/");
   assert.equal(publicUrls("dev").pageBase, "/yt-scheduler/");
+  const production = publicUrls("production");
+  assert.equal(production.corsOrigin, "https://yt-scheduler.yogeshkumarasamy.in");
+  assert.equal(production.appPublicUrl, "https://yt-scheduler.yogeshkumarasamy.in/");
+  assert.equal(production.pageBase, "/yt-scheduler/");
+  const rendered = renderWrangler({
+    env: "production",
+    envName: "production",
+    worker: "yt-scheduler-api-prod",
+    database: "yt-prod",
+    databaseId: "11111111-1111-4111-8111-111111111111",
+    workflow: "yt-scheduler-upload-prod",
+    youtubeMode: "live",
+    ...production,
+    chunkBytes: 64 * 1024 * 1024,
+    gitSha: "abc",
+  });
+  assert.equal(rendered.env.production.vars.CORS_ORIGIN, "https://yt-scheduler.yogeshkumarasamy.in");
+  assert.equal(rendered.env.production.vars.APP_PUBLIC_URL, "https://yt-scheduler.yogeshkumarasamy.in/");
+  assert.equal(
+    rendered.env.production.vars.GOOGLE_REDIRECT_URI,
+    "https://yt-scheduler-api.yogeshkumarasamy.in/oauth/callback",
+  );
 });
 
 test("production static config needs only the public client id and optional picker key", () => {
@@ -199,7 +225,7 @@ test("production static config needs only the public client id and optional pick
     assert.equal(file.pickerApiKey, "picker-key");
     assert.equal(file.youtubeMode, "live");
     assert.equal(file.apiBaseUrl, written.config.apiBaseUrl);
-    assert.match(file.apiBaseUrl, /yt-scheduler-api-prod/);
+    assert.equal(file.apiBaseUrl, "https://yt-scheduler-api.yogeshkumarasamy.in");
     assert.equal(file.apiKey, undefined);
     assert.equal(file.driveScope, "file");
     for (const marker of ["apiKey", "YT_API_KEY", "YT_ENCRYPTION_KEY", "GOOGLE_CLIENT_SECRET"]) {
@@ -334,4 +360,28 @@ test("privacy and terms are served as HTML with or without a trailing slash", ()
     assert.equal(result.status, 200, pathName);
     assert.equal(result.body === spa, false, pathName);
   }
+
+  const root = "/";
+  const custom = {
+    htaccess: { [root]: spaHtaccess(root) },
+    files: {
+      [`${root}index.html`]: spa,
+      [`${root}privacy/index.html`]: privacy,
+      [`${root}terms/index.html`]: terms,
+    },
+  };
+  for (const pathName of ["/privacy", "/privacy/", "/terms", "/terms/"]) {
+    const result = resolveRequest({
+      path: pathName,
+      host: "yt-scheduler.yogeshkumarasamy.in",
+      htaccess: custom.htaccess,
+      files: custom.files,
+    });
+    assert.equal(result.status, 200, pathName);
+    assert.equal(result.body === spa, false, pathName);
+  }
+  assert.equal(
+    resolveRequest({ path: "/privacy", host: "yt-scheduler.yogeshkumarasamy.in", htaccess: custom.htaccess, files: custom.files }).path,
+    "/privacy/index.html",
+  );
 });

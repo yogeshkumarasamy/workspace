@@ -27,8 +27,12 @@ const CF_API = "https://api.cloudflare.com/client/v4";
 const SITES = {
   dev: "https://dev.yogeshkumarasamy.in",
   staging: "https://staging.yogeshkumarasamy.in",
-  production: "https://yogeshkumarasamy.in",
 };
+
+/** Live UI. OAuth consent home, privacy, and terms are this origin. */
+export const PRODUCTION_APP_ORIGIN = "https://yt-scheduler.yogeshkumarasamy.in";
+/** Live API. Production GOOGLE_REDIRECT_URI is this origin plus /oauth/callback. */
+export const PRODUCTION_API_ORIGIN = "https://yt-scheduler-api.yogeshkumarasamy.in";
 
 export function assertPr(value) {
   const pr = Number(value);
@@ -76,6 +80,11 @@ export function workerOrigin(worker, subdomain = WORKERS_SUBDOMAIN) {
   return `https://${worker}.${subdomain}.workers.dev`;
 }
 
+export function googleRedirectUri(env, worker) {
+  if (env === "production") return `${PRODUCTION_API_ORIGIN}/oauth/callback`;
+  return `${workerOrigin(worker)}/oauth/callback`;
+}
+
 export function publicUrls(env, pr) {
   if (env === "preview") {
     const number = assertPr(pr);
@@ -83,6 +92,15 @@ export function publicUrls(env, pr) {
       corsOrigin: SITES.dev,
       appPublicUrl: `${SITES.dev}/preview/yt-scheduler/pr-${number}/`,
       pageBase: `/preview/yt-scheduler/pr-${number}/`,
+    };
+  }
+  if (env === "production") {
+    // OAuth returns to the custom domain. pageBase stays /yt-scheduler/ because
+    // the Hostinger .htaccess is still generated for that path prefix.
+    return {
+      corsOrigin: PRODUCTION_APP_ORIGIN,
+      appPublicUrl: `${PRODUCTION_APP_ORIGIN}/`,
+      pageBase: "/yt-scheduler/",
     };
   }
   const site = SITES[env];
@@ -126,7 +144,7 @@ export function resolveWorkerSecrets(env, processEnv, pr) {
 export function buildAppConfig({ env, pr, processEnv }) {
   const names = namesFor(env, pr);
   const config = {
-    apiBaseUrl: workerOrigin(names.worker),
+    apiBaseUrl: env === "production" ? PRODUCTION_API_ORIGIN : workerOrigin(names.worker),
     youtubeMode: names.youtubeMode,
     driveScope: "file",
   };
@@ -165,7 +183,7 @@ export function renderWrangler(input) {
           CORS_ORIGIN: input.corsOrigin,
           APP_PUBLIC_URL: input.appPublicUrl,
           DAILY_QUOTA_UNITS: "10000",
-          GOOGLE_REDIRECT_URI: `${workerOrigin(input.worker)}/oauth/callback`,
+          GOOGLE_REDIRECT_URI: googleRedirectUri(input.env, input.worker),
           GIT_SHA: input.gitSha || "unknown",
         },
         d1_databases: [

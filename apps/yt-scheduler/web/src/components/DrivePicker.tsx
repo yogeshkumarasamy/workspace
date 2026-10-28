@@ -3,8 +3,9 @@ import { Button, Dialog, Input } from "@repo/ui/shadcn";
 import { api, getRuntimeConfig } from "../api";
 import type { DriveFile } from "../api";
 import { useApp } from "../state";
+import { FOLDER_MIME, pickerViewPlan, type PickerAccept } from "../picker-views";
 
-const FOLDER = "application/vnd.google-apps.folder";
+const FOLDER = FOLDER_MIME;
 const EPISODES = "15UNBqiwoEZoNzJ8hl-U2HccZgFftwWsV";
 
 interface PickerDoc { id: string; name: string; mimeType: string }
@@ -19,6 +20,7 @@ interface PickerBuilder {
 interface DocsView {
   setSelectFolderEnabled(enabled: boolean): DocsView;
   setMimeTypes(mimeTypes: string): DocsView;
+  setIncludeFolders(included: boolean): DocsView;
 }
 
 declare global {
@@ -27,7 +29,7 @@ declare global {
     google?: {
       picker: {
         Action: { PICKED: string };
-        ViewId: { DOCS_VIDEOS: string; DOCS_IMAGES: string; FOLDERS: string };
+        ViewId: { DOCS: string; DOCS_VIDEOS: string; DOCS_IMAGES: string; FOLDERS: string };
         DocsView: new (viewId: string) => DocsView;
         PickerBuilder: new () => PickerBuilder;
       };
@@ -60,9 +62,31 @@ function loadPickerApi(): Promise<void> {
   });
 }
 
+function addPickerViews(
+  builder: PickerBuilder,
+  picker: NonNullable<Window["google"]>["picker"],
+  accept: PickerAccept,
+): PickerBuilder {
+  const plan = pickerViewPlan(accept);
+  if (plan.kind === "folder") {
+    const view = new picker.DocsView(picker.ViewId.FOLDERS)
+      .setSelectFolderEnabled(true)
+      .setMimeTypes(FOLDER);
+    return builder.addView(view);
+  }
+  const primary = new picker.DocsView(picker.ViewId.DOCS)
+    .setIncludeFolders(true)
+    .setMimeTypes(plan.primary.mimeTypes);
+  let next = builder.addView(primary);
+  const secondaryId =
+    plan.secondary.viewId === "DOCS_IMAGES" ? picker.ViewId.DOCS_IMAGES : picker.ViewId.DOCS_VIDEOS;
+  next = next.addView(new picker.DocsView(secondaryId));
+  return next;
+}
+
 /** Browse Drive folders and pick a file (accept = mime prefix) or a folder (accept="folder"). */
 export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
-  open: boolean; onOpenChange(o: boolean): void; channel: string; accept: "video/" | "image/" | "folder"; onPick(f: DriveFile): void;
+  open: boolean; onOpenChange(o: boolean): void; channel: string; accept: PickerAccept; onPick(f: DriveFile): void;
 }) {
   const { youtubeMode, driveScope } = useApp();
   const runtime = getRuntimeConfig();
@@ -92,11 +116,11 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
       await loadPickerApi();
       const picker = window.google?.picker;
       if (!picker) throw new Error("Google Picker failed to load");
-      const viewId = accept === "folder" ? picker.ViewId.FOLDERS : accept === "image/" ? picker.ViewId.DOCS_IMAGES : picker.ViewId.DOCS_VIDEOS;
-      const view = new picker.DocsView(viewId);
-      if (accept === "folder") view.setSelectFolderEnabled(true).setMimeTypes(FOLDER);
       const appId = pickerAppId(clientId);
-      let builder = new picker.PickerBuilder().setOAuthToken(token.accessToken).setDeveloperKey(pickerKey).addView(view);
+      let builder = new picker.PickerBuilder()
+        .setOAuthToken(token.accessToken)
+        .setDeveloperKey(pickerKey);
+      builder = addPickerViews(builder, picker, accept);
       if (appId) builder = builder.setAppId(appId);
       builder.setCallback((data) => {
         const doc = data.docs?.[0];

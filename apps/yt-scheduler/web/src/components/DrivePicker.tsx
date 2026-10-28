@@ -6,7 +6,8 @@ import { useApp } from "../state";
 import { FOLDER_MIME, pickerViewPlan, type PickerAccept } from "../picker-views";
 
 const FOLDER = FOLDER_MIME;
-const EPISODES = "15UNBqiwoEZoNzJ8hl-U2HccZgFftwWsV";
+/** Default browse root: user's production episode library folder. */
+const DEFAULT_DRIVE_FOLDER = "1bDXcqn6u8tp6GZ6ceumvKNfiDqaPF2sV";
 
 interface PickerDoc { id: string; name: string; mimeType: string }
 interface PickerBuilder {
@@ -21,6 +22,8 @@ interface DocsView {
   setSelectFolderEnabled(enabled: boolean): DocsView;
   setMimeTypes(mimeTypes: string): DocsView;
   setIncludeFolders(included: boolean): DocsView;
+  setParent(folderId: string): DocsView;
+  setEnableDrives(enabled: boolean): DocsView;
 }
 
 declare global {
@@ -71,16 +74,24 @@ function addPickerViews(
   if (plan.kind === "folder") {
     const view = new picker.DocsView(picker.ViewId.FOLDERS)
       .setSelectFolderEnabled(true)
-      .setMimeTypes(FOLDER);
+      .setMimeTypes(FOLDER)
+      .setParent(DEFAULT_DRIVE_FOLDER)
+      .setEnableDrives(true);
     return builder.addView(view);
   }
   const primary = new picker.DocsView(picker.ViewId.DOCS)
     .setIncludeFolders(true)
-    .setMimeTypes(plan.primary.mimeTypes);
+    .setMimeTypes(plan.primary.mimeTypes)
+    .setParent(DEFAULT_DRIVE_FOLDER)
+    .setEnableDrives(true);
   let next = builder.addView(primary);
   const secondaryId =
     plan.secondary.viewId === "DOCS_IMAGES" ? picker.ViewId.DOCS_IMAGES : picker.ViewId.DOCS_VIDEOS;
-  next = next.addView(new picker.DocsView(secondaryId));
+  next = next.addView(
+    new picker.DocsView(secondaryId)
+      .setParent(DEFAULT_DRIVE_FOLDER)
+      .setEnableDrives(true),
+  );
   return next;
 }
 
@@ -92,7 +103,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
   const runtime = getRuntimeConfig();
   const pickerReady = youtubeMode === "live" && Boolean(runtime?.googleClientId && runtime?.pickerApiKey);
   const browse = youtubeMode !== "live" || driveScope === "readonly";
-  const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: EPISODES, name: "Episodes" }]);
+  const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: DEFAULT_DRIVE_FOLDER, name: "Library" }]);
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -135,6 +146,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
     <Dialog open={open} onOpenChange={onOpenChange} title={`Pick ${accept === "folder" ? "a folder" : accept === "video/" ? "a video" : "an image"} from Drive`}>
       {pickerReady && <div className="mb-3"><Button onClick={openGooglePicker} disabled={picking}>{picking ? "Opening Picker…" : "Open Google Picker"}</Button></div>}
       {!browse && <p className="mb-3 text-sm text-muted-foreground">drive.file cannot list a folder this app has not opened. Use Google Picker, or paste an id.</p>}
+      {browse && <p className="mb-3 text-sm text-muted-foreground">Starts in your Library folder. After a Drive scope change, reconnect Drive under Channels.</p>}
       {browse && (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-1 text-sm">
@@ -143,7 +155,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
             ))}
             <span className="flex-1" />
             <Button size="sm" variant="ghost" onClick={() => setStack([{ id: "root", name: "My Drive" }])}>My Drive</Button>
-            <Button size="sm" variant="ghost" onClick={() => setStack([{ id: EPISODES, name: "Episodes" }])}>Episodes</Button>
+            <Button size="sm" variant="ghost" onClick={() => setStack([{ id: DEFAULT_DRIVE_FOLDER, name: "Library" }])}>Library</Button>
           </div>
           {err && <p className="mb-2 text-sm text-red-400">{err}</p>}
           <div className="max-h-[50vh] divide-y overflow-y-auto rounded-md border">

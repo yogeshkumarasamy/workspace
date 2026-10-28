@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { ConflictError, bulkAction, editJob, rescheduleJob } from "../../yt-scheduler/src/manage.ts";
+import { ConflictError, bulkAction, deleteJob, editJob, rescheduleJob } from "../../yt-scheduler/src/manage.ts";
 import type { BulkAction } from "../../yt-scheduler/src/manage.ts";
 import { draftJobsFromFolder } from "../../yt-scheduler/src/drive-import.ts";
 import type { DriveLister } from "../../yt-scheduler/src/drive-import.ts";
@@ -191,6 +191,10 @@ export function createApi(deps: ApiDeps) {
     await deps.startUpload(job.id);
     return c.json(await deps.store.getJob(job.id));
   });
+  api.delete("/jobs/:id", async (c) => {
+    await deleteJob(c.req.param("id"), mdeps());
+    return c.json({ ok: true });
+  });
   api.patch("/jobs/:id", async (c) => c.json(await editJob(c.req.param("id"), await c.req.json(), mdeps())));
   api.post("/jobs/:id/reschedule", async (c) => {
     const body = (await c.req.json()) as { publishAt?: string };
@@ -199,7 +203,7 @@ export function createApi(deps: ApiDeps) {
   });
   api.post("/jobs/bulk", async (c) => {
     const body = (await c.req.json()) as BulkAction;
-    if (!Array.isArray(body.ids) || !["cancel", "retry", "reschedule", "autoslot"].includes(body.action)) throw new InputError("ids[] and action required");
+    if (!Array.isArray(body.ids) || !["cancel", "retry", "reschedule", "autoslot", "delete"].includes(body.action)) throw new InputError("ids[] and action required");
     const results = await bulkAction(body, mdeps());
     if (body.action === "retry") for (const result of results) if (result.ok) await deps.startUpload(result.id);
     return c.json({ results });

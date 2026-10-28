@@ -21,7 +21,7 @@ export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const all = rows.length > 0 && rows.every((r) => sel.has(r.id));
 
-  async function bulk(action: "cancel" | "retry" | "reschedule" | "autoslot") {
+  async function bulk(action: "cancel" | "retry" | "reschedule" | "autoslot" | "delete") {
     const publishAt = action === "reschedule" ? fromInput(when, tz) : undefined;
     if (action === "reschedule" && !publishAt) return toast("Pick a date/time first", "err");
     const r = await api<{ results: { ok: boolean; error?: string }[] }>("/jobs/bulk", { method: "POST", json: { ids: [...sel], action, publishAt } });
@@ -43,6 +43,7 @@ export function JobsTable({ onOpen }: { onOpen(j: Job): void }) {
           <b>{sel.size} selected</b>
           <Button size="sm" variant="outline" onClick={() => bulk("cancel")}>Cancel</Button>
           <Button size="sm" variant="outline" onClick={() => bulk("retry")}>Retry</Button>
+          <Button size="sm" variant="destructive" onClick={() => { if (confirm(`Delete ${sel.size} job(s) from the scheduler? YouTube videos are not deleted.`)) bulk("delete"); }}>Delete</Button>
           <Button size="sm" variant="outline" onClick={() => bulk("autoslot")}>Auto-slot</Button>
           <Input type="datetime-local" className="h-8 w-52" value={when} onChange={(e) => setWhen(e.target.value)} />
           <Button size="sm" onClick={() => bulk("reschedule")}>Reschedule ({tzLabel(tz)})</Button>

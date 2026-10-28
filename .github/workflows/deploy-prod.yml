@@ -29,7 +29,7 @@ jobs:
       - name: Write host root
         run: >-
           node deploy/host-root.mjs --env production --out host-root
-          --api-origins https://yt-scheduler-api-prod.coderdevelopment.workers.dev
+          --api-origins https://yt-scheduler-api.yogeshkumarasamy.in
 
       - name: Install lftp
         run: sudo apt-get update && sudo apt-get install -y lftp
@@ -140,11 +140,11 @@ jobs:
       - name: Check Worker health
         run: |
           body=$(curl --fail --show-error --retry 5 --retry-all-errors --retry-delay 3 \
-            https://yt-scheduler-api-prod.coderdevelopment.workers.dev/api/health)
+            https://yt-scheduler-api.yogeshkumarasamy.in/api/health)
           node -e 'const b=JSON.parse(process.argv[1]); if(!b.ok||b.youtubeMode!=="live"){console.error("expected live health"); process.exit(1)} console.log(b.youtubeMode)' "$body"
 
       - name: Check published app-config
         run: |
           body=$(curl --fail --show-error --retry 8 --retry-all-errors --retry-delay 5 \
-            https://yogeshkumarasamy.in/yt-scheduler/app-config.json)
-          node -e 'const b=JSON.parse(process.argv[1]); if(b.apiKey||b.youtubeMode!=="live"||!String(b.apiBaseUrl).includes("yt-scheduler-api-prod")){console.error("production app-config is wrong"); process.exit(1)} console.log(b.apiBaseUrl)' "$body"
+            https://yt-scheduler.yogeshkumarasamy.in/app-config.json)
+          node -e 'const b=JSON.parse(process.argv[1]); if(b.apiKey||b.youtubeMode!=="live"||b.apiBaseUrl!=="https://yt-scheduler-api.yogeshkumarasamy.in"){console.error("production app-config is wrong"); process.exit(1)} console.log(b.apiBaseUrl)' "$body"

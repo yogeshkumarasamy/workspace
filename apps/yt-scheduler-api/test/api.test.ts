@@ -86,10 +86,10 @@ describe("oauth scopes", () => {
     expect(drive).not.toContain("https://www.googleapis.com/auth/youtube");
     expect(oauthScopes("drive", "readonly")).toContain(DRIVE_READONLY_SCOPE);
     expect(oauthScopes("drive", "readonly")).not.toContain(DRIVE_FILE_SCOPE);
-    const url = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", purpose: "youtube", drive: "file" }));
+    const url = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api.yogeshkumarasamy.in/oauth/callback", state: "abc", purpose: "youtube", drive: "file" }));
     expect(url.searchParams.get("scope")).not.toContain(DRIVE_FILE_SCOPE);
-    expect(url.searchParams.get("redirect_uri")).toBe("https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback");
-    const driveUrl = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", purpose: "drive", drive: "file" }));
+    expect(url.searchParams.get("redirect_uri")).toBe("https://yt-scheduler-api.yogeshkumarasamy.in/oauth/callback");
+    const driveUrl = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api.yogeshkumarasamy.in/oauth/callback", state: "abc", purpose: "drive", drive: "file" }));
     expect(driveUrl.searchParams.get("scope")).toContain(DRIVE_FILE_SCOPE);
     expect(driveUrl.searchParams.get("scope")).not.toContain("https://www.googleapis.com/auth/youtube");
   });

@@ -45,7 +45,10 @@ export function authUrl(input: { clientId: string; redirectUri: string; state: s
   url.searchParams.set("response_type", "code");
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent select_account");
-  url.searchParams.set("include_granted_scopes", "true");
+  // Never incremental auth: Google rejects YouTube scopes requested together with
+  // drive.file. Prior YouTube consent on the same client would be reattached if
+  // include_granted_scopes were true, which is exactly Error 400 invalid_request.
+  url.searchParams.set("include_granted_scopes", "false");
   url.searchParams.set("scope", oauthScopes(input.purpose, input.drive).join(" "));
   url.searchParams.set("state", input.state);
   return url.href;

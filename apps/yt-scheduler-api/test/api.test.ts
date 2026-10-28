@@ -92,6 +92,10 @@ describe("oauth scopes", () => {
     const driveUrl = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", purpose: "drive", drive: "file" }));
     expect(driveUrl.searchParams.get("scope")).toContain(DRIVE_FILE_SCOPE);
     expect(driveUrl.searchParams.get("scope")).not.toContain("https://www.googleapis.com/auth/youtube");
+    expect(driveUrl.searchParams.get("include_granted_scopes")).toBe("false");
+    expect(url.searchParams.get("include_granted_scopes")).toBe("false");
+    expect(driveUrl.searchParams.get("access_type")).toBe("offline");
+    expect(driveUrl.searchParams.get("prompt")).toContain("consent");
   });
 
   it("uses the Drive refresh token for Drive calls and the YouTube token for YouTube calls", () => {

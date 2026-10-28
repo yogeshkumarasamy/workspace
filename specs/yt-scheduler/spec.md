@@ -42,6 +42,9 @@ Contact is `web/src/legal-contact.json`. `contactEmail` stays empty unless a rea
 
 `GET /api/drive/list`, `GET /api/drive/file/:id`, and `GET /api/google/access-token` (Google Picker) mint an access token from `driveRefreshTokenEnc` when that channel has connected Drive, and otherwise from the YouTube refresh token. In live mode, `/api/google/access-token` returns 409 until Drive is connected (Channels → Use separate Drive account; the same Google account is fine). YouTube upload, playlist, and schedule calls keep the YouTube refresh token. Drive reads during an upload (file metadata, media bytes, and a Drive thumbnail) use the Drive refresh token when it is set.
 
+OAuth start uses `purpose=youtube` or `purpose=drive` with separate scope lists and `include_granted_scopes=false`, so a Drive connect never reattaches prior YouTube grants (Google Error 400 invalid_request when YouTube and Drive scopes share one request).
+
+
 Uploads run in Workflow `UploadWorkflow`. Chunk size is `UPLOAD_CHUNK_BYTES` (default 64 MiB, multiple of 256 KiB, max 64 MiB). There is no cron on this Worker: a job starts the Workflow, which sleeps until `runAt`. One Free-plan instance shares 50 external subrequests and 1,000 Cloudflare-service subrequests (D1 included) across every `step.do`. A chunk is a status probe, a source GET, and a sink PUT, so the instance stops after 16 chunk steps (sooner when D1 would pass 1,000, or when opening the YouTube session already spent external calls). It writes the confirmed byte offset to D1 and starts another instance on the same resumable session. An unfinished transfer stays `uploading`. Wrangler 4 deploys from Node 22. The local Node server in `apps/yt-scheduler` remains the Postgres demo.
 
 ## PWA (v3)

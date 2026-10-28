@@ -14,7 +14,7 @@ import type { Channel, JobStatus } from "../../yt-scheduler/src/types.ts";
 import type { YouTubeApi } from "../../yt-scheduler/src/youtube.ts";
 import { encrypt, timingSafeEqual } from "./crypto.ts";
 import type { D1Store } from "./d1-store.ts";
-import { authUrl, driveFileMeta, driveMediaUrl, driveScopeValue, exchangeCode, googleIdentity, type DriveScope } from "./google.ts";
+import { authUrl, driveFileMeta, driveMediaUrl, driveScopeValue, exchangeCode, googleIdentity, type AccessTokenPurpose, type DriveScope } from "./google.ts";
 import { MOCK_MEDIA_BYTES } from "./publish.ts";
 import { updateLiveSchedule } from "./upload.ts";
 
@@ -36,7 +36,7 @@ export interface ApiDeps {
   defaultSlots?: SlotRules;
   now?: () => Date;
   startUpload: (jobId: string) => Promise<void>;
-  accessTokenFor?: (channel: Channel) => Promise<string>;
+  accessTokenFor?: (channel: Channel, purpose?: AccessTokenPurpose) => Promise<string>;
 }
 
 export function createApi(deps: ApiDeps) {
@@ -254,7 +254,7 @@ export function createApi(deps: ApiDeps) {
     await channelOr404(deps, c.req.query("channel"));
     if (deps.youtubeMode === "mock") return new Response(PNG, { headers: { "content-type": "image/png", "cache-control": "private, max-age=3600" } });
     const channel = await channelOr404(deps, c.req.query("channel"));
-    const token = await tokenFor(deps, channel);
+    const token = await tokenFor(deps, channel, "drive");
     const meta = await driveFileMeta(token, c.req.param("fileId"));
     if (!meta.mimeType.startsWith("image/")) return c.json({ error: "only images can be previewed" }, 415);
     const file = await fetch(driveMediaUrl(c.req.param("fileId")), { headers: { authorization: `Bearer ${token}` } });
@@ -264,7 +264,11 @@ export function createApi(deps: ApiDeps) {
   api.get("/google/access-token", async (c) => {
     if (deps.youtubeMode === "mock") return c.json({ error: "mock mode has no Google token" }, 409);
     const channel = await channelOr404(deps, c.req.query("channel"));
-    return c.json({ accessToken: await tokenFor(deps, channel) });
+    // Live drive.file and drive.readonly both need the Drive consent token. A YouTube-only token makes Google Picker return 403.
+    if ((deps.driveScope === "file" || deps.driveScope === "readonly") && !channel.driveRefreshTokenEnc) {
+      return c.json({ error: "Connect Drive first (Channels → Use separate Drive account). The same Google account is fine." }, 409);
+    }
+    return c.json({ accessToken: await tokenFor(deps, channel, "drive") });
   });
   api.post("/tick", async (c) => {
     const due = await deps.store.listJobs({ status: "queued", limit: 20 });
@@ -290,9 +294,9 @@ async function channelOr404(deps: ApiDeps, ref: string | undefined) {
   return channel;
 }
 
-async function tokenFor(deps: ApiDeps, channel: Channel): Promise<string> {
+async function tokenFor(deps: ApiDeps, channel: Channel, purpose: AccessTokenPurpose = "youtube"): Promise<string> {
   if (!deps.accessTokenFor) throw new Error("this worker has no Google token helper");
-  return deps.accessTokenFor(channel);
+  return deps.accessTokenFor(channel, purpose);
 }
 
 function driveFor(deps: ApiDeps, channel: Channel): DriveLister {
@@ -315,7 +319,7 @@ function driveFor(deps: ApiDeps, channel: Channel): DriveLister {
   }
   return {
     async list(folderId: string) {
-      const token = await tokenFor(deps, channel);
+      const token = await tokenFor(deps, channel, "drive");
       const url = new URL("https://www.googleapis.com/drive/v3/files");
       url.searchParams.set("q", `'${folderId.replace(/'/g, "")}' in parents and trashed=false`);
       url.searchParams.set("fields", "files(id,name,mimeType,size,thumbnailLink,modifiedTime)");
@@ -328,7 +332,7 @@ function driveFor(deps: ApiDeps, channel: Channel): DriveLister {
       return payload.files ?? [];
     },
     async readText(fileId: string) {
-      const token = await tokenFor(deps, channel);
+      const token = await tokenFor(deps, channel, "drive");
       const response = await fetch(driveMediaUrl(fileId), { headers: { authorization: `Bearer ${token}` } });
       if (!response.ok) throw new Error(`drive read ${response.status}`);
       return response.text();
@@ -358,7 +362,7 @@ function youtubeApi(deps: ApiDeps, channel: Channel): YouTubeApi {
     },
     async listPlaylists() {
       if (deps.youtubeMode === "mock") return [{ id: "PLmockplaylist01", title: "Mock playlist" }];
-      const token = await tokenFor(deps, channel);
+      const token = await tokenFor(deps, channel, "youtube");
       const response = await fetch("https://www.googleapis.com/youtube/v3/playlists?part=snippet&mine=true&maxResults=50", { headers: { authorization: `Bearer ${token}` } });
       const payload = (await response.json()) as { items?: { id?: string; snippet?: { title?: string } }[] };
       if (!response.ok) throw new Error(`playlists.list ${response.status}`);
@@ -366,7 +370,7 @@ function youtubeApi(deps: ApiDeps, channel: Channel): YouTubeApi {
     },
     async updateSchedule(videoId, meta, publishAt) {
       if (deps.youtubeMode === "mock") return;
-      const token = await tokenFor(deps, channel);
+      const token = await tokenFor(deps, channel, "youtube");
       await updateLiveSchedule(token, videoId, meta, publishAt, deps.now?.() ?? new Date());
     },
   };

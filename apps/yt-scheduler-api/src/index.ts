@@ -2,7 +2,7 @@ import { decrypt } from "./crypto.ts";
 import type { Env } from "./env.ts";
 import { createApi, type ApiDeps } from "./app.ts";
 import { D1Store } from "./d1-store.ts";
-import { driveScopeValue, refreshAccessToken } from "./google.ts";
+import { driveScopeValue, refreshAccessToken, refreshTokenEncFor } from "./google.ts";
 import { parseChunkBytes } from "./publish.ts";
 import { ensureSchema } from "./schema.ts";
 export { UploadWorkflow } from "./workflow.ts";
@@ -36,13 +36,15 @@ export default {
         await env.UPLOAD.create({ id, params: { jobId } });
         await store.saveUpload(jobId, { workflowId: id });
       },
-      accessTokenFor: async (channel) => {
-        const hit = tokenCache.get(channel.id);
+      accessTokenFor: async (channel, purpose = "youtube") => {
+        const usingDrive = purpose === "drive" && !!channel.driveRefreshTokenEnc;
+        const cacheKey = `${channel.id}:${usingDrive ? "drive" : "youtube"}`;
+        const hit = tokenCache.get(cacheKey);
         if (hit && hit.exp > Date.now() + 30_000) return hit.token;
         if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) throw new Error("Google OAuth client is not configured");
-        const refreshToken = await decrypt(channel.refreshTokenEnc, env.ENCRYPTION_KEY);
+        const refreshToken = await decrypt(refreshTokenEncFor(channel, purpose), env.ENCRYPTION_KEY);
         const token = await refreshAccessToken({ refreshToken, clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET });
-        tokenCache.set(channel.id, { token: token.accessToken, exp: Date.now() + token.expiresIn * 1000 });
+        tokenCache.set(cacheKey, { token: token.accessToken, exp: Date.now() + token.expiresIn * 1000 });
         return token.accessToken;
       },
     };

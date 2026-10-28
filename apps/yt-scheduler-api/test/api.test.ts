@@ -10,9 +10,9 @@ import {
   maxChunkStepsPerInstance,
 } from "../src/budget.ts";
 import { encrypt, decrypt } from "../src/crypto.ts";
-import { DRIVE_FILE_SCOPE, DRIVE_READONLY_SCOPE, authUrl, oauthScopes } from "../src/google.ts";
+import { DRIVE_FILE_SCOPE, DRIVE_READONLY_SCOPE, authUrl, oauthScopes, refreshTokenEncFor } from "../src/google.ts";
 import { parseChunkBytes, youtubeStatus } from "../src/publish.ts";
-import { mockFetcher, runScheduledUpload, MemoryMedia, immediateStep, type UploadEnv, type UploadStore } from "../src/upload.ts";
+import { mockFetcher, prepareUpload, runScheduledUpload, transferJobChunk, MemoryMedia, immediateStep, type UploadEnv, type UploadStore } from "../src/upload.ts";
 import type { UploadProgress } from "../src/d1-store.ts";
 import { queryStatus, transferChunk, type ChunkFetcher } from "../src/transfer.ts";
 import { MOCK_MEDIA_BYTES } from "../src/publish.ts";
@@ -92,6 +92,150 @@ describe("oauth scopes", () => {
     const driveUrl = new URL(authUrl({ clientId: "id", redirectUri: "https://yt-scheduler-api-prod.coderdevelopment.workers.dev/oauth/callback", state: "abc", purpose: "drive", drive: "file" }));
     expect(driveUrl.searchParams.get("scope")).toContain(DRIVE_FILE_SCOPE);
     expect(driveUrl.searchParams.get("scope")).not.toContain("https://www.googleapis.com/auth/youtube");
+  });
+
+  it("uses the Drive refresh token for Drive calls and the YouTube token for YouTube calls", () => {
+    const channel = { refreshTokenEnc: "yt", driveRefreshTokenEnc: "drive" };
+    expect(refreshTokenEncFor(channel, "drive")).toBe("drive");
+    expect(refreshTokenEncFor(channel, "youtube")).toBe("yt");
+    expect(refreshTokenEncFor({ refreshTokenEnc: "yt", driveRefreshTokenEnc: null }, "drive")).toBe("yt");
+  });
+});
+
+describe("drive access token", () => {
+  const headers = { "x-api-key": "preview-pr-1" };
+
+  it("mints the Drive token for Picker, list, and file preview, and the YouTube token for playlists", async () => {
+    const store = new MemoryStore();
+    const channel = await seedChannel(store, "drive-enc");
+    const purposes: string[] = [];
+    const app = liveApi({
+      store,
+      driveScope: "file",
+      accessTokenFor: async (ch, purpose = "youtube") => {
+        purposes.push(purpose);
+        return `access:${refreshTokenEncFor(ch, purpose)}`;
+      },
+    });
+    const picker = await app.request(`/api/google/access-token?channel=${channel.id}`, { headers });
+    expect(picker.status).toBe(200);
+    expect(await picker.json()).toEqual({ accessToken: "access:drive-enc" });
+
+    const auths: string[] = [];
+    const restore = stubFetch(async (input, init) => {
+      auths.push(`${String(input)} ${new Headers(init?.headers).get("authorization")}`);
+      const url = String(input);
+      if (url.includes("alt=media")) return new Response(Uint8Array.from([1, 2, 3]), { status: 200, headers: { "content-type": "image/jpeg" } });
+      if (url.includes("/drive/")) return jsonResponse({ name: "thumb.jpg", mimeType: "image/jpeg", size: "3", files: [] });
+      return jsonResponse({ items: [{ id: "PLmockplaylist01", snippet: { title: "Shorts" } }] });
+    });
+    try {
+      const list = await app.request(`/api/drive/list?channel=${channel.id}&folderId=root`, { headers });
+      expect(list.status).toBe(200);
+      const file = await app.request(`/api/drive/file/thumb1?channel=${channel.id}`, { headers });
+      expect(file.status).toBe(200);
+      expect(file.headers.get("content-type")).toBe("image/jpeg");
+      const playlists = await app.request(`/api/channels/${channel.id}/playlists`, { headers });
+      expect(playlists.status).toBe(200);
+      expect(await playlists.json()).toEqual([{ id: "PLmockplaylist01", title: "Shorts" }]);
+    } finally {
+      restore();
+    }
+    expect(purposes).toEqual(["drive", "drive", "drive", "youtube"]);
+    expect(auths.filter((line) => line.includes("/drive/")).every((line) => line.endsWith("Bearer access:drive-enc"))).toBe(true);
+    expect(auths.filter((line) => line.includes("/youtube/")).every((line) => line.endsWith("Bearer access:yt-enc"))).toBe(true);
+  });
+
+  it("returns 409 from Picker until Drive is connected, and Drive list falls back to the YouTube token", async () => {
+    for (const driveScope of ["file", "readonly"] as const) {
+      const store = new MemoryStore();
+      const channel = await seedChannel(store, null);
+      const purposes: string[] = [];
+      const app = liveApi({
+        store,
+        driveScope,
+        accessTokenFor: async (ch, purpose = "youtube") => {
+          purposes.push(`${purpose}:${refreshTokenEncFor(ch, purpose)}`);
+          return `access:${refreshTokenEncFor(ch, purpose)}`;
+        },
+      });
+      const picker = await app.request(`/api/google/access-token?channel=${channel.id}`, { headers });
+      expect(picker.status).toBe(409);
+      expect(await picker.json()).toEqual({ error: "Connect Drive first (Channels → Use separate Drive account). The same Google account is fine." });
+      expect(purposes).toEqual([]);
+      let authorization: string | null = null;
+      const restore = stubFetch(async (_input, init) => {
+        authorization = new Headers(init?.headers).get("authorization");
+        return jsonResponse({ files: [] });
+      });
+      try {
+        const list = await app.request(`/api/drive/list?channel=${channel.id}&folderId=root`, { headers });
+        expect(list.status).toBe(200);
+      } finally {
+        restore();
+      }
+      expect(purposes).toEqual(["drive:yt-enc"]);
+      expect(authorization).toBe("Bearer access:yt-enc");
+    }
+  });
+
+  it("opens the YouTube upload with the YouTube token and reads Drive with the Drive token", async () => {
+    const store = new MemoryStore();
+    const uploadStore = adapt(store);
+    const yt = await encrypt("yt-refresh", KEY);
+    const drive = await encrypt("drive-refresh", KEY);
+    const channel = await seedChannel(store, drive, yt);
+    const total = 1024;
+    const { job } = await store.insertJob(queuedJob(channel.id, "drive-upload"));
+    const refreshes: string[] = [];
+    const auths: { url: string; authorization: string | null }[] = [];
+    const restore = stubFetch(async (input, init) => {
+      const url = String(input);
+      if (url.includes("oauth2.googleapis.com/token")) {
+        const refresh = new URLSearchParams(bodyText(init?.body)).get("refresh_token") ?? "";
+        refreshes.push(refresh);
+        return jsonResponse({ access_token: `access:${refresh}`, expires_in: 3600 });
+      }
+      auths.push({ url, authorization: new Headers(init?.headers).get("authorization") });
+      if (url.includes("/drive/")) return jsonResponse({ name: "ep.mp4", mimeType: "video/mp4", size: String(total) });
+      return new Response(null, { status: 200, headers: { Location: "https://upload.example/session" } });
+    });
+    const env: UploadEnv = {
+      youtubeMode: "live",
+      chunkBytes: total,
+      dailyQuota: 10000,
+      encryptionKey: KEY,
+      google: { clientId: "id", clientSecret: "secret" },
+      now: () => now,
+      store: uploadStore,
+      media: new MemoryMedia(),
+    };
+    try {
+      const prepared = await prepareUpload(env, job.id);
+      expect(prepared.total).toBe(total);
+      expect(refreshes).toEqual(["yt-refresh", "drive-refresh"]);
+      expect(auths.filter((call) => call.url.includes("/drive/")).every((call) => call.authorization === "Bearer access:drive-refresh")).toBe(true);
+      expect(auths.filter((call) => call.url.includes("upload/youtube")).every((call) => call.authorization === "Bearer access:yt-refresh")).toBe(true);
+    } finally {
+      restore();
+    }
+
+    const seen: { url: string; authorization: string | null }[] = [];
+    let sinkCalls = 0;
+    await transferJobChunk({
+      ...env,
+      fetcher: {
+        async fetch(url, init) {
+          seen.push({ url, authorization: new Headers(init?.headers).get("authorization") });
+          if (url.includes("/drive/")) return new Response(new Uint8Array(total), { status: 206 });
+          sinkCalls += 1;
+          if (sinkCalls === 1) return jsonResponse({ received: 0 }, 308);
+          return jsonResponse({ id: "vid123", received: total });
+        },
+      },
+    }, job.id, 0, total - 1);
+    expect(seen.filter((call) => call.url.includes("/drive/")).every((call) => call.authorization === "Bearer access:drive-refresh")).toBe(true);
+    expect(seen.filter((call) => call.url.includes("upload.example")).every((call) => call.authorization === "Bearer access:yt-refresh")).toBe(true);
   });
 });
 
@@ -426,3 +570,54 @@ describe("crypto", () => {
     expect(await decrypt(blob, KEY)).toBe("refresh-token");
   });
 });
+
+let channelSeq = 0;
+
+function seedChannel(store: MemoryStore, driveRefreshTokenEnc: string | null, refreshTokenEnc = "yt-enc") {
+  channelSeq += 1;
+  return store.upsertChannel({
+    youtubeChannelId: `UCdrivetoken${channelSeq}`,
+    handle: `@drive${channelSeq}`,
+    title: "Real",
+    refreshTokenEnc,
+    googleEmail: "owner@example.com",
+    driveRefreshTokenEnc,
+    defaults: {},
+    slots: DEFAULT_RULES,
+  });
+}
+
+function liveApi(overrides: Pick<Parameters<typeof createApi>[0], "store" | "accessTokenFor" | "driveScope"> & Partial<Parameters<typeof createApi>[0]>) {
+  return createApi({
+    apiKey: "preview-pr-1",
+    encryptionKey: KEY,
+    dailyQuota: 10000,
+    youtubeMode: "live",
+    corsOrigin: "https://dev.yogeshkumarasamy.in",
+    appPublicUrl: "https://dev.yogeshkumarasamy.in/yt-scheduler/",
+    sha: "abc",
+    environment: "production",
+    google: { clientId: "id", clientSecret: "secret", redirectUri: "https://example.test/oauth/callback" },
+    now: () => now,
+    startUpload: async () => undefined,
+    ...overrides,
+  });
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
+function bodyText(body: BodyInit | null | undefined): string {
+  if (typeof body === "string") return body;
+  if (body instanceof URLSearchParams) return body.toString();
+  return "";
+}
+
+function stubFetch(impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>) {
+  const original = globalThis.fetch;
+  globalThis.fetch = impl as typeof fetch;
+  return () => {
+    globalThis.fetch = original;
+  };
+}

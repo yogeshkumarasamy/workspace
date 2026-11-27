@@ -14,7 +14,7 @@ import type { Channel, JobStatus } from "../../yt-scheduler/src/types.ts";
 import type { YouTubeApi } from "../../yt-scheduler/src/youtube.ts";
 import { encrypt, timingSafeEqual } from "./crypto.ts";
 import type { D1Store } from "./d1-store.ts";
-import { authUrl, driveFileMeta, driveMediaUrl, driveScopeValue, exchangeCode, googleIdentity, type AccessTokenPurpose, type DriveScope } from "./google.ts";
+import { authUrl, driveExportUrl, driveFileInfo, driveFileMeta, driveMediaUrl, driveScopeValue, exchangeCode, GOOGLE_DOC_MIME, googleIdentity, youtubeVideo, type AccessTokenPurpose, type DriveScope } from "./google.ts";
 import { MOCK_MEDIA_BYTES } from "./publish.ts";
 import { updateLiveSchedule } from "./upload.ts";
 
@@ -156,6 +156,36 @@ export function createApi(deps: ApiDeps) {
     const job = await deps.store.getJob(c.req.param("id"));
     return job ? c.json(job) : c.json({ error: "not found" }, 404);
   });
+  api.get("/jobs/:id/youtube", async (c) => {
+    const job = await deps.store.getJob(c.req.param("id"));
+    if (!job) return c.json({ error: "not found" }, 404);
+    if (!job.youtubeVideoId) return c.json({ error: "job has no youtubeVideoId yet" }, 409);
+    if (deps.youtubeMode === "mock") {
+      return c.json({
+        id: job.youtubeVideoId,
+        snippet: {
+          title: job.metadata.title,
+          description: job.metadata.description,
+          channelId: job.metadata.channel ?? null,
+        },
+        status: {
+          uploadStatus: "processed",
+          privacyStatus: job.metadata.privacyStatus,
+          publishAt: job.publishAt ? job.publishAt.toISOString() : null,
+          processingStatus: "succeeded",
+        },
+      });
+    }
+    const channel = await deps.store.getChannel(job.channelId);
+    if (!channel) return c.json({ error: "channel missing" }, 404);
+    try {
+      return c.json(await youtubeVideo(await tokenFor(deps, channel, "youtube"), job.youtubeVideoId));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "videos.list failed";
+      const status = /not found/i.test(message) ? 404 : 502;
+      return c.json({ error: message }, status);
+    }
+  });
   api.post("/jobs", async (c) => {
     const body = await c.req.json();
     const bulk = BulkSchema.safeParse(body);
@@ -254,6 +284,12 @@ export function createApi(deps: ApiDeps) {
     const files = await driveFor(deps, channel).list(c.req.query("folderId") || "root");
     return c.json(files.sort((a, b) => Number(b.mimeType.endsWith("folder")) - Number(a.mimeType.endsWith("folder")) || a.name.localeCompare(b.name)));
   });
+  api.get("/drive/text/:fileId", async (c) => {
+    const channel = await channelOr404(deps, c.req.query("channel"));
+    const fileId = c.req.param("fileId");
+    const doc = await readDriveText(deps, channel, fileId);
+    return c.json({ fileId, name: doc.name, mimeType: doc.mimeType, text: doc.text });
+  });
   api.get("/drive/file/:fileId", async (c) => {
     await channelOr404(deps, c.req.query("channel"));
     if (deps.youtubeMode === "mock") return new Response(PNG, { headers: { "content-type": "image/png", "cache-control": "private, max-age=3600" } });
@@ -303,6 +339,21 @@ async function tokenFor(deps: ApiDeps, channel: Channel, purpose: AccessTokenPur
   return deps.accessTokenFor(channel, purpose);
 }
 
+function mockDriveText(): string {
+  return JSON.stringify({ title: "Mock episode", type: "long" });
+}
+
+/** Drive import's text reader, plus Google Doc export. Mock mode never calls Google. */
+async function readDriveText(deps: ApiDeps, channel: Channel, fileId: string): Promise<{ name: string; mimeType: string; text: string }> {
+  if (deps.youtubeMode === "mock") return { name: fileId, mimeType: "application/json", text: mockDriveText() };
+  const token = await tokenFor(deps, channel, "drive");
+  const info = await driveFileInfo(token, fileId);
+  const url = info.mimeType === GOOGLE_DOC_MIME ? driveExportUrl(fileId, "text/plain") : driveMediaUrl(fileId);
+  const response = await fetch(url, { headers: { authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error(`drive read ${response.status}`);
+  return { name: info.name, mimeType: info.mimeType, text: await response.text() };
+}
+
 function driveFor(deps: ApiDeps, channel: Channel): DriveLister {
   if (deps.youtubeMode === "mock") {
     return {
@@ -313,8 +364,8 @@ function driveFor(deps: ApiDeps, channel: Channel): DriveLister {
           { id: "mockmeta0001", name: "metadata.json", mimeType: "application/json" },
         ];
       },
-      async readText() {
-        return JSON.stringify({ title: "Mock episode", type: "long" });
+      async readText(fileId: string) {
+        return (await readDriveText(deps, channel, fileId)).text;
       },
       async download() {
         throw new Error("mock download is served by /api/drive/file");
@@ -336,10 +387,7 @@ function driveFor(deps: ApiDeps, channel: Channel): DriveLister {
       return payload.files ?? [];
     },
     async readText(fileId: string) {
-      const token = await tokenFor(deps, channel, "drive");
-      const response = await fetch(driveMediaUrl(fileId), { headers: { authorization: `Bearer ${token}` } });
-      if (!response.ok) throw new Error(`drive read ${response.status}`);
-      return response.text();
+      return (await readDriveText(deps, channel, fileId)).text;
     },
     async download() {
       throw new Error("use /api/drive/file");

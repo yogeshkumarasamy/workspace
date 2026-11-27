@@ -5,6 +5,8 @@
   "name": "yt-scheduler-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-17",
+  // createMcpHandler uses AsyncLocalStorage. Deploy config sets the same flag.
+  "compatibility_flags": ["nodejs_compat"],
   "rules": [{ "type": "Text", "globs": ["**/*.sql"], "fallthrough": true }],
   "workers_dev": true,
   "observability": { "enabled": true },
@@ -35,6 +37,7 @@
   "env": {
     "dev": {
       "name": "yt-scheduler-api-dev",
+      "compatibility_flags": ["nodejs_compat"],
       "vars": {
         "ENVIRONMENT": "dev",
         "YOUTUBE_MODE": "mock",
@@ -63,6 +66,7 @@
     },
     "staging": {
       "name": "yt-scheduler-api-staging",
+      "compatibility_flags": ["nodejs_compat"],
       "vars": {
         "ENVIRONMENT": "staging",
         "YOUTUBE_MODE": "mock",
@@ -91,6 +95,7 @@
     },
     "production": {
       "name": "yt-scheduler-api-prod",
+      "compatibility_flags": ["nodejs_compat"],
       "vars": {
         "ENVIRONMENT": "production",
         "YOUTUBE_MODE": "live",

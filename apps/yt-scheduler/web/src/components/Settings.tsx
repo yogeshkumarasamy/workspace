@@ -8,11 +8,16 @@ const DOW = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "
 const TZS = ["Asia/Kolkata", "UTC", "America/New_York", "America/Los_Angeles", "Europe/London", "Asia/Singapore", "Asia/Dubai", "Australia/Sydney"];
 
 export function Settings() {
-  const { channels, channel, quota, refresh, toast } = useApp();
+  const { channels, channel, quota, refresh, toast, driveScope } = useApp();
   const list = channel ? [channel] : channels;
   return (
     <div className="space-y-4">
       {channels.length === 0 && <Alert>No channels yet. <a className="text-blue-400 underline" href={connectUrl()}>Connect a YouTube channel</a>.</Alert>}
+      {driveScope === "readonly" && (
+        <Alert>
+          Drive is configured for full library access (<code>drive.readonly</code>). After this change (or if paste/import still 404s), click <b>Use separate Drive account</b> on the channel below and approve Drive again so a new refresh token is stored.
+        </Alert>
+      )}
       {list.map((c) => <ChannelCard key={c.id} c={c} used={quota?.byChannel[c.id] ?? 0} onSaved={async () => { toast("Channel saved"); await refresh(); }} />)}
       <Button variant="outline" onClick={() => (location.href = connectUrl())}>+ Connect another channel</Button>
     </div>

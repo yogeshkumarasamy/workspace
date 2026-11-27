@@ -3,9 +3,11 @@ import { Button, Dialog, Input } from "@repo/ui/shadcn";
 import { api, getRuntimeConfig } from "../api";
 import type { DriveFile } from "../api";
 import { useApp } from "../state";
+import { FOLDER_MIME, matchesPickerAccept, pickerViewPlan, type PickerAccept } from "../picker-views";
 
-const FOLDER = "application/vnd.google-apps.folder";
-const EPISODES = "15UNBqiwoEZoNzJ8hl-U2HccZgFftwWsV";
+const FOLDER = FOLDER_MIME;
+/** Default browse root: user's production episode library folder. */
+const DEFAULT_DRIVE_FOLDER = "1bDXcqn6u8tp6GZ6ceumvKNfiDqaPF2sV";
 
 interface PickerDoc { id: string; name: string; mimeType: string }
 interface PickerBuilder {
@@ -19,6 +21,9 @@ interface PickerBuilder {
 interface DocsView {
   setSelectFolderEnabled(enabled: boolean): DocsView;
   setMimeTypes(mimeTypes: string): DocsView;
+  setIncludeFolders(included: boolean): DocsView;
+  setParent(folderId: string): DocsView;
+  setEnableDrives(enabled: boolean): DocsView;
 }
 
 declare global {
@@ -27,7 +32,7 @@ declare global {
     google?: {
       picker: {
         Action: { PICKED: string };
-        ViewId: { DOCS_VIDEOS: string; DOCS_IMAGES: string; FOLDERS: string };
+        ViewId: { DOCS: string; DOCS_VIDEOS: string; DOCS_IMAGES: string; FOLDERS: string };
         DocsView: new (viewId: string) => DocsView;
         PickerBuilder: new () => PickerBuilder;
       };
@@ -60,15 +65,47 @@ function loadPickerApi(): Promise<void> {
   });
 }
 
+function addPickerViews(
+  builder: PickerBuilder,
+  picker: NonNullable<Window["google"]>["picker"],
+  accept: PickerAccept,
+): PickerBuilder {
+  const plan = pickerViewPlan(accept);
+  if (plan.kind === "folder") {
+    const view = new picker.DocsView(picker.ViewId.FOLDERS)
+      .setSelectFolderEnabled(true)
+      .setMimeTypes(FOLDER)
+      .setParent(DEFAULT_DRIVE_FOLDER)
+      .setEnableDrives(true);
+    return builder.addView(view);
+  }
+  // Do not setMimeTypes on the Docs view: Drive often labels episode files as
+  // application/octet-stream, which disables Google Picker's Select for them.
+  let primary = new picker.DocsView(picker.ViewId.DOCS)
+    .setIncludeFolders(true)
+    .setParent(DEFAULT_DRIVE_FOLDER)
+    .setEnableDrives(true);
+  if (plan.primary.mimeTypes) primary = primary.setMimeTypes(plan.primary.mimeTypes);
+  let next = builder.addView(primary);
+  const secondaryId =
+    plan.secondary.viewId === "DOCS_IMAGES" ? picker.ViewId.DOCS_IMAGES : picker.ViewId.DOCS_VIDEOS;
+  next = next.addView(
+    new picker.DocsView(secondaryId)
+      .setParent(DEFAULT_DRIVE_FOLDER)
+      .setEnableDrives(true),
+  );
+  return next;
+}
+
 /** Browse Drive folders and pick a file (accept = mime prefix) or a folder (accept="folder"). */
 export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
-  open: boolean; onOpenChange(o: boolean): void; channel: string; accept: "video/" | "image/" | "folder"; onPick(f: DriveFile): void;
+  open: boolean; onOpenChange(o: boolean): void; channel: string; accept: PickerAccept; onPick(f: DriveFile): void;
 }) {
   const { youtubeMode, driveScope } = useApp();
   const runtime = getRuntimeConfig();
   const pickerReady = youtubeMode === "live" && Boolean(runtime?.googleClientId && runtime?.pickerApiKey);
   const browse = youtubeMode !== "live" || driveScope === "readonly";
-  const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: EPISODES, name: "Episodes" }]);
+  const [stack, setStack] = useState<{ id: string; name: string }[]>([{ id: DEFAULT_DRIVE_FOLDER, name: "Library" }]);
   const [files, setFiles] = useState<DriveFile[]>([]);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
@@ -81,7 +118,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
     api<DriveFile[]>(`/drive/list?folderId=${encodeURIComponent(cur.id)}${channel ? `&channel=${channel}` : ""}`)
       .then(setFiles).catch((e) => setErr(e.message)).finally(() => setLoading(false));
   }, [open, cur.id, channel, browse]);
-  const ok = (f: DriveFile) => (accept === "folder" ? f.mimeType === FOLDER : f.mimeType.startsWith(accept));
+  const ok = (f: DriveFile) => matchesPickerAccept(accept, f);
   async function openGooglePicker() {
     const clientId = runtime?.googleClientId;
     const pickerKey = runtime?.pickerApiKey;
@@ -92,16 +129,21 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
       await loadPickerApi();
       const picker = window.google?.picker;
       if (!picker) throw new Error("Google Picker failed to load");
-      const viewId = accept === "folder" ? picker.ViewId.FOLDERS : accept === "image/" ? picker.ViewId.DOCS_IMAGES : picker.ViewId.DOCS_VIDEOS;
-      const view = new picker.DocsView(viewId);
-      if (accept === "folder") view.setSelectFolderEnabled(true).setMimeTypes(FOLDER);
       const appId = pickerAppId(clientId);
-      let builder = new picker.PickerBuilder().setOAuthToken(token.accessToken).setDeveloperKey(pickerKey).addView(view);
+      let builder = new picker.PickerBuilder()
+        .setOAuthToken(token.accessToken)
+        .setDeveloperKey(pickerKey);
+      builder = addPickerViews(builder, picker, accept);
       if (appId) builder = builder.setAppId(appId);
       builder.setCallback((data) => {
         const doc = data.docs?.[0];
         if (data.action === picker.Action.PICKED && doc) {
-          onPick({ id: doc.id, name: doc.name, mimeType: doc.mimeType || (accept === "folder" ? FOLDER : accept) });
+          const mimeType = doc.mimeType || (accept === "folder" ? FOLDER : accept);
+          if (!matchesPickerAccept(accept, { name: doc.name, mimeType })) {
+            setErr(accept === "folder" ? "Please pick a folder." : accept === "video/" ? "Please pick a video file." : "Please pick an image file.");
+            return;
+          }
+          onPick({ id: doc.id, name: doc.name, mimeType });
           onOpenChange(false);
         }
       }).build().setVisible(true);
@@ -111,6 +153,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
     <Dialog open={open} onOpenChange={onOpenChange} title={`Pick ${accept === "folder" ? "a folder" : accept === "video/" ? "a video" : "an image"} from Drive`}>
       {pickerReady && <div className="mb-3"><Button onClick={openGooglePicker} disabled={picking}>{picking ? "Opening Picker…" : "Open Google Picker"}</Button></div>}
       {!browse && <p className="mb-3 text-sm text-muted-foreground">drive.file cannot list a folder this app has not opened. Use Google Picker, or paste an id.</p>}
+      {browse && <p className="mb-3 text-sm text-muted-foreground">Starts in your Library folder. After a Drive scope change, reconnect Drive under Channels.</p>}
       {browse && (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-1 text-sm">
@@ -119,7 +162,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
             ))}
             <span className="flex-1" />
             <Button size="sm" variant="ghost" onClick={() => setStack([{ id: "root", name: "My Drive" }])}>My Drive</Button>
-            <Button size="sm" variant="ghost" onClick={() => setStack([{ id: EPISODES, name: "Episodes" }])}>Episodes</Button>
+            <Button size="sm" variant="ghost" onClick={() => setStack([{ id: DEFAULT_DRIVE_FOLDER, name: "Library" }])}>Library</Button>
           </div>
           {err && <p className="mb-2 text-sm text-red-400">{err}</p>}
           <div className="max-h-[50vh] divide-y overflow-y-auto rounded-md border">
@@ -127,7 +170,7 @@ export function DrivePicker({ open, onOpenChange, channel, accept, onPick }: {
             {!loading && files.length === 0 && <p className="p-3 text-sm text-muted-foreground">Empty folder</p>}
             {files.map((f) => (
               <div key={f.id} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span>{f.mimeType === FOLDER ? "📁" : f.mimeType.startsWith("video/") ? "🎬" : f.mimeType.startsWith("image/") ? "🖼️" : "📄"}</span>
+                <span>{f.mimeType === FOLDER ? "📁" : matchesPickerAccept("video/", f) ? "🎬" : matchesPickerAccept("image/", f) ? "🖼️" : "📄"}</span>
                 {f.mimeType === FOLDER ? <button className="flex-1 text-left hover:underline" onClick={() => setStack([...stack, { id: f.id, name: f.name }])}>{f.name}</button> : <span className="flex-1">{f.name}</span>}
                 {f.size && <span className="text-xs text-muted-foreground">{(Number(f.size) / 1e6).toFixed(1)} MB</span>}
                 {ok(f) && <Button size="sm" onClick={() => { onPick(f); onOpenChange(false); }}>Select</Button>}

@@ -128,7 +128,7 @@ export function buildAppConfig({ env, pr, processEnv }) {
   const config = {
     apiBaseUrl: workerOrigin(names.worker),
     youtubeMode: names.youtubeMode,
-    driveScope: "file",
+    driveScope: env === "production" ? "readonly" : "file",
   };
   if (env === "production") {
     if (!processEnv.GOOGLE_CLIENT_ID) {
@@ -151,16 +151,19 @@ export function renderWrangler(input) {
     name: "yt-scheduler-api",
     main: "src/index.ts",
     compatibility_date: "2026-10-17",
+    // agents/mcp createMcpHandler uses AsyncLocalStorage.
+    compatibility_flags: ["nodejs_compat"],
     workers_dev: true,
     rules: [{ type: "Text", globs: ["**/*.sql"], fallthrough: true }],
     observability: { enabled: true },
     env: {
       [input.envName]: {
         name: input.worker,
+        compatibility_flags: ["nodejs_compat"],
         vars: {
           ENVIRONMENT: input.env,
           YOUTUBE_MODE: input.youtubeMode,
-          DRIVE_SCOPE: "file",
+          DRIVE_SCOPE: input.env === "production" ? "readonly" : "file",
           UPLOAD_CHUNK_BYTES: String(input.chunkBytes),
           CORS_ORIGIN: input.corsOrigin,
           APP_PUBLIC_URL: input.appPublicUrl,

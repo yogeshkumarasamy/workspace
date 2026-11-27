@@ -58,7 +58,21 @@ The service ships a React + Vite + Tailwind single-page app. It uses the shadcn-
 - The UI reads `app-config.json` (`cache: no-store`) next to `index.html`. `apiBaseUrl` is a Workers URL; paths such as `channels` are joined onto it, and every request sends `x-api-key`. An origin with no path is treated as `https://<worker>/api/`. If the file or `apiBaseUrl` is missing, requests go to `new URL("api/", document.baseURI)`.
 - Preview builds: `APP_BASE=/preview/yt-scheduler/pr-<N>/ VITE_PWA=off pnpm --filter @apps/yt-scheduler build`.
 - **Hosted API:** `apps/yt-scheduler-api` on Cloudflare Workers (D1, mock YouTube except production). Local Worker dev is `pnpm --filter @apps/yt-scheduler-api dev` on port 8787, which needs Node 22 because Wrangler 4 refuses older Node. Copy `apps/yt-scheduler-api/.dev.vars.example` to `.dev.vars` (API key `dev`). The Node server above is still the Postgres demo and also binds 8787, so run one of them at a time. Dev, staging, and PR previews never call Google. Production uses `drive.file` plus Google Picker, and publishes videos publicly.
+- **Remote MCP:** the same Worker serves a stateless Streamable HTTP endpoint at `https://yt-scheduler-api.yogeshkumarasamy.in/mcp` (local: `http://localhost:8787/mcp`; dev, staging, and PR previews: `https://<worker>.workers.dev/mcp`). Send the Worker `API_KEY` as `Authorization: Bearer <API_KEY>` or `x-api-key`. Tools cover channels, quota, playlists, jobs, slots, Drive import, metadata docs, and YouTube publish status. They do not expose the Google access-token route or the browser OAuth routes. A client config is below.
 - **Offline demo with mock data, no Google needed:** `pnpm --filter @apps/yt-scheduler build && pnpm --filter @apps/yt-scheduler demo`, then open http://localhost:8788/yt-scheduler/ with API key `demo`.
+
+Connect an MCP client to the production Worker:
+
+```json
+{
+  "mcpServers": {
+    "yt-scheduler": {
+      "url": "https://yt-scheduler-api.yogeshkumarasamy.in/mcp",
+      "headers": { "Authorization": "Bearer <API_KEY>" }
+    }
+  }
+}
+```
 
 ## Market reference (what we copied as ideas, not code)
 | Tool | Takeaways |
@@ -95,6 +109,16 @@ Tests, lint and build: `pnpm turbo run test lint build --filter=@apps/yt-schedul
 6. Open the UI, click **Connect channel**, and pick the **brand account / channel** on Google's screen. Repeat this for every channel you add.
    - If the Drive files live under a different Google account, click "use separate Drive account" on the channel.
 7. In YouTube Studio, make sure the channel is **phone-verified**. Custom thumbnails need this.
+8. **Google Picker API key** (browser key shown in `app-config.json` as `pickerApiKey`):
+   - APIs & Services → Library → enable **Google Picker API** (and Drive API).
+   - Credentials → Create credentials → **API key** → restrict it.
+   - Application restrictions → **HTTP referrers**, and include at least:
+     - `https://yt-scheduler.yogeshkumarasamy.in/*`
+     - `http://localhost:5173/*` and `http://localhost:8788/*` for local UI
+   - Do **not** restrict only to `/yt-scheduler/*`. Incognito and tracking prevention often send a bare origin Referer (`https://yt-scheduler.yogeshkumarasamy.in/`) or an empty Referer; a path-only allowlist then fails with "The API developer key is invalid".
+   - Empty Referer can never match an HTTP-referrer allowlist. For a personal tool whose key is already public in `app-config.json`, **Application restrictions → None** is the reliable fix when Picker fails only in private windows.
+   - API restrictions → restrict to Google Picker API (and Drive API if the key is reused).
+
 
 ### API audit
 To lift the private-lock, and to get more than the default 10,000 units/day, fill in the **YouTube API Services Audit and Quota Extension Form**: https://support.google.com/youtube/contact/yt_api_form

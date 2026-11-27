@@ -71,7 +71,16 @@ export async function rescheduleJob(id: string, publishAt: Date, d: ManageDeps):
   return (await d.store.getJob(id))!;
 }
 
-export type BulkAction = { ids: string[]; action: "cancel" | "retry" | "reschedule" | "autoslot"; publishAt?: string };
+/** Soft-remove is cancel; this hard-deletes the scheduler row (YouTube video untouched). */
+export async function deleteJob(id: string, d: ManageDeps): Promise<void> {
+  const job = await d.store.getJob(id);
+  if (!job) throw new InputError("not found");
+  if (job.status === "uploading") throw new ConflictError("upload in progress; try again in a minute");
+  const ok = await d.store.deleteJob(id);
+  if (!ok) throw new InputError("not found");
+}
+
+export type BulkAction = { ids: string[]; action: "cancel" | "retry" | "reschedule" | "autoslot" | "delete"; publishAt?: string };
 
 export async function bulkAction(b: BulkAction, d: ManageDeps) {
   const now = d.now?.() ?? new Date();
@@ -86,6 +95,12 @@ export async function bulkAction(b: BulkAction, d: ManageDeps) {
       } else if (b.action === "retry") {
         if (!["failed", "cancelled"].includes(job.status)) throw new Error(`job is ${job.status}`);
         await d.store.updateJob(id, { status: "queued", runAt: now, attempts: 0, lastError: null, log: [...job.log, entry("retry requested", now)] });
+      } else if (b.action === "delete") {
+        if (job.status === "uploading") throw new Error("upload in progress");
+        const ok = await d.store.deleteJob(id);
+        if (!ok) throw new Error("not found");
+        results.push({ id, ok: true });
+        continue;
       } else if (b.action === "reschedule") {
         if (!b.publishAt) throw new Error("publishAt required");
         await rescheduleJob(id, new Date(b.publishAt), d);

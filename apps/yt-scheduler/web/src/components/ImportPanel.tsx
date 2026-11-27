@@ -43,6 +43,7 @@ export function ImportPanel() {
         <CardContent className="space-y-3">
           <div className="text-sm text-muted-foreground">Channel: <b className="text-foreground">{ch ? ch.title : "select a channel in the header"}</b></div>
           {youtubeMode === "live" && driveScope === "file" && <Alert>This environment uses the drive.file scope. Pick a folder in Google Picker, or paste an id the app already opened. Listing a whole Drive needs <code>DRIVE_SCOPE=readonly</code>.</Alert>}
+          {youtubeMode === "live" && driveScope === "readonly" && <Alert>Full Drive library access is on. If import still fails with 404, reconnect Drive under Channels → Use separate Drive account.</Alert>}
           <div className="flex gap-2"><Input placeholder="Drive folder id" value={folder.id} onChange={(e) => setFolder({ id: e.target.value, name: "" })} /><Button variant="outline" disabled={!ch} onClick={() => setPicker(true)}>Browse</Button></div>
           {folder.name && <p className="text-xs text-muted-foreground">📁 {folder.name}</p>}
           <div className="flex gap-2"><Button variant="secondary" disabled={busy || !ch || folder.id.length < 10} onClick={() => run(true)}>Dry run</Button><Button disabled={busy || !ch || folder.id.length < 10} onClick={() => run(false)}>Import</Button></div>

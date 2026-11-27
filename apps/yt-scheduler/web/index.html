@@ -2,6 +2,9 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
+    <!-- Google Picker API keys with HTTP-referrer restrictions reject empty Referer
+         (common in Incognito / tracking prevention). Send at least the origin. -->
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>YT Scheduler</title>
     <base href="%BASE_URL%" />

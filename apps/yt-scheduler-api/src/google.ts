@@ -18,6 +18,17 @@ export function driveScopeValue(raw: string | undefined): DriveScope {
 
 export type OAuthPurpose = "youtube" | "drive";
 
+export type AccessTokenPurpose = "youtube" | "drive";
+
+/** Drive Picker and Drive API calls use the Drive refresh token when the channel has connected Drive. YouTube calls stay on the channel token. */
+export function refreshTokenEncFor(
+  channel: { refreshTokenEnc: string; driveRefreshTokenEnc: string | null },
+  purpose: AccessTokenPurpose,
+): string {
+  if (purpose === "drive" && channel.driveRefreshTokenEnc) return channel.driveRefreshTokenEnc;
+  return channel.refreshTokenEnc;
+}
+
 export function oauthScopes(purpose: OAuthPurpose, drive: DriveScope): string[] {
   if (purpose === "drive") {
     // Google rejects YouTube scopes requested together with other scopes in one
@@ -34,7 +45,10 @@ export function authUrl(input: { clientId: string; redirectUri: string; state: s
   url.searchParams.set("response_type", "code");
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent select_account");
-  url.searchParams.set("include_granted_scopes", "true");
+  // Never incremental auth: Google rejects YouTube scopes requested together with
+  // drive.file. Prior YouTube consent on the same client would be reattached if
+  // include_granted_scopes were true, which is exactly Error 400 invalid_request.
+  url.searchParams.set("include_granted_scopes", "false");
   url.searchParams.set("scope", oauthScopes(input.purpose, input.drive).join(" "));
   url.searchParams.set("state", input.state);
   return url.href;
@@ -116,6 +130,53 @@ export function driveMediaUrl(fileId: string): string {
   url.searchParams.set("alt", "media");
   url.searchParams.set("supportsAllDrives", "true");
   return url.href;
+}
+
+export const GOOGLE_DOC_MIME = "application/vnd.google-apps.document";
+
+/** Name and MIME type only. Google Docs have no `size`, so this must not use `driveFileMeta`. */
+export async function driveFileInfo(accessToken: string, fileId: string): Promise<{ name: string; mimeType: string }> {
+  const url = new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`);
+  url.searchParams.set("fields", "name,mimeType");
+  url.searchParams.set("supportsAllDrives", "true");
+  const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
+  const payload = (await response.json().catch(() => ({}))) as { name?: string; mimeType?: string; error?: { message?: string } };
+  if (!response.ok || !payload.mimeType) {
+    const hint = response.status === 404 || response.status === 403
+      ? " This app uses the drive.file scope. Pick the file in Google Picker (or set DRIVE_SCOPE=readonly) so Drive grants access."
+      : "";
+    throw new Error(`drive metadata ${response.status}: ${payload.error?.message ?? "failed"}.${hint}`);
+  }
+  return { name: payload.name ?? fileId, mimeType: payload.mimeType };
+}
+
+export function driveExportUrl(fileId: string, exportMime: string): string {
+  const url = new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export`);
+  url.searchParams.set("mimeType", exportMime);
+  url.searchParams.set("supportsAllDrives", "true");
+  return url.href;
+}
+
+export interface YoutubeVideoStatus {
+  id: string;
+  snippet: Record<string, unknown>;
+  status: Record<string, unknown>;
+}
+
+/** YouTube Data API v3 `videos.list` for one uploaded video (`snippet` + `status`). */
+export async function youtubeVideo(accessToken: string, videoId: string): Promise<YoutubeVideoStatus> {
+  const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+  url.searchParams.set("part", "snippet,status");
+  url.searchParams.set("id", videoId);
+  const response = await fetch(url, { headers: { authorization: `Bearer ${accessToken}` } });
+  const payload = (await response.json().catch(() => ({}))) as {
+    items?: { id?: string; snippet?: Record<string, unknown>; status?: Record<string, unknown> }[];
+    error?: { message?: string };
+  };
+  if (!response.ok) throw new Error(payload.error?.message ?? `videos.list ${response.status}`);
+  const item = payload.items?.find((row) => row.id === videoId) ?? payload.items?.[0];
+  if (!item?.id) throw new Error("video not found on YouTube");
+  return { id: item.id, snippet: item.snippet ?? {}, status: item.status ?? {} };
 }
 
 export async function openResumableUpload(input: { accessToken: string; resource: unknown; totalBytes: number; mimeType: string }): Promise<string> {

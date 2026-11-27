@@ -29,7 +29,7 @@ const app = createApp({
   webDir,
   store, apiKey: cfg.apiKey, encryptionKey: cfg.encryptionKey, dailyQuota: cfg.dailyQuota, audited: cfg.audited, defaultSlots: cfg.defaultSlots, worker,
   oauth: {
-    authUrl: (state, purpose) => oauthClient(cfg.google).generateAuthUrl({ access_type: "offline", prompt: "consent select_account", scope: purpose === "drive" ? DRIVE_SCOPES : YOUTUBE_SCOPES, state, include_granted_scopes: true }),
+    authUrl: (state, purpose) => oauthClient(cfg.google).generateAuthUrl({ access_type: "offline", prompt: "consent select_account", scope: purpose === "drive" ? DRIVE_SCOPES : YOUTUBE_SCOPES, state, include_granted_scopes: false }),
     async exchange(code) {
       const a = oauthClient(cfg.google);
       const { tokens } = await a.getToken(code);

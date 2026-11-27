@@ -99,6 +99,8 @@ test("generated wrangler config has the real database id, empty crons, and no cp
   assert.equal(config.env.preview.vars.YOUTUBE_MODE, "mock");
   assert.equal(config.env.preview.vars.DRIVE_SCOPE, "file");
   assert.equal(config.env.preview.workflows[0].name, "yt-scheduler-upload-pr-3");
+  assert.deepEqual(config.compatibility_flags, ["nodejs_compat"]);
+  assert.deepEqual(config.env.preview.compatibility_flags, ["nodejs_compat"]);
   assert.equal(config.rules[0].type, "Text");
   assert.deepEqual(config.rules[0].globs, ["**/*.sql"]);
   assert.throws(() => parseChunkBytes(1000), /262144/);
